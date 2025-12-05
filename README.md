@@ -1,41 +1,55 @@
 # ShelfSignals
 
-ShelfSignals is an adaptable toolkit for collection intelligence and metadata analysis built to surface the "signals" hidden inside catalogs, archives, and inventory systems.
+ShelfSignals is a system-agnostic analytics framework for extracting structure,
+patterns, and insights from collection inventories. It is designed for research
+libraries, archives, and any environment where catalog metadata and numbering
+systems contain implicit signals about provenance, organization, or workflow
+history.
 
-## Objective
+ShelfSignals ingests catalog records, normalizes metadata, and uses configurable
+analysis modules to detect patterns in numbering sequences, item groupings,
+descriptive fields, and other latent structures. The project is entirely
+collection-neutral and adaptable to future datasets.
 
-ShelfSignals focuses on three complementary goals:
+---
 
-1. Consolidate collection metadata from disparate sources and normalize it into a shared, standards-based structure.
-2. Provide lightweight analysis primitives—frequency scans, similarity scoring, and enrichment hooks—that help curators see what is under-described or over-represented.
-3. Act as a proving ground for experimental cataloging ideas before they migrate into production systems.
+## Features
 
-## Metadata Standards Integration
+- **Metadata Harvesting**  
+  Connectors for scraping, exporting, or ingesting catalog data (API, CSV,
+  HTML/DOM extraction, etc.).
 
-An external metadata standards library supplies our descriptive standards layer. ShelfSignals consumes its schemas to:
+- **Normalization Layer**  
+  Standardizes fields, numbering systems, identifiers, and formats across
+  heterogeneous sources.
 
-- validate ingest pipelines before data is analyzed;
-- generate derived facets that the analysis modules can share;
-- keep annotation output in sync with established naming conventions so feedback can flow downstream.
+- **Pattern Analysis Engine**  
+  Modules for:
+  - sequence detection  
+  - call number pattern clustering  
+  - accession/cutter analysis  
+  - temporal or spatial grouping  
+  - anomaly detection  
 
-When building new modules, start from the shared data classes defined in that standards library rather than inventing bespoke field names. This keeps the feedback loop short and the metadata portable.
+- **Visualization Tools**  
+  Heatmaps, sequence plots, cluster maps, and lineage timelines.
 
-## Current Status
+- **Export & Reporting**  
+  Configurable output formats (CSV, JSON, Markdown reports, visual dashboards).
 
-ShelfSignals is in active prototyping. Expect rapid iteration around:
+---
 
-- data adapters for additional collections that use the same standards;
-- enrichment connectors (e.g., controlled vocabulary lookups, computer vision);
-- reporting notebooks that visualize the strongest shelf-level signals.
+## Goals
 
-Your contributions, experiments, and critical notes on how ShelfSignals supports ShelfSignals’ collection-intelligence objectives are encouraged.
+ShelfSignals aims to:
 
-## Copilot Instructions
+1. Reveal hidden organizational structure in collection metadata.  
+2. Identify sequential numbering patterns and anomalies.  
+3. Provide a reusable toolkit for ongoing research and cross-collection studies.  
+4. Support data preparation for external reporting or downstream machine-learning tasks.
 
-When configuring GitHub Copilot (or any AI pair programmer) keep its system prompt tightly scoped:
+---
 
-1. Emphasize that ShelfSignals code should defer to the shared metadata schemas used by the project for type names, enum values, and validation rules.
-2. Describe the project objective—surface shelf-level signals from heterogeneous catalogs—so Copilot proposes analysis helpers rather than generic CRUD flows.
-3. Note that analysis modules are meant to be small, composable primitives and that speculative features should land in notebooks first.
+## Repository Structure (proposed)
 
-These reminders help Copilot generate suggestions that reinforce the library integration instead of drifting toward unrelated application scaffolding.
+

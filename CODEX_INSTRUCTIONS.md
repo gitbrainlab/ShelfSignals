@@ -35,3 +35,11 @@ ShelfSignals is an adaptable toolkit for collection intelligence and metadata an
    - Suggest tests or small example datasets when they would clarify behavior.
 
 Follow these instructions as your default operating mode when working in the ShelfSignals repository so your contributions stay aligned with the project’s goals and the metadata standards integration.
+
+## Current Crawl Status (Nov 27, 2025)
+
+- `scripts/sekula_indexer.py` now talks directly to Primo’s `pnxs` API, captures full MARC-derived metadata, and checkpoints every 5 pages.
+- Long-running crawl is in progress; 5,050 Sekula records have been persisted to `sekula_index.json/.csv` (root). Resume logic will continue from roughly offset 5,050.
+- The Clark API rate-limits aggressively after ~5k rows. The script backs off up to 15 minutes on HTTP 403 responses, so expect pauses; do not delete the checkpoint files unless you want to restart.
+- Empty pages occasionally appear; the crawler already retries them with increasing delays. If it stops early, rerun the script to continue from the last checkpoint.
+- When editing the crawler, keep politeness (delays, jitter, backoff) and resume safety (checkpointing, dedupe) intact so we can eventually reach all ~11k records without restarting from zero.

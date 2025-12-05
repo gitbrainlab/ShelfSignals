@@ -1,0 +1,19 @@
+# Python/virtualenv
+ss_venv/
+*.pyc
+__pycache__/
+
+# Data exports and archives not needed for the site
+archive/
+*.har
+
+# MacOS cruft
+.DS_Store
+
+# Node/build caches (if ever used)
+node_modules/
+dist/
+
+# Editor/IDE
+.vscode/
+.idea/
