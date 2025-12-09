@@ -72,7 +72,6 @@ export function getActivePalette() {
  */
 export function setActivePalette(paletteKey) {
   if (!PALETTES[paletteKey]) {
-    console.warn(`Unknown palette: ${paletteKey}, using default`);
     paletteKey = "default";
   }
   localStorage.setItem(STORAGE_KEY, paletteKey);
