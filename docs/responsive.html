@@ -508,7 +508,7 @@
       border: 1px solid var(--border);
     }
 
-    .view-toggle button {
+    .view-toggle-link {
       padding: 0.4rem 0.8rem;
       border: none;
       background: transparent;
@@ -517,15 +517,24 @@
       font-size: 0.85rem;
       transition: all 0.15s ease;
       min-height: 36px;
+      text-decoration: none;
+      color: var(--primary);
+      display: inline-block;
     }
 
-    .view-toggle button.active {
+    .view-toggle-link.active {
       background: var(--card-bg);
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      cursor: default;
     }
 
-    .view-toggle button:hover:not(.active) {
+    .view-toggle-link:hover:not(.active) {
       background: rgba(255,255,255,0.5);
+    }
+
+    .view-toggle-link:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
     /* Size legend - NEW for book size explanation */
@@ -572,7 +581,7 @@
       text-align: center;
     }
 
-    /* Help tooltip */
+    /* Help icon */
     .help-icon {
       display: inline-flex;
       align-items: center;
@@ -585,25 +594,17 @@
       font-size: 0.75rem;
       font-weight: bold;
       cursor: help;
-      position: relative;
+      border: none;
+      padding: 0;
+      margin-left: 0.25rem;
+      vertical-align: middle;
     }
 
-    .help-icon:hover::after,
-    .help-icon:focus::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 0.5rem;
-      background: #333;
-      color: #fff;
-      border-radius: 0.35rem;
-      font-size: 0.8rem;
-      font-weight: normal;
-      white-space: nowrap;
-      z-index: 10;
-      margin-bottom: 0.5rem;
+    .help-icon:hover,
+    .help-icon:focus {
+      background: var(--primary);
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
 
     /* Accessibility - Skip link */
@@ -639,15 +640,9 @@
       </div>
       <div class="header-actions">
         <div class="view-toggle" role="group" aria-label="View selection">
-          <button type="button" aria-label="Switch to standard view">
-            <a href="index.html" style="text-decoration:none;color:inherit;">Standard</a>
-          </button>
-          <button type="button" class="active" aria-pressed="true" aria-label="Currently in responsive view">
-            Responsive
-          </button>
-          <button type="button" aria-label="Switch to preview view">
-            <a href="preview/index.html" style="text-decoration:none;color:inherit;">Preview</a>
-          </button>
+          <a href="index.html" class="view-toggle-link" aria-label="Switch to standard view">Standard</a>
+          <span class="view-toggle-link active" aria-current="page" aria-label="Currently in responsive view">Responsive</span>
+          <a href="preview/index.html" class="view-toggle-link" aria-label="Switch to preview view">Preview</a>
         </div>
       </div>
     </div>
@@ -693,7 +688,7 @@
       <div class="size-legend">
         <h3>
           Book Sizes 
-          <span class="help-icon" data-tooltip="Spine height shows number of thematic signals" tabindex="0" role="tooltip">?</span>
+          <button class="help-icon" aria-label="Help: Spine height shows number of thematic signals" tabindex="0">?</button>
         </h3>
         <p style="font-size:0.85rem;margin:0 0 0.5rem;color:var(--muted);">
           Spine height represents the number of thematic signals (themes) found in each item's metadata.
