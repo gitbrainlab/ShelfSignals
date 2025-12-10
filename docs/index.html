@@ -797,6 +797,9 @@
   </main>
 
   <script type="module">
+    // Import catalog utility for consistent link building
+    import { buildCatalogUrl, buildExternalLinks as buildLinks } from './js/catalog.js';
+    
     const activeThemes = new Set([
       "image",
       "labor",
@@ -999,32 +1002,8 @@
     }
 
     function buildExternalLinks(book) {
-      const links = [];
-      if (book.record_url) {
-        links.push({ label: "View in catalog", href: book.record_url });
-      }
-      const isbn = book.isbn;
-      const query = encodeURIComponent(`${book.title} ${book.authors || ""}`.trim());
-      if (isbn) {
-        links.push({
-          label: "Search Amazon",
-          href: `https://www.amazon.com/s?k=${isbn}`
-        });
-        links.push({
-          label: "Find near me (WorldCat)",
-          href: `https://worldcat.org/search?q=bn%3A${isbn}`
-        });
-      } else if (query) {
-        links.push({
-          label: "Search Amazon",
-          href: `https://www.amazon.com/s?k=${query}`
-        });
-        links.push({
-          label: "Find near me (WorldCat)",
-          href: `https://worldcat.org/search?q=ti%3A${query}`
-        });
-      }
-      return links;
+      // Use centralized catalog utility for consistent link building
+      return buildLinks(book);
     }
 
     // Use subjects (split on |) and optional Sekula notes to derive themes
