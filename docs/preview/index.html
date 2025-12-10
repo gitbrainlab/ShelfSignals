@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ShelfSignals Preview – Sekula Library</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #f7f7f7;
+      --primary: #222;
+      --accent: #1f77b4;
+      --muted: #888;
+      --border: #ddd;
+      --chip-bg: #e0e7f5;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--primary);
+    }
+
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.2rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    header p {
+      margin: 0.3rem 0 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    main.layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 2.2fr) minmax(280px, 1.3fr);
+      gap: 1rem;
+      padding: 1rem 1.5rem 1.5rem;
+    }
+
+    @media (max-width: 960px) {
+      main.layout {
+        grid-template-columns: 1fr;
+      }
+      aside.detail { order: 3; }
+      section.controls { order: 1; }
+      section.shelf-view { order: 2; }
+    }
+
+    section.controls, section.shelf-view, aside.detail {
+      background: #fff;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem 1rem;
+      overflow: hidden;
+    }
+
+    section.controls h2,
+    section.shelf-view h2,
+    aside.detail h2 {
+      margin: 0 0 0.5rem;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .filter-group {
+      margin-bottom: 0.75rem;
+    }
+
+    .filter-group input[type="text"] {
+      width: 100%;
+      padding: 0.45rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      font-size: 0.9rem;
+    }
+
+    .filter-group label {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-bottom: 0.3rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    .filter-group input[type="checkbox"] {
+      cursor: pointer;
+    }
+
+    .search-wrapper {
+      position: relative;
+    }
+
+    .search-clear {
+      position: absolute;
+      right: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 0.2rem;
+      display: none;
+    }
+
+    .search-clear:hover {
+      color: var(--primary);
+    }
+
+    .search-clear.visible {
+      display: block;
+    }
+
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .legend-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.85rem;
+    }
+
+    .symbol {
+      width: 1.4rem;
+      height: 1.4rem;
+      border: 2px solid var(--primary);
+      display: inline-block;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .shelf-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-top: 0.5rem;
+    }
+
+    .shelf-row {
+      border: 1px solid var(--border);
+      border-radius: 0.45rem;
+      padding: 0.5rem 0.6rem;
+      background: #fdfdfd;
+    }
+
+    .shelf-row.dimmed {
+      opacity: 0.4;
+    }
+
+    .shelf-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.4rem;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .shelf-label {
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .shelf-count {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .spines {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.2rem;
+      align-items: flex-end;
+    }
+
+    .spine {
+      width: 8px;
+      background: var(--accent);
+      border: 1px solid #aaa;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      position: relative;
+      border-radius: 2px;
+    }
+
+    .spine:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    .spine.selected {
+      border-color: #000;
+      border-width: 2px;
+      transform: translateY(-3px);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+    }
+
+    .spine.dimmed {
+      opacity: 0.3;
+    }
+
+    .detail-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .detail-section {
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+      padding: 0.6rem;
+      background: #fafafa;
+    }
+
+    .detail-section h3 {
+      margin: 0 0 0.4rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .detail-item {
+      margin-bottom: 0.4rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail-item:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .detail-title {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .detail-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .signal-badge {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.25rem;
+      background: var(--chip-bg);
+      font-size: 0.75rem;
+      margin-right: 0.25rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .link-button {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 0.35rem;
+      padding: 0.35rem 0.6rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.1s ease, box-shadow 0.1s ease;
+      text-decoration: none;
+      color: var(--primary);
+      display: inline-block;
+    }
+
+    .link-button:hover {
+      border-color: var(--accent);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      font-size: 1.1rem;
+      color: var(--muted);
+    }
+
+    .empty-state {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .class-legend {
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      background: #fafafa;
+      border-radius: 0.4rem;
+      display: none;
+    }
+
+    .class-legend.visible {
+      display: block;
+    }
+
+    .class-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      margin: 0.2rem 0.3rem 0.2rem 0;
+      font-size: 0.8rem;
+    }
+
+    .swatch {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 2px;
+      border: 1px solid #999;
+    }
+
+    /* Accessibility enhancements */
+    .spine:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    button:focus, .link-button:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    [role="button"] {
+      cursor: pointer;
+    }
+
+    /* Dialog/modal styles */
+    .config-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .config-dialog {
+      background: #fff;
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .config-header h2 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .palette-grid {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .palette-card {
+      border: 2px solid var(--border);
+      border-radius: 0.4rem;
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .palette-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .palette-card[data-active="true"] {
+      border-color: var(--accent);
+      background: #f0f7ff;
+    }
+
+    .swatch-row {
+      display: flex;
+      gap: 0.3rem;
+      margin-top: 0.5rem;
+    }
+
+    .swatch-square {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.25rem;
+      border: 1px solid #999;
+    }
+  </style>
+</head>
+<body>
+  <div id="loadingOverlay" class="loading-overlay">
+    <div>Loading Sekula Library data...</div>
+  </div>
+
+  <div id="configBackdrop" class="config-backdrop" role="dialog" aria-labelledby="configTitle" aria-modal="true">
+    <div class="config-dialog">
+      <div class="config-header">
+        <h2 id="configTitle">Color Settings</h2>
+        <button id="closeConfig" class="link-button" aria-label="Close settings">✕</button>
+      </div>
+      <div id="paletteGrid" class="palette-grid"></div>
+    </div>
+  </div>
+
+  <header>
+    <div>
+      <h1>ShelfSignals Preview</h1>
+      <p>Sekula Library – JSON-based prototype</p>
+    </div>
+    <div class="header-controls">
+      <button id="openConfig" class="link-button">Color Settings</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="controls">
+      <h2>Signals</h2>
+      <div id="signalFilters" class="filter-group"></div>
+      
+      <div class="filter-group">
+        <label for="searchBox" style="font-weight:600;font-size:0.9rem;">Search</label>
+        <div class="search-wrapper">
+          <input id="searchBox" type="text" placeholder="Search titles, authors, subjects..." aria-label="Search library items" />
+          <button id="searchClear" class="search-clear" aria-label="Clear search">✕</button>
+        </div>
+        <div id="searchMeta" class="muted" style="font-size:0.75rem;margin-top:0.3rem;"></div>
+      </div>
+
+      <div class="filter-group">
+        <label style="display:flex;align-items:center;gap:0.35rem;font-weight:600;font-size:0.9rem;">
+          <input id="toggleClassColors" type="checkbox" aria-label="Color spines by LC class"> Color by LC class
+        </label>
+      </div>
+
+      <h2>Legend</h2>
+      <div id="signalLegend" class="legend"></div>
+    </section>
+
+    <section class="shelf-view">
+      <h2>Collection View</h2>
+      <div id="shelfSummary" class="muted" style="font-size:0.85rem;margin-bottom:0.5rem;"></div>
+      <div id="classLegend" class="class-legend"></div>
+      <div id="shelfRows" class="shelf-rows"></div>
+      <div id="emptyState" class="empty-state" style="display:none;">
+        No items match the current filters. Try adjusting your search or signal selections.
+      </div>
+    </section>
+
+    <aside class="detail">
+      <h2>Details</h2>
+      <div id="detailIntro" class="muted" style="font-size:0.85rem;">
+        Click on a spine to see details.
+      </div>
+      <div id="detailBody" class="detail-body"></div>
+    </aside>
+  </main>
+
+  <script type="module">
+    // Import modular utilities
+    import { SIGNAL_ORDER, SIGNAL_LABELS, deriveSignals } from '../js/signals.js';
+    import { parseLcCallNumber } from '../js/lc.js';
+    import { getSpineColor, getActivePalette, setActivePalette, getPalettes } from '../js/colors.js';
+    import { searchState } from '../js/search.js';
+    import { normalizeYear } from '../js/year.js';
+
+    // State
+    let inventory = [];
+    let enrichedInventory = [];
+    let selectedItem = null;
+    const activeSignals = new Set(SIGNAL_ORDER);
+    let colorByClass = false;
+    let activePalette = getActivePalette();
+
+    // Memoization caches
+    const renderCache = new Map();
+
+    // Initialize signal filters
+    function initSignalFilters() {
+      const container = document.getElementById('signalFilters');
+      container.innerHTML = '';
+      
+      for (const signal of SIGNAL_ORDER) {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = signal;
+        checkbox.checked = true;
+        checkbox.setAttribute('aria-label', `Filter by ${SIGNAL_LABELS[signal]}`);
+        
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            activeSignals.add(signal);
+          } else {
+            activeSignals.delete(signal);
+          }
+          renderShelfView();
+        });
+        
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(` ${SIGNAL_LABELS[signal]}`));
+        container.appendChild(label);
+      }
+    }
+
+    // Initialize signal legend
+    function initSignalLegend() {
+      const container = document.getElementById('signalLegend');
+      container.innerHTML = '';
+      
+      const legendItems = [
+        { signal: 'image', style: 'border-style:solid;' },
+        { signal: 'labor', style: 'border-style:dashed;' },
+        { signal: 'capital', style: 'border-width:3px;' },
+        { signal: 'sea', style: 'border-radius:0;' },
+        { signal: 'cities', style: 'border-style:dotted;' },
+        { signal: 'war', style: 'border-style:double;' },
+        { signal: 'borders', style: 'border-color:#666;' },
+        { signal: 'archives', style: 'border-color:#888;' },
+        { signal: 'art', style: 'border-color:#444;' },
+        { signal: 'theory', style: 'opacity:0.7;' }
+      ];
+      
+      for (const item of legendItems) {
+        const chip = document.createElement('div');
+        chip.className = 'legend-chip';
+        
+        const symbol = document.createElement('span');
+        symbol.className = 'symbol';
+        symbol.setAttribute('style', item.style);
+        symbol.setAttribute('aria-hidden', 'true');
+        
+        chip.appendChild(symbol);
+        chip.appendChild(document.createTextNode(SIGNAL_LABELS[item.signal]));
+        container.appendChild(chip);
+      }
+    }
+
+    // Enrich inventory with derived fields
+    function enrichInventory(rawData) {
+      return rawData.map(item => {
+        // Parse LC call number
+        const { lcClass, lcNumber, lcKey } = parseLcCallNumber(item.call_number);
+        
+        // Derive signals
+        const signals = deriveSignals(item.subjects, item.sekula_notes);
+        
+        // Normalize year
+        const yearPrimary = normalizeYear(item.year);
+        
+        // Build catalog link
+        const catalogLink = item.alma_mms ? 
+          `https://clark.primo.exlibrisgroup.com/permalink/01CLARKART_INST/1gqonkq/${item.alma_mms}` : 
+          null;
+        
+        return {
+          ...item,
+          lcClass,
+          lcNumber,
+          lcKey,
+          signals,
+          yearPrimary,
+          catalogLink
+        };
+      });
+    }
+
+    // Get filtered items
+    function getFilteredItems() {
+      return enrichedInventory.filter(item => {
+        // Signal filter
+        if (activeSignals.size > 0 && activeSignals.size < SIGNAL_ORDER.length) {
+          const hasActiveSignal = item.signals.some(s => activeSignals.has(s));
+          if (!hasActiveSignal && item.signals.length > 0) {
+            return false;
+          }
+        }
+        
+        // Search filter
+        const searchResult = searchState.computeMatch(item);
+        if (!searchResult.matches) {
+          return false;
+        }
+        
+        return true;
+      });
+    }
+
+    // Group items by LC class or location
+    function groupItems(items) {
+      const groups = new Map();
+      
+      for (const item of items) {
+        // Group by LC class (first letter) or "Other"
+        const groupKey = item.lcClass || 'Other';
+        
+        if (!groups.has(groupKey)) {
+          groups.set(groupKey, []);
+        }
+        groups.get(groupKey).push(item);
+      }
+      
+      return Array.from(groups.entries())
+        .sort((a, b) => {
+          if (a[0] === 'Other') return 1;
+          if (b[0] === 'Other') return -1;
+          return a[0].localeCompare(b[0]);
+        })
+        .map(([key, items]) => ({ key, items }));
+    }
+
+    // Render shelf view
+    function renderShelfView() {
+      const container = document.getElementById('shelfRows');
+      const summary = document.getElementById('shelfSummary');
+      const emptyState = document.getElementById('emptyState');
+      const classLegend = document.getElementById('classLegend');
+      
+      container.innerHTML = '';
+      
+      const filtered = getFilteredItems();
+      const total = enrichedInventory.length;
+      
+      // Update summary
+      if (searchState.isActive()) {
+        summary.textContent = `Showing ${filtered.length} of ${total} items (search active)`;
+      } else if (activeSignals.size < SIGNAL_ORDER.length) {
+        summary.textContent = `Showing ${filtered.length} of ${total} items (${activeSignals.size} signals selected)`;
+      } else {
+        summary.textContent = `Showing all ${filtered.length} items`;
+      }
+      
+      // Show empty state
+      if (filtered.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        classLegend.classList.remove('visible');
+        return;
+      } else {
+        container.style.display = 'flex';
+        emptyState.style.display = 'none';
+      }
+      
+      // Update class legend
+      if (colorByClass) {
+        renderClassLegend(filtered);
+        classLegend.classList.add('visible');
+      } else {
+        classLegend.classList.remove('visible');
+      }
+      
+      const groups = groupItems(filtered);
+      
+      for (const group of groups) {
+        const row = document.createElement('div');
+        row.className = 'shelf-row';
+        row.setAttribute('role', 'region');
+        row.setAttribute('aria-label', `LC Class ${group.key} shelf`);
+        
+        const header = document.createElement('div');
+        header.className = 'shelf-header';
+        
+        const label = document.createElement('div');
+        label.className = 'shelf-label';
+        label.textContent = `LC Class ${group.key}`;
+        
+        const count = document.createElement('div');
+        count.className = 'shelf-count';
+        count.textContent = `${group.items.length} items`;
+        
+        header.appendChild(label);
+        header.appendChild(count);
+        row.appendChild(header);
+        
+        const spines = document.createElement('div');
+        spines.className = 'spines';
+        spines.setAttribute('role', 'list');
+        spines.setAttribute('aria-label', `Books in ${group.key}`);
+        
+        for (const item of group.items) {
+          const spine = document.createElement('div');
+          spine.className = 'spine';
+          spine.setAttribute('role', 'button');
+          spine.setAttribute('tabindex', '0');
+          spine.setAttribute('aria-label', `${item.title || 'Untitled'}`);
+          
+          // Set height based on signals count (more signals = taller)
+          const height = 40 + (item.signals.length * 8);
+          spine.style.height = `${height}px`;
+          
+          // Set color
+          if (colorByClass && item.lcClass) {
+            spine.style.background = getSpineColor('class', { 
+              lcClass: item.lcClass, 
+              paletteKey: activePalette 
+            });
+          } else {
+            spine.style.background = '#1f77b4';
+          }
+          
+          // Apply signal styling (border variations)
+          if (item.signals.includes('image')) {
+            spine.style.borderStyle = 'solid';
+          }
+          if (item.signals.includes('labor')) {
+            spine.style.borderStyle = 'dashed';
+          }
+          if (item.signals.includes('capital')) {
+            spine.style.borderWidth = '3px';
+          }
+          
+          // Search highlighting
+          if (searchState.isActive()) {
+            const match = searchState.computeMatch(item);
+            if (!match.matches) {
+              spine.classList.add('dimmed');
+            }
+          }
+          
+          // Selection
+          if (selectedItem && selectedItem.id === item.id) {
+            spine.classList.add('selected');
+          }
+          
+          // Click handler
+          const selectItem = () => {
+            selectedItem = item;
+            renderShelfView();
+            renderDetailPanel();
+          };
+          
+          spine.addEventListener('click', selectItem);
+          spine.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              selectItem();
+            }
+          });
+          
+          spines.appendChild(spine);
+        }
+        
+        row.appendChild(spines);
+        container.appendChild(row);
+      }
+    }
+
+    // Render class legend
+    function renderClassLegend(items) {
+      const container = document.getElementById('classLegend');
+      container.innerHTML = '';
+      
+      const classes = new Set(items.map(i => i.lcClass).filter(Boolean));
+      const sorted = Array.from(classes).sort();
+      
+      const heading = document.createElement('div');
+      heading.style.fontWeight = '700';
+      heading.style.fontSize = '0.85rem';
+      heading.style.marginBottom = '0.35rem';
+      heading.textContent = 'LC Class Colors';
+      container.appendChild(heading);
+      
+      for (const lcClass of sorted) {
+        const chip = document.createElement('div');
+        chip.className = 'class-chip';
+        
+        const swatch = document.createElement('div');
+        swatch.className = 'swatch';
+        swatch.style.background = getSpineColor('class', { 
+          lcClass, 
+          paletteKey: activePalette 
+        });
+        
+        chip.appendChild(swatch);
+        chip.appendChild(document.createTextNode(lcClass));
+        container.appendChild(chip);
+      }
+    }
+
+    // Render detail panel
+    function renderDetailPanel() {
+      const intro = document.getElementById('detailIntro');
+      const body = document.getElementById('detailBody');
+      
+      if (!selectedItem) {
+        intro.style.display = 'block';
+        body.innerHTML = '';
+        return;
+      }
+      
+      intro.style.display = 'none';
+      body.innerHTML = '';
+      
+      // Title and metadata section
+      const titleSection = document.createElement('div');
+      titleSection.className = 'detail-section';
+      
+      const title = document.createElement('h3');
+      title.textContent = selectedItem.title || 'Untitled';
+      title.style.fontSize = '1rem';
+      title.style.color = 'var(--primary)';
+      title.style.marginBottom = '0.5rem';
+      titleSection.appendChild(title);
+      
+      const meta = document.createElement('div');
+      meta.className = 'detail-meta';
+      
+      const metaParts = [];
+      if (selectedItem.authors && selectedItem.authors.length > 0) {
+        metaParts.push(`By: ${selectedItem.authors.join(', ')}`);
+      }
+      if (selectedItem.yearPrimary) {
+        metaParts.push(`Year: ${selectedItem.yearPrimary}`);
+      }
+      if (selectedItem.lcClass) {
+        metaParts.push(`LC Class: ${selectedItem.lcClass}${selectedItem.lcNumber ? ' ' + selectedItem.lcNumber : ''}`);
+      }
+      
+      meta.innerHTML = metaParts.join('<br>');
+      titleSection.appendChild(meta);
+      
+      body.appendChild(titleSection);
+      
+      // Signals section
+      if (selectedItem.signals.length > 0) {
+        const signalsSection = document.createElement('div');
+        signalsSection.className = 'detail-section';
+        
+        const heading = document.createElement('h3');
+        heading.textContent = 'Signals';
+        signalsSection.appendChild(heading);
+        
+        const badges = document.createElement('div');
+        for (const signal of selectedItem.signals) {
+          const badge = document.createElement('span');
+          badge.className = 'signal-badge';
+          badge.textContent = SIGNAL_LABELS[signal];
+          badges.appendChild(badge);
+        }
+        signalsSection.appendChild(badges);
+        
+        body.appendChild(signalsSection);
+      }
+      
+      // Subjects section
+      if (selectedItem.subjects && selectedItem.subjects.length > 0) {
+        const subjectsSection = document.createElement('div');
+        subjectsSection.className = 'detail-section';
+        
+        const heading = document.createElement('h3');
+        heading.textContent = 'Subjects';
+        subjectsSection.appendChild(heading);
+        
+        const list = document.createElement('div');
+        list.className = 'detail-meta';
+        list.textContent = selectedItem.subjects.slice(0, 5).join('; ');
+        subjectsSection.appendChild(list);
+        
+        body.appendChild(subjectsSection);
+      }
+      
+      // Links section
+      const linksSection = document.createElement('div');
+      linksSection.className = 'detail-section';
+      
+      const heading = document.createElement('h3');
+      heading.textContent = 'Links';
+      linksSection.appendChild(heading);
+      
+      if (selectedItem.catalogLink) {
+        const link = document.createElement('a');
+        link.href = selectedItem.catalogLink;
+        link.className = 'link-button';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'View in Catalog';
+        linksSection.appendChild(link);
+      }
+      
+      body.appendChild(linksSection);
+    }
+
+    // Render palette grid
+    function renderPaletteGrid() {
+      const grid = document.getElementById('paletteGrid');
+      grid.innerHTML = '';
+      
+      const palettes = getPalettes();
+      
+      for (const [key, palette] of Object.entries(palettes)) {
+        const card = document.createElement('div');
+        card.className = 'palette-card';
+        card.dataset.active = key === activePalette ? 'true' : 'false';
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-label', `Select ${palette.label} palette`);
+        
+        const title = document.createElement('div');
+        title.textContent = palette.label;
+        title.style.fontWeight = '600';
+        title.style.fontSize = '0.95rem';
+        card.appendChild(title);
+        
+        const swatchRow = document.createElement('div');
+        swatchRow.className = 'swatch-row';
+        
+        // Show first 6 colors
+        const colors = Object.values(palette.colors).slice(0, 6);
+        for (const color of colors) {
+          const swatch = document.createElement('div');
+          swatch.className = 'swatch-square';
+          swatch.style.background = color;
+          swatchRow.appendChild(swatch);
+        }
+        
+        card.appendChild(swatchRow);
+        
+        const selectPalette = () => {
+          activePalette = setActivePalette(key);
+          renderPaletteGrid();
+          renderShelfView();
+        };
+        
+        card.addEventListener('click', selectPalette);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            selectPalette();
+          }
+        });
+        
+        grid.appendChild(card);
+      }
+    }
+
+    // Initialize event handlers
+    function initEventHandlers() {
+      // Search
+      const searchBox = document.getElementById('searchBox');
+      const searchClear = document.getElementById('searchClear');
+      const searchMeta = document.getElementById('searchMeta');
+      
+      searchBox.addEventListener('input', () => {
+        searchState.setQuery(searchBox.value);
+        searchClear.classList.toggle('visible', searchBox.value.length > 0);
+      });
+      
+      searchBox.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          searchBox.value = '';
+          searchState.clear();
+          searchClear.classList.remove('visible');
+        }
+      });
+      
+      searchClear.addEventListener('click', () => {
+        searchBox.value = '';
+        searchState.clear();
+        searchClear.classList.remove('visible');
+        searchBox.focus();
+      });
+      
+      searchState.addListener((query) => {
+        renderShelfView();
+        if (query) {
+          const filtered = getFilteredItems();
+          searchMeta.textContent = `${filtered.length} matches`;
+        } else {
+          searchMeta.textContent = '';
+        }
+      });
+      
+      // Color toggle
+      const toggleClassColors = document.getElementById('toggleClassColors');
+      toggleClassColors.addEventListener('change', () => {
+        colorByClass = toggleClassColors.checked;
+        renderShelfView();
+      });
+      
+      // Config dialog
+      const openConfig = document.getElementById('openConfig');
+      const closeConfig = document.getElementById('closeConfig');
+      const backdrop = document.getElementById('configBackdrop');
+      
+      openConfig.addEventListener('click', () => {
+        renderPaletteGrid();
+        backdrop.style.display = 'flex';
+        closeConfig.focus(); // Focus trap
+      });
+      
+      closeConfig.addEventListener('click', () => {
+        backdrop.style.display = 'none';
+        openConfig.focus();
+      });
+      
+      backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) {
+          backdrop.style.display = 'none';
+          openConfig.focus();
+        }
+      });
+      
+      // ESC to close dialog
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && backdrop.style.display === 'flex') {
+          backdrop.style.display = 'none';
+          openConfig.focus();
+        }
+      });
+    }
+
+    // Load data and initialize
+    async function init() {
+      const loading = document.getElementById('loadingOverlay');
+      loading.style.display = 'flex';
+      
+      try {
+        // Load JSON data
+        const response = await fetch('../data/sekula_index.json');
+        if (!response.ok) {
+          throw new Error('Failed to load data');
+        }
+        
+        const data = await response.json();
+        inventory = Array.isArray(data) ? data : (data.items || []);
+        
+        // Filter for Sekula Library collection
+        inventory = inventory.filter(item => 
+          (item.collection || '').includes('Allan Sekula Library') ||
+          (item.collection_tags && item.collection_tags.some(tag => tag.includes('Sekula')))
+        );
+        
+        // Enrich inventory
+        enrichedInventory = enrichInventory(inventory);
+        
+        // Initialize UI
+        initSignalFilters();
+        initSignalLegend();
+        initEventHandlers();
+        
+        // Initial render
+        renderShelfView();
+        
+        loading.style.display = 'none';
+      } catch (err) {
+        console.error('Failed to load data:', err);
+        loading.innerHTML = '<div style="color:red;">Failed to load data. Please check console for details.</div>';
+      }
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>
