@@ -2,6 +2,7 @@
  * colors.js - Unified color logic
  * Provides color palettes and spine color assignment
  */
+import { SIGNALS } from "./signals.js";
 
 // Default color palette
 const DEFAULT_PALETTE = {
@@ -56,6 +57,11 @@ const PALETTES = {
   }
 };
 
+const SIGNAL_COLOR_MAP = SIGNALS.reduce((acc, signal) => {
+  acc[signal.id] = signal.color;
+  return acc;
+}, {});
+
 // Storage key for palette preference
 const STORAGE_KEY = "shelfsignals_palette";
 
@@ -80,19 +86,21 @@ export function setActivePalette(paletteKey) {
 
 /**
  * Get spine color based on mode and palette
- * @param {string} mode - "class" or "zone" 
- * @param {string} lcClass - LC class letter(s)
- * @param {string} zone - zone identifier
- * @param {string} paletteKey - palette to use (default: active palette)
+ * @param {string} mode - "lc_class" or "signals"
+ * @param {Object} options - { lcClass, signalId, zone, paletteKey }
  * @returns {string} - CSS color string
  */
-export function getSpineColor(mode, { lcClass = null, zone = null, paletteKey = null } = {}) {
-  if (mode === "class" && lcClass) {
+export function getSpineColor(mode = "signals", { lcClass = null, signalId = null, zone = null, paletteKey = null } = {}) {
+  if (mode === "lc_class" && lcClass) {
     const palette = PALETTES[paletteKey || getActivePalette()];
     const firstLetter = lcClass.charAt(0).toUpperCase();
-    return palette.colors[firstLetter] || "#999";
+    return (palette.colors[firstLetter] || "#999");
   }
-  
+
+  if (mode === "signals" && signalId) {
+    return SIGNAL_COLOR_MAP[signalId] || "#1f77b4";
+  }
+
   // Default zone colors (from original)
   const zoneColors = {
     "Front Bedroom": "#ff7f0e",
@@ -102,11 +110,11 @@ export function getSpineColor(mode, { lcClass = null, zone = null, paletteKey = 
     "Front Office": "#8c564b",
     "Back Office": "#e377c2"
   };
-  
+
   if (mode === "zone" && zone) {
     return zoneColors[zone] || "#1f77b4";
   }
-  
+
   return "#ccc";
 }
 

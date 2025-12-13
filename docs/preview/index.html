@@ -661,7 +661,7 @@
 
   <script type="module">
     // Import modular utilities
-    import { SIGNAL_ORDER, SIGNAL_LABELS, deriveSignals } from '../js/signals.js';
+    import { SIGNALS, SIGNAL_IDS, SIGNAL_LABELS, deriveSignals } from '../js/signals.js';
     import { parseLcCallNumber } from '../js/lc.js';
     import { getSpineColor, getActivePalette, setActivePalette, getPalettes } from '../js/colors.js';
     import { searchState } from '../js/search.js';
@@ -671,9 +671,13 @@
     let inventory = [];
     let enrichedInventory = [];
     let selectedItem = null;
-    const activeSignals = new Set(SIGNAL_ORDER);
-    let colorByClass = false;
+    let selectionLost = false;
+    const activeSignals = new Set(SIGNAL_IDS);
+    let colorMode = 'signals';
     let activePalette = getActivePalette();
+    const SIGNAL_META_MAP = new Map(SIGNALS.map(s => [s.id, s]));
+    const MAX_SAMPLE_POOL_SIZE = 200;
+    const MAX_SAMPLE_TITLES = 10;
 
     // Memoization caches
     const renderCache = new Map();
@@ -683,25 +687,25 @@
       const container = document.getElementById('signalFilters');
       container.innerHTML = '';
       
-      for (const signal of SIGNAL_ORDER) {
+      for (const signal of SIGNALS) {
         const label = document.createElement('label');
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.value = signal;
+        checkbox.value = signal.id;
         checkbox.checked = true;
-        checkbox.setAttribute('aria-label', `Filter by ${SIGNAL_LABELS[signal]}`);
+        checkbox.setAttribute('aria-label', `Filter by ${signal.label}`);
         
         checkbox.addEventListener('change', () => {
           if (checkbox.checked) {
-            activeSignals.add(signal);
+            activeSignals.add(signal.id);
           } else {
-            activeSignals.delete(signal);
+            activeSignals.delete(signal.id);
           }
           renderShelfView();
         });
         
         label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(` ${SIGNAL_LABELS[signal]}`));
+        label.appendChild(document.createTextNode(` ${signal.label}`));
         container.appendChild(label);
       }
     }
@@ -711,30 +715,17 @@
       const container = document.getElementById('signalLegend');
       container.innerHTML = '';
       
-      const legendItems = [
-        { signal: 'image', style: 'border-style:solid;' },
-        { signal: 'labor', style: 'border-style:dashed;' },
-        { signal: 'capital', style: 'border-width:3px;' },
-        { signal: 'sea', style: 'border-radius:0;' },
-        { signal: 'cities', style: 'border-style:dotted;' },
-        { signal: 'war', style: 'border-style:double;' },
-        { signal: 'borders', style: 'border-color:#666;' },
-        { signal: 'archives', style: 'border-color:#888;' },
-        { signal: 'art', style: 'border-color:#444;' },
-        { signal: 'theory', style: 'opacity:0.7;' }
-      ];
-      
-      for (const item of legendItems) {
+      for (const item of SIGNALS) {
         const chip = document.createElement('div');
         chip.className = 'legend-chip';
         
         const symbol = document.createElement('span');
         symbol.className = 'symbol';
-        symbol.setAttribute('style', item.style);
+        symbol.setAttribute('style', `${item.legendStyle || ''}border-color:${item.color};`);
         symbol.setAttribute('aria-hidden', 'true');
         
         chip.appendChild(symbol);
-        chip.appendChild(document.createTextNode(SIGNAL_LABELS[item.signal]));
+        chip.appendChild(document.createTextNode(item.label));
         container.appendChild(chip);
       }
     }
@@ -742,11 +733,16 @@
     // Enrich inventory with derived fields
     function enrichInventory(rawData) {
       return rawData.map(item => {
+        // Normalize core fields
+        const authors = Array.isArray(item.authors) ? item.authors.filter(Boolean) : (item.authors ? [item.authors] : []);
+        const subjects = Array.isArray(item.subjects) ? item.subjects.filter(Boolean) : (item.subjects ? [item.subjects] : []);
+        const notes = Array.isArray(item.sekula_notes) ? item.sekula_notes : (item.sekula_notes ? [item.sekula_notes] : []);
+
         // Parse LC call number
         const { lcClass, lcNumber, lcKey } = parseLcCallNumber(item.call_number);
         
         // Derive signals
-        const signals = deriveSignals(item.subjects, item.sekula_notes);
+        const signals = deriveSignals(subjects, notes);
         
         // Normalize year
         const yearPrimary = normalizeYear(item.year);
@@ -758,6 +754,9 @@
         
         return {
           ...item,
+          authors,
+          subjects,
+          sekula_notes: notes,
           lcClass,
           lcNumber,
           lcKey,
@@ -772,7 +771,7 @@
     function getFilteredItems() {
       return enrichedInventory.filter(item => {
         // Signal filter
-        if (activeSignals.size > 0 && activeSignals.size < SIGNAL_ORDER.length) {
+        if (activeSignals.size > 0 && activeSignals.size < SIGNAL_IDS.length) {
           const hasActiveSignal = item.signals.some(s => activeSignals.has(s));
           if (!hasActiveSignal && item.signals.length > 0) {
             return false;
@@ -781,6 +780,7 @@
         
         // Search filter
         const searchResult = searchState.computeMatch(item);
+        item._lastMatch = searchResult;
         if (!searchResult.matches) {
           return false;
         }
@@ -812,6 +812,24 @@
         .map(([key, items]) => ({ key, items }));
     }
 
+    function computeCallRange(items) {
+      const sorted = [...items].filter(i => i.lcKey).sort((a, b) => a.lcKey.localeCompare(b.lcKey));
+      if (sorted.length === 0) return null;
+      const first = sorted[0].call_number || sorted[0].lcKey;
+      const last = sorted[sorted.length - 1].call_number || sorted[sorted.length - 1].lcKey;
+      return `${first} – ${last}`;
+    }
+
+    function computeTopSignals(items, limit = 3) {
+      const counts = new Map();
+      items.forEach(item => {
+        item.signals.forEach(sig => counts.set(sig, (counts.get(sig) || 0) + 1));
+      });
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit);
+    }
+
     // Render shelf view
     function renderShelfView() {
       const container = document.getElementById('shelfRows');
@@ -822,12 +840,18 @@
       container.innerHTML = '';
       
       const filtered = getFilteredItems();
+      const filteredIds = new Set(filtered.map(i => i.id));
       const total = enrichedInventory.length;
+      if (selectedItem && !filteredIds.has(selectedItem.id)) {
+        selectedItem = null;
+        selectionLost = true;
+        renderDetailPanel();
+      }
       
       // Update summary
       if (searchState.isActive()) {
         summary.textContent = `Showing ${filtered.length} of ${total} items (search active)`;
-      } else if (activeSignals.size < SIGNAL_ORDER.length) {
+      } else if (activeSignals.size < SIGNAL_IDS.length) {
         summary.textContent = `Showing ${filtered.length} of ${total} items (${activeSignals.size} signals selected)`;
       } else {
         summary.textContent = `Showing all ${filtered.length} items`;
@@ -845,7 +869,7 @@
       }
       
       // Update class legend
-      if (colorByClass) {
+      if (colorMode === 'lc_class') {
         renderClassLegend(filtered);
         classLegend.classList.add('visible');
       } else {
@@ -891,32 +915,36 @@
           const height = 40 + (item.signals.length * 8);
           spine.style.height = `${height}px`;
           
-          // Set color
-          if (colorByClass && item.lcClass) {
-            spine.style.background = getSpineColor('class', { 
-              lcClass: item.lcClass, 
-              paletteKey: activePalette 
-            });
-          } else {
-            spine.style.background = '#1f77b4';
-          }
+          // Set color based on mode
+          const dominantSignal = item.signals[0];
+          spine.style.background = getSpineColor(colorMode === 'lc_class' ? 'lc_class' : 'signals', { 
+            lcClass: item.lcClass, 
+            signalId: dominantSignal, 
+            paletteKey: activePalette 
+          });
+          spine.classList.remove('dimmed');
+          spine.style.removeProperty('outline');
           
-          // Apply signal styling (border variations)
-          if (item.signals.includes('image')) {
-            spine.style.borderStyle = 'solid';
-          }
-          if (item.signals.includes('labor')) {
-            spine.style.borderStyle = 'dashed';
-          }
-          if (item.signals.includes('capital')) {
-            spine.style.borderWidth = '3px';
+          // Apply signal styling from registry for consistency with legend
+          const signalMeta = SIGNAL_META_MAP.get(dominantSignal);
+          if (signalMeta?.legendStyle) {
+            const allowedProps = new Set(['border-style', 'border-width', 'border-color', 'border-radius', 'opacity']);
+            signalMeta.legendStyle.split(';').forEach(rule => {
+              const [prop, value] = rule.split(':');
+              const trimmedProp = prop && prop.trim();
+              if (trimmedProp && value && allowedProps.has(trimmedProp)) {
+                spine.style.setProperty(trimmedProp, value.trim());
+              }
+            });
           }
           
           // Search highlighting
           if (searchState.isActive()) {
-            const match = searchState.computeMatch(item);
+            const match = item._lastMatch || searchState.computeMatch(item);
             if (!match.matches) {
               spine.classList.add('dimmed');
+            } else {
+              spine.style.outline = '2px solid rgba(0,0,0,0.25)';
             }
           }
           
@@ -927,6 +955,7 @@
           
           // Click handler
           const selectItem = () => {
+            selectionLost = false;
             selectedItem = item;
             renderShelfView();
             renderDetailPanel();
@@ -969,7 +998,7 @@
         
         const swatch = document.createElement('div');
         swatch.className = 'swatch';
-        swatch.style.background = getSpineColor('class', { 
+        swatch.style.background = getSpineColor('lc_class', { 
           lcClass, 
           paletteKey: activePalette 
         });
@@ -987,6 +1016,9 @@
       
       if (!selectedItem) {
         intro.style.display = 'block';
+        intro.textContent = selectionLost
+          ? 'The previously selected item is no longer visible under current filters.'
+          : 'Click on a spine to see details.';
         body.innerHTML = '';
         return;
       }
@@ -994,6 +1026,12 @@
       intro.style.display = 'none';
       body.innerHTML = '';
       
+      // Find peer items in the same LC class to populate range + samples
+      const peerItems = enrichedInventory.filter(i => (i.lcClass || 'Other') === (selectedItem.lcClass || 'Other'));
+      const callRange = computeCallRange(peerItems);
+      const topSignals = computeTopSignals(peerItems);
+      const totalVolumes = peerItems.length;
+
       // Title and metadata section
       const titleSection = document.createElement('div');
       titleSection.className = 'detail-section';
@@ -1018,26 +1056,30 @@
       if (selectedItem.lcClass) {
         metaParts.push(`LC Class: ${selectedItem.lcClass}${selectedItem.lcNumber ? ' ' + selectedItem.lcNumber : ''}`);
       }
+      if (callRange) {
+        metaParts.push(`Call range: ${callRange}`);
+      }
+      metaParts.push(`Volumes in class: ${totalVolumes}`);
       
       meta.innerHTML = metaParts.join('<br>');
       titleSection.appendChild(meta);
       
       body.appendChild(titleSection);
       
-      // Signals section
-      if (selectedItem.signals.length > 0) {
+      // Signals section with top signals for the class
+      if (topSignals.length > 0) {
         const signalsSection = document.createElement('div');
         signalsSection.className = 'detail-section';
         
         const heading = document.createElement('h3');
-        heading.textContent = 'Signals';
+        heading.textContent = 'Top signals in this class';
         signalsSection.appendChild(heading);
         
         const badges = document.createElement('div');
-        for (const signal of selectedItem.signals) {
+        for (const [signal, count] of topSignals) {
           const badge = document.createElement('span');
           badge.className = 'signal-badge';
-          badge.textContent = SIGNAL_LABELS[signal];
+          badge.textContent = `${SIGNAL_LABELS[signal]} · ${count}`;
           badges.appendChild(badge);
         }
         signalsSection.appendChild(badges);
@@ -1061,6 +1103,80 @@
         
         body.appendChild(subjectsSection);
       }
+      
+      // Sample titles
+      const samplesSection = document.createElement('div');
+      samplesSection.className = 'detail-section';
+      const sampleHeading = document.createElement('h3');
+      sampleHeading.textContent = 'Sample titles';
+      samplesSection.appendChild(sampleHeading);
+
+      const searchActive = searchState.isActive();
+      const samplePool = peerItems.slice(0, MAX_SAMPLE_POOL_SIZE);
+      const sortedSamples = samplePool.sort((a, b) => {
+        const aMatch = a._lastMatch && a._lastMatch.matches ? 1 : 0;
+        const bMatch = b._lastMatch && b._lastMatch.matches ? 1 : 0;
+        if (bMatch !== aMatch) return bMatch - aMatch;
+        if (a.yearPrimary && b.yearPrimary) return a.yearPrimary - b.yearPrimary;
+        return (a.lcKey || '').localeCompare(b.lcKey || '');
+      }).slice(0, MAX_SAMPLE_TITLES);
+
+      const listEl = document.createElement('div');
+      listEl.style.display = 'flex';
+      listEl.style.flexDirection = 'column';
+      listEl.style.gap = '0.4rem';
+
+      if (sortedSamples.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'detail-meta';
+        empty.textContent = 'No sample titles available.';
+        listEl.appendChild(empty);
+      } else {
+        for (const sample of sortedSamples) {
+          const row = document.createElement('div');
+          row.className = 'detail-item';
+
+          const titleLine = document.createElement('div');
+          titleLine.className = 'detail-title';
+          titleLine.textContent = sample.title || 'Untitled';
+          row.appendChild(titleLine);
+
+          const metaLine = document.createElement('div');
+          metaLine.className = 'detail-meta';
+          const bits = [];
+          if (sample.yearPrimary) bits.push(sample.yearPrimary);
+          if (sample.authors && sample.authors.length) bits.push(sample.authors.join(', '));
+          if (searchActive && sample._lastMatch?.matches) bits.push('Matches search');
+          metaLine.textContent = bits.join(' · ');
+          row.appendChild(metaLine);
+
+          if (sample.signals && sample.signals.length) {
+            const badgeRow = document.createElement('div');
+            for (const sig of sample.signals) {
+              const badge = document.createElement('span');
+              badge.className = 'signal-badge';
+              badge.textContent = SIGNAL_LABELS[sig];
+              badgeRow.appendChild(badge);
+            }
+            row.appendChild(badgeRow);
+          }
+
+          if (sample.catalogLink) {
+            const link = document.createElement('a');
+            link.href = sample.catalogLink;
+            link.className = 'link-button';
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = 'Open in Clark catalog';
+            row.appendChild(link);
+          }
+
+          listEl.appendChild(row);
+        }
+      }
+
+      samplesSection.appendChild(listEl);
+      body.appendChild(samplesSection);
       
       // Links section
       const linksSection = document.createElement('div');
@@ -1176,7 +1292,7 @@
       // Color toggle
       const toggleClassColors = document.getElementById('toggleClassColors');
       toggleClassColors.addEventListener('change', () => {
-        colorByClass = toggleClassColors.checked;
+        colorMode = toggleClassColors.checked ? 'lc_class' : 'signals';
         renderShelfView();
       });
       
@@ -1274,7 +1390,15 @@
         loading.style.display = 'none';
       } catch (err) {
         console.error('Failed to load data:', err);
-        loading.innerHTML = '<div style="color:red;">Failed to load data. Please check console for details.</div>';
+        loading.innerHTML = '<div style="color:red;margin-bottom:0.5rem;">Failed to load Sekula data - check your connection and try again.</div>';
+        const retry = document.createElement('button');
+        retry.className = 'link-button';
+        retry.textContent = 'Retry';
+        retry.addEventListener('click', () => {
+          loading.innerHTML = '<div>Retrying…</div>';
+          init();
+        });
+        loading.appendChild(retry);
       }
     }
 
