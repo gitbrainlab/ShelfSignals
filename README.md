@@ -58,7 +58,8 @@ ShelfSignals provides two web interfaces for exploring the Sekula Library collec
 - **Location**: `docs/index.html`
 - **Data Source**: `docs/data/sekula_inventory.json` (CSV-compatible format)
 - **Status**: Stable, current production interface
-- **Access**: Deployed at the repository's GitHub Pages root URL
+- **Access URL**: https://evcatalyst.github.io/ShelfSignals/
+- **Direct link**: [Production Site](https://evcatalyst.github.io/ShelfSignals/)
 
 The production site provides a mature interface with CSV-based data loading and legacy controls. It includes shelf visualization, cluster mapping, and detailed item views.
 
@@ -66,7 +67,8 @@ The production site provides a mature interface with CSV-based data loading and 
 - **Location**: `docs/preview/index.html`
 - **Data Source**: `docs/data/sekula_index.json` (JSON-native format from Primo API)
 - **Status**: Experimental, modular architecture
-- **Access**: Available at `/preview/` relative to the repository URL
+- **Access URL**: https://evcatalyst.github.io/ShelfSignals/preview/
+- **Direct link**: [Preview Environment](https://evcatalyst.github.io/ShelfSignals/preview/)
 
 The preview environment showcases a modernized, modular architecture with:
 - **Modular JavaScript utilities** in `docs/js/`:
@@ -87,6 +89,63 @@ The preview environment serves as a testing ground for new features before they 
 
 ---
 
-## Repository Structure (proposed)
+## Repository Structure
+
+```
+ShelfSignals/
+├── docs/                           # GitHub Pages deployment
+│   ├── index.html                  # Production interface
+│   ├── preview/
+│   │   └── index.html              # Preview interface
+│   ├── js/                         # Shared JavaScript modules
+│   │   ├── signals.js              # Signal detection & registry
+│   │   ├── lc.js                   # LC call number parser
+│   │   ├── colors.js               # Color palette management
+│   │   ├── search.js               # Search state & matching
+│   │   └── year.js                 # Year normalization
+│   └── data/                       # Collection data
+│       ├── sekula_inventory.json   # CSV-compatible format
+│       ├── sekula_index.json       # Primo API JSON format
+│       └── sekula_index.csv        # CSV export
+├── scripts/                        # Data collection tools
+│   ├── sekula_indexer.py           # Primo API harvester
+│   └── facet_scout.py              # Facet analysis utility
+├── README.md                       # This file
+├── CODEX_INSTRUCTIONS.md           # LLM assistant guidelines
+└── COPILOT_INSTRUCTIONS.md         # Copilot behavior guidelines
+```
+
+---
+
+## Thematic Alignment
+
+ShelfSignals is purpose-built to reveal the **implicit structure** embedded within library collections. Rather than treating catalogs as flat databases, it recognizes that:
+
+- **Numbering systems encode organization**: Call numbers, accession numbers, and shelf locations reflect historical decisions about classification and proximity.
+- **Subjects reveal themes**: Subject headings and notes contain rich semantic signals about content, provenance, and research focus.
+- **Patterns emerge at scale**: Clustering, sequence analysis, and visual representation make latent structures visible.
+
+The Allan Sekula Library serves as the prototype collection because its thematic focus—photography, labor, maritime culture, critical theory—creates distinct signals that can be detected, visualized, and analyzed. This approach is **collection-neutral** and can be adapted to any catalog with structured metadata.
+
+### Core Principles
+
+1. **System-agnostic ingestion**: Works with any metadata source (APIs, CSV, HTML scraping)
+2. **Normalization layer**: Standardizes heterogeneous field formats and vocabularies
+3. **Configurable analysis**: Modular pattern detection adaptable to different collections
+4. **Visual intelligence**: Transforms metadata into spatial, chromatic, and interactive representations
+5. **Research-oriented**: Designed for discovery and insight, not end-user search
+
+---
+
+## Version History & Roadmap
+
+### Current Versions
+
+- **Production (v1.x)**: Stable interface with proven workflows and CSV-based data loading
+- **Preview (v2.x)**: Experimental modular architecture with enhanced accessibility and JSON-native data
+
+### Migration Path
+
+Features proven in the preview environment will be selectively promoted to production. The modular JavaScript utilities (`signals.js`, `lc.js`, `colors.js`, `search.js`, `year.js`) represent reusable components that can be integrated into future analysis tools beyond the web interface.
 
 
