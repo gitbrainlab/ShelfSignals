@@ -23,9 +23,10 @@ export function normalizeYear(yearRaw) {
   yearStr = yearStr.replace(/^(c\.?|ca\.?|circa|between)\s*/i, "");
 
   // Capture all reasonable 4-digit years and pick the earliest as a primary anchor
+  const MAX_YEAR = new Date().getFullYear() + 50;
   const matches = Array.from(yearStr.matchAll(/\b(1\d{3}|20\d{2})\b/g))
     .map(m => parseInt(m[1], 10))
-    .filter(y => y >= 1000 && y <= 2100);
+    .filter(y => y >= 1000 && y <= MAX_YEAR);
 
   if (matches.length > 0) {
     return Math.min(...matches);

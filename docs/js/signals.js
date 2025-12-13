@@ -89,7 +89,7 @@ export const SIGNALS = [
     color: "#d62728",
     legendStyle: "border-style:solid;border-color:#444;",
     keywords: [
-      /art\b/i, /artist/i, /painting/i, /sculpture/i, /photography, artistic/i,
+      /art\b/i, /artist/i, /painting/i, /sculpture/i, /photography(?:,)?\s*artistic/i,
       /fiction/i, /poetry/i, /drama/i, /literature/i
     ]
   },

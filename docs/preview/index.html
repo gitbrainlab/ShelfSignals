@@ -837,8 +837,9 @@
       container.innerHTML = '';
       
       const filtered = getFilteredItems();
+      const filteredIds = new Set(filtered.map(i => i.id));
       const total = enrichedInventory.length;
-      if (selectedItem && !filtered.some(i => i.id === selectedItem.id)) {
+      if (selectedItem && !filteredIds.has(selectedItem.id)) {
         selectedItem = null;
         selectionLost = true;
         renderDetailPanel();
@@ -1104,7 +1105,8 @@
       samplesSection.appendChild(sampleHeading);
 
       const searchActive = searchState.isActive();
-      const sortedSamples = [...peerItems].sort((a, b) => {
+      const samplePool = peerItems.slice(0, 200);
+      const sortedSamples = samplePool.sort((a, b) => {
         const aMatch = a._lastMatch && a._lastMatch.matches ? 1 : 0;
         const bMatch = b._lastMatch && b._lastMatch.matches ? 1 : 0;
         if (bMatch !== aMatch) return bMatch - aMatch;
