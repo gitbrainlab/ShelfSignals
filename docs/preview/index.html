@@ -34,6 +34,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
     header h1 {
@@ -65,10 +66,38 @@
     @media (max-width: 960px) {
       main.layout {
         grid-template-columns: 1fr;
+        padding: 0.75rem;
+        gap: 0.75rem;
       }
       aside.detail { order: 3; }
       section.controls { order: 1; }
       section.shelf-view { order: 2; }
+      
+      header {
+        padding: 0.75rem 1rem;
+      }
+      
+      header h1 {
+        font-size: 1rem;
+      }
+      
+      header p {
+        font-size: 0.8rem;
+      }
+      
+      .palette-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      header h1 {
+        font-size: 0.9rem;
+      }
+      
+      .spines {
+        gap: 0.15rem;
+      }
     }
 
     section.controls, section.shelf-view, aside.detail {
@@ -438,11 +467,132 @@
       border-radius: 0.25rem;
       border: 1px solid #999;
     }
+
+    /* About Modal */
+    .about-modal {
+      background: #fff;
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      width: min(600px, 90vw);
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    }
+
+    .about-modal h3 {
+      margin: 0 0 1rem;
+      font-size: 1.4rem;
+      color: var(--primary);
+    }
+
+    .about-modal h4 {
+      margin: 1.2rem 0 0.5rem;
+      font-size: 1rem;
+      color: var(--primary);
+    }
+
+    .about-modal p {
+      margin: 0.5rem 0;
+      line-height: 1.6;
+      color: var(--primary);
+    }
+
+    .about-modal ul {
+      margin: 0.5rem 0;
+      padding-left: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .about-modal a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .about-modal a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .config-dialog, .about-modal {
+        width: 95vw;
+        padding: 1rem;
+      }
+      
+      .about-modal h3 {
+        font-size: 1.2rem;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="loadingOverlay" class="loading-overlay">
     <div>Loading Sekula Library data...</div>
+  </div>
+
+  <div id="aboutBackdrop" class="config-backdrop" role="dialog" aria-labelledby="aboutTitle" aria-modal="true">
+    <div class="about-modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+        <h3 id="aboutTitle" style="margin:0;">About ShelfSignals</h3>
+        <button id="closeAbout" class="link-button" aria-label="Close about dialog">✕</button>
+      </div>
+      <p>
+        <strong>ShelfSignals</strong> is a system-agnostic analytics framework for extracting structure,
+        patterns, and insights from collection inventories. It is designed for research
+        libraries, archives, and any environment where catalog metadata and numbering
+        systems contain implicit signals about provenance, organization, or workflow history.
+      </p>
+      
+      <h4>Background</h4>
+      <p>
+        This prototype visualizes the <strong>Allan Sekula Library</strong>, a research collection focused on 
+        photography, labor, maritime culture, and critical theory. The library contains materials 
+        that span art, politics, geography, and social documentary. ShelfSignals reveals thematic 
+        patterns and organizational structures through visual analysis of call numbers, subjects, 
+        and provenance metadata.
+      </p>
+      
+      <h4>Preview Environment</h4>
+      <p>
+        This preview site showcases a modernized, modular architecture with JSON-native data loading 
+        from the Primo API. It features improved accessibility (ARIA roles, keyboard navigation), 
+        enhanced search capabilities, and modular JavaScript utilities for LC call-number parsing, 
+        signal detection, and color management.
+      </p>
+      
+      <h4>Features</h4>
+      <ul>
+        <li><strong>Signal Detection:</strong> Automatically identifies thematic signals (image, labor, capital, sea, etc.) from subject headings and notes</li>
+        <li><strong>Visual Shelf Representation:</strong> Displays collection as interactive "spines" grouped by LC class</li>
+        <li><strong>Search & Filter:</strong> Debounced real-time search with match highlighting across titles, authors, and subjects</li>
+        <li><strong>Color Coding:</strong> Multiple accessible color palettes for LC class visualization</li>
+        <li><strong>Enhanced Accessibility:</strong> Full keyboard navigation, ARIA labels, and focus management</li>
+      </ul>
+      
+      <h4>Scope</h4>
+      <p>
+        ShelfSignals ingests catalog records, normalizes metadata, and uses configurable
+        analysis modules to detect patterns in:
+      </p>
+      <ul>
+        <li>Numbering sequences and LC call number clustering</li>
+        <li>Subject heading patterns and keyword analysis</li>
+        <li>Provenance and physical location distributions</li>
+        <li>Temporal groupings and publication patterns</li>
+      </ul>
+      
+      <h4>Technology</h4>
+      <p>
+        This is a modern client-side web application built with vanilla ES6+ JavaScript modules, 
+        CSS Grid, and web standards. Data is loaded from JSON exports of the Primo API. 
+        The modular architecture includes separate utilities for signals, LC parsing, colors, 
+        search state, and year normalization.
+      </p>
+      
+      <p style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);font-size:0.85rem;color:var(--muted);">
+        For more information, visit the 
+        <a href="https://github.com/evcatalyst/ShelfSignals" target="_blank" rel="noopener noreferrer">ShelfSignals GitHub repository</a>.
+      </p>
+    </div>
   </div>
 
   <div id="configBackdrop" class="config-backdrop" role="dialog" aria-labelledby="configTitle" aria-modal="true">
@@ -461,6 +611,7 @@
       <p>Sekula Library – JSON-based prototype</p>
     </div>
     <div class="header-controls">
+      <button id="openAbout" class="link-button">About</button>
       <button id="openConfig" class="link-button">Color Settings</button>
     </div>
   </header>
@@ -1052,11 +1203,38 @@
         }
       });
       
-      // ESC to close dialog
+      // About dialog
+      const openAbout = document.getElementById('openAbout');
+      const closeAbout = document.getElementById('closeAbout');
+      const aboutBackdrop = document.getElementById('aboutBackdrop');
+      
+      openAbout.addEventListener('click', () => {
+        aboutBackdrop.style.display = 'flex';
+        closeAbout.focus();
+      });
+      
+      closeAbout.addEventListener('click', () => {
+        aboutBackdrop.style.display = 'none';
+        openAbout.focus();
+      });
+      
+      aboutBackdrop.addEventListener('click', (e) => {
+        if (e.target === aboutBackdrop) {
+          aboutBackdrop.style.display = 'none';
+          openAbout.focus();
+        }
+      });
+      
+      // ESC to close dialogs
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && backdrop.style.display === 'flex') {
-          backdrop.style.display = 'none';
-          openConfig.focus();
+        if (e.key === 'Escape') {
+          if (aboutBackdrop.style.display === 'flex') {
+            aboutBackdrop.style.display = 'none';
+            openAbout.focus();
+          } else if (backdrop.style.display === 'flex') {
+            backdrop.style.display = 'none';
+            openConfig.focus();
+          }
         }
       });
     }

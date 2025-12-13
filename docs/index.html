@@ -34,6 +34,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
     header h1 {
@@ -49,6 +50,12 @@
       color: var(--muted);
     }
 
+    .header-controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
     main.layout {
       display: grid;
       grid-template-columns: 260px minmax(0, 2.2fr) minmax(280px, 1.3fr);
@@ -59,10 +66,42 @@
     @media (max-width: 960px) {
       main.layout {
         grid-template-columns: 1fr;
+        padding: 0.75rem;
+        gap: 0.75rem;
       }
       aside.detail { order: 3; }
       section.controls { order: 1; }
       section.shelf-view { order: 2; }
+      
+      header {
+        padding: 0.75rem 1rem;
+      }
+      
+      header h1 {
+        font-size: 1rem;
+      }
+      
+      header p {
+        font-size: 0.8rem;
+      }
+      
+      .cluster-map {
+        grid-template-columns: 1fr;
+      }
+      
+      .location-overview {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      header h1 {
+        font-size: 0.9rem;
+      }
+      
+      .shelf-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      }
     }
 
     section.controls, section.shelf-view, aside.detail {
@@ -676,13 +715,74 @@
       border-radius: 3px;
       border: 1px solid var(--border);
     }
+
+    /* About Modal */
+    .about-modal {
+      background: #fff;
+      border-radius: 0.6rem;
+      padding: 1.5rem;
+      width: min(600px, 90vw);
+      max-height: 85vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+
+    .about-modal h3 {
+      margin: 0 0 1rem;
+      font-size: 1.4rem;
+      color: var(--primary);
+    }
+
+    .about-modal h4 {
+      margin: 1.2rem 0 0.5rem;
+      font-size: 1rem;
+      color: var(--primary);
+    }
+
+    .about-modal p {
+      margin: 0.5rem 0;
+      line-height: 1.6;
+      color: var(--primary);
+    }
+
+    .about-modal ul {
+      margin: 0.5rem 0;
+      padding-left: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .about-modal a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .about-modal a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .modal, .about-modal {
+        width: 95vw;
+        padding: 1rem;
+      }
+      
+      .about-modal h3 {
+        font-size: 1.2rem;
+      }
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>Shelfsignals · Allan Sekula Library</h1>
-    <p>Prototype overlay generated from catalog data – for internal discussion only.</p>
-    <button id="openConfig" class="icon-button" title="Color settings">⚙️</button>
+    <div>
+      <h1>Shelfsignals · Allan Sekula Library</h1>
+      <p>Prototype overlay generated from catalog data – for internal discussion only.</p>
+    </div>
+    <div class="header-controls">
+      <button id="openAbout" class="icon-button" title="About ShelfSignals">ℹ️</button>
+      <button id="openConfig" class="icon-button" title="Color settings">⚙️</button>
+    </div>
   </header>
   <div id="loadingOverlay" class="loading-overlay">
     <div class="spinner"></div>
@@ -696,6 +796,62 @@
       </div>
       <p class="muted" style="margin-top:0.2rem;">Choose a palette for class-color spines and accents.</p>
       <div id="paletteGrid" class="palette-grid"></div>
+    </div>
+  </div>
+  <div id="aboutBackdrop" class="modal-backdrop">
+    <div class="about-modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+        <h3 style="margin:0;">About ShelfSignals</h3>
+        <button id="closeAbout" class="icon-button" type="button" aria-label="Close about dialog">Close</button>
+      </div>
+      <p>
+        <strong>ShelfSignals</strong> is a system-agnostic analytics framework for extracting structure,
+        patterns, and insights from collection inventories. It is designed for research
+        libraries, archives, and any environment where catalog metadata and numbering
+        systems contain implicit signals about provenance, organization, or workflow history.
+      </p>
+      
+      <h4>Background</h4>
+      <p>
+        This prototype visualizes the <strong>Allan Sekula Library</strong>, a research collection focused on 
+        photography, labor, maritime culture, and critical theory. The library contains materials 
+        that span art, politics, geography, and social documentary. ShelfSignals reveals thematic 
+        patterns and organizational structures through visual analysis of call numbers, subjects, 
+        and provenance metadata.
+      </p>
+      
+      <h4>Features</h4>
+      <ul>
+        <li><strong>Signal Detection:</strong> Automatically identifies thematic signals (image, labor, capital, sea, etc.) from subject headings and notes</li>
+        <li><strong>Visual Shelf Representation:</strong> Displays collection as interactive "spines" grouped by call number ranges</li>
+        <li><strong>Cluster Analysis:</strong> Shows how themes concentrate in different physical locations and LC classes</li>
+        <li><strong>Search & Filter:</strong> Real-time filtering by signals, locations, and search terms</li>
+        <li><strong>Color Coding:</strong> Optional LC class color palettes for visual navigation</li>
+      </ul>
+      
+      <h4>Scope</h4>
+      <p>
+        ShelfSignals ingests catalog records, normalizes metadata, and uses configurable
+        analysis modules to detect patterns in:
+      </p>
+      <ul>
+        <li>Numbering sequences and call number clustering</li>
+        <li>Subject heading patterns and keyword analysis</li>
+        <li>Provenance and physical location distributions</li>
+        <li>Temporal groupings and acquisition patterns</li>
+      </ul>
+      
+      <h4>Technology</h4>
+      <p>
+        This is a pure client-side web application built with vanilla JavaScript, CSS Grid, 
+        and modern web standards. Data is loaded from JSON exports of library catalog records. 
+        The visualization uses no external frameworks, making it lightweight and portable.
+      </p>
+      
+      <p style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border);font-size:0.85rem;color:var(--muted);">
+        For more information, visit the 
+        <a href="https://github.com/evcatalyst/ShelfSignals" target="_blank" rel="noopener noreferrer">ShelfSignals GitHub repository</a>.
+      </p>
     </div>
   </div>
   <main class="layout">
@@ -1992,6 +2148,37 @@
       });
       backdrop.addEventListener("click", (e) => {
         if (e.target === backdrop) backdrop.style.display = "none";
+      });
+
+      const openAbout = document.getElementById("openAbout");
+      const closeAbout = document.getElementById("closeAbout");
+      const aboutBackdrop = document.getElementById("aboutBackdrop");
+      openAbout.addEventListener("click", () => {
+        aboutBackdrop.style.display = "flex";
+        closeAbout.focus();
+      });
+      closeAbout.addEventListener("click", () => {
+        aboutBackdrop.style.display = "none";
+        openAbout.focus();
+      });
+      aboutBackdrop.addEventListener("click", (e) => {
+        if (e.target === aboutBackdrop) {
+          aboutBackdrop.style.display = "none";
+          openAbout.focus();
+        }
+      });
+
+      // ESC key closes modals
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          if (aboutBackdrop.style.display === "flex") {
+            aboutBackdrop.style.display = "none";
+            openAbout.focus();
+          } else if (backdrop.style.display === "flex") {
+            backdrop.style.display = "none";
+            openConfig.focus();
+          }
+        }
       });
     }
 
