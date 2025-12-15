@@ -1553,10 +1553,8 @@
         // Normalize year
         const yearPrimary = normalizeYear(item.year);
         
-        // Build catalog link
-        const catalogLink = item.alma_mms ? 
-          `https://clark.primo.exlibrisgroup.com/permalink/01CLARKART_INST/1gqonkq/${item.alma_mms}` : 
-          null;
+        // Use catalog link from data
+        const catalogLink = item.record_url || null;
         
         return {
           ...item,
