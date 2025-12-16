@@ -178,6 +178,29 @@ For each book, if photo scoring data is available:
 
 ## Quality Assurance
 
+### Identifier System Verification
+
+The photo insert identifier system uses the `id` field (e.g., `alma991002311449708431`) as the unique identifier to match and merge photo scores across all data files.
+
+**Verification Tool**: `scripts/verify_photo_identifiers.py`
+
+Run the verification script to confirm the identifier system is working correctly:
+
+```bash
+python scripts/verify_photo_identifiers.py
+```
+
+This script verifies:
+1. All scored records have valid IDs and required fields
+2. All scores are correctly merged into `sekula_index.json`
+3. All scores are correctly merged into `sekula_inventory.json`
+4. ID consistency across all data files
+5. Sample data quality and integrity
+
+**Expected output**: All tests should pass with 100% match rate.
+
+See [PHOTO_INSERT_IDENTIFIER_VERIFICATION.md](../PHOTO_INSERT_IDENTIFIER_VERIFICATION.md) for detailed verification results.
+
 ### Data Validation
 Current collection statistics (mock data):
 ```
