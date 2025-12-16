@@ -119,7 +119,8 @@ ShelfSignals/
 │   ├── photo_feature_extractor.py  # Photo likelihood feature extraction
 │   ├── photo_likelihood_scorer.py  # Grok API scoring pipeline
 │   ├── merge_scores_to_json.py     # Merge scores into JSON data
-│   └── merge_scores_to_csv.py      # Export enriched CSV
+│   ├── merge_scores_to_csv.py      # Export enriched CSV
+│   └── verify_photo_identifiers.py # Verify photo insert identifier system
 ├── README.md                       # This file
 ├── CODEX_INSTRUCTIONS.md           # LLM assistant guidelines
 └── COPILOT_INSTRUCTIONS.md         # Copilot behavior guidelines
