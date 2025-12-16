@@ -46,7 +46,7 @@ jobs:
             
       - name: Score with Grok API
         env:
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAPIKEY }}
         run: |
           RUN_ID="workflow-${{ github.run_number }}-$(date +%Y%m%d-%H%M%S)"
           

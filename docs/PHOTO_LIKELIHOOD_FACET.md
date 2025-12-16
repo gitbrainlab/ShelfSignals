@@ -148,7 +148,7 @@ Options:
 ### Secrets Configuration
 Add your xAI API key to repository secrets:
 - **Settings** → **Secrets and variables** → **Actions**
-- Add new secret: `XAI_API_KEY`
+- Add new secret: `XAPIKEY`
 
 ## UI Integration
 
