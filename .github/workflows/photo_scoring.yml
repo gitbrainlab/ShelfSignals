@@ -49,6 +49,7 @@ jobs:
           XAI_API_KEY: ${{ secrets.XAPIKEY }}
         run: |
           RUN_ID="workflow-${{ github.run_number }}-$(date +%Y%m%d-%H%M%S)"
+          CHUNK_SIZE=${{ inputs.chunk_size || 100 }}
           
           if [ "${{ inputs.use_mock }}" = "true" ]; then
             echo "Using mock responses (no API calls)"
@@ -56,14 +57,14 @@ jobs:
               --input docs/data/photo_feature_packets.jsonl \
               --output docs/data/photo_scored.jsonl \
               --mock \
-              --chunk-size ${{ inputs.chunk_size || 100 }} \
+              --chunk-size ${CHUNK_SIZE%.*} \
               --run-id "$RUN_ID"
           else
             echo "Using xAI Grok API"
             python scripts/photo_likelihood_scorer.py \
               --input docs/data/photo_feature_packets.jsonl \
               --output docs/data/photo_scored.jsonl \
-              --chunk-size ${{ inputs.chunk_size || 100 }} \
+              --chunk-size ${CHUNK_SIZE%.*} \
               --run-id "$RUN_ID"
           fi
           
