@@ -100,6 +100,11 @@ jobs:
           
       - name: Commit enriched data
         run: |
+          current_branch=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$current_branch" != "main" ]; then
+            echo "Aborting: expected to run on main, but currently on $current_branch"
+            exit 1
+          fi
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
@@ -109,5 +114,47 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Update photo likelihood scores [workflow run ${{ github.run_number }}]"
-            git push
+            # Backoff delays (seconds) to mitigate concurrent pushes; starts immediately, then waits longer to reduce contention across overlapping runs.
+            delays=(0 5 10 20)
+            max_attempts=${#delays[@]}
+            push_success=false
+            
+            for index in "${!delays[@]}"; do
+              delay=${delays[$index]}
+              attempt=$((index + 1))
+              if [ "$delay" -gt 0 ]; then
+                sleep "$delay"
+              fi
+              
+              # Prefer keeping this workflow's generated data when conflicts occur
+              if ! git fetch origin main; then
+                echo "Fetch failed during workflow run ${{ github.run_number }}; will retry if attempts remain."
+                continue
+              fi
+              
+              if ! git merge --strategy=recursive -X ours --no-edit origin/main; then
+                echo "Merge failed during workflow run ${{ github.run_number }}; aborting merge before retry."
+                if [ -f .git/MERGE_HEAD ]; then
+                  git merge --abort
+                fi
+                continue
+              fi
+              
+              if git push origin main; then
+                push_success=true
+                break
+              fi
+              
+              next_index=$((index + 1))
+              if [ "$next_index" -lt "$max_attempts" ]; then
+                next_delay=${delays[$next_index]}
+                echo "Merge/push attempt ${attempt} failed for workflow run ${{ github.run_number }}; retrying in ${next_delay}s..."
+              fi
+              
+            done
+            
+            if [ "$push_success" != "true" ]; then
+              echo "Merge/push failed after ${max_attempts} attempts for workflow run ${{ github.run_number }}. Manual intervention required."
+              exit 1
+            fi
           fi
