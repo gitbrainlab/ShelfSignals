@@ -57,6 +57,47 @@
       display: flex;
       gap: 0.5rem;
       align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .layout-switch {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.2rem 0.4rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.4rem;
+    }
+
+    .layout-switch .label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chip-row {
+      display: flex;
+      gap: 0.25rem;
+      flex-wrap: wrap;
+    }
+
+    .chip-button {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 999px;
+      padding: 0.25rem 0.65rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: border-color 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+    }
+
+    .chip-button[data-active="true"] {
+      border-color: var(--accent);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      background: var(--chip-bg);
+      font-weight: 600;
     }
 
     main.layout {
@@ -64,6 +105,17 @@
       grid-template-columns: 260px minmax(0, 2.2fr) minmax(280px, 1.3fr);
       gap: 1rem;
       padding: 1rem 1.5rem 1.5rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    main.layout[data-panel="hidden"] {
+      grid-template-columns: 260px minmax(0, 1fr);
+    }
+
+    main.layout[data-panel="hidden"] aside.detail {
+      display: none;
     }
 
     @media (max-width: 960px) {
@@ -97,6 +149,12 @@
       }
     }
 
+    @media (min-width: 1400px) {
+      main.layout:not([data-panel="hidden"]) {
+        grid-template-columns: 280px minmax(0, 2.6fr) minmax(320px, 1.1fr);
+      }
+    }
+
     @media (max-width: 600px) {
       header h1 {
         font-size: 0.9rem;
@@ -113,6 +171,71 @@
       border: 1px solid var(--border);
       padding: 0.75rem 1rem 1rem;
       overflow: hidden;
+    }
+
+    .panel-toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    .panel-toggle-row .chip-row {
+      flex: 1;
+      justify-content: flex-end;
+    }
+
+    .panel-note {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0.2rem 0 0.6rem;
+    }
+
+    .insights-panel {
+      display: none;
+    }
+
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.5rem;
+      margin-top: 0.35rem;
+    }
+
+    .insight-card {
+      border: 1px solid var(--border);
+      border-radius: 0.45rem;
+      padding: 0.55rem;
+      background: #fafafa;
+    }
+
+    .insight-card h3 {
+      margin: 0 0 0.35rem;
+      font-size: 0.9rem;
+    }
+
+    .insight-stat {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.25rem;
+      font-size: 0.9rem;
+    }
+
+    .insight-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      margin-top: 0.25rem;
+    }
+
+    .chip-button.full {
+      width: 100%;
+      justify-content: space-between;
+      display: flex;
+      align-items: center;
     }
 
     section.controls h2,
@@ -783,6 +906,14 @@
       <p>Production v1.x – Stable Interface <span style="margin-left:0.5rem;">·</span> <a href="preview/" style="color:var(--accent);text-decoration:none;">Try Preview v2.x →</a></p>
     </div>
     <div class="header-controls">
+      <div class="layout-switch" aria-label="Toggle right panel layout">
+        <span class="label">Panel</span>
+        <div class="chip-row">
+          <button class="chip-button" type="button" data-panel-target="details" data-active="true">Details</button>
+          <button class="chip-button" type="button" data-panel-target="insights">Insights</button>
+          <button class="chip-button" type="button" data-panel-target="hidden">Hide</button>
+        </div>
+      </div>
       <button id="openAbout" class="icon-button" title="About ShelfSignals">ℹ️</button>
       <button id="openConfig" class="icon-button" title="Color settings">⚙️</button>
     </div>
@@ -873,7 +1004,7 @@
       </p>
     </div>
   </div>
-  <main class="layout">
+  <main class="layout" data-panel="details">
     <section class="controls">
       <h2>Signals</h2>
       <div class="filter-group">
@@ -1005,16 +1136,31 @@
     </section>
 
     <aside class="detail">
-      <h2>Details</h2>
-      <div id="detailIntro" class="muted" style="font-size:0.8rem;">
-        Select a shelf segment to see sample titles and their signals.
+      <div class="panel-toggle-row">
+        <div class="muted" style="font-size:0.82rem;">Right panel</div>
+        <div class="chip-row">
+          <button class="chip-button" type="button" data-panel-target="details" data-active="true">Details</button>
+          <button class="chip-button" type="button" data-panel-target="insights">Insights</button>
+          <button class="chip-button" type="button" data-panel-target="hidden">Hide</button>
+        </div>
       </div>
-      <div id="detailBody" class="detail-body"></div>
+      <div id="detailPanel">
+        <h2>Details</h2>
+        <div id="detailIntro" class="muted" style="font-size:0.8rem;">
+          Select a shelf segment to see sample titles and their signals.
+        </div>
+        <div id="detailBody" class="detail-body"></div>
+      </div>
+      <div id="insightsPanel" class="insights-panel">
+        <h2>Insights & Signal Finder</h2>
+        <div class="panel-note">Use this view for quick analytics and signal-focused browsing. Switch back to “Details” to see selected titles.</div>
+        <div id="insightsBody" class="detail-body"></div>
+      </div>
     </aside>
   </main>
 
   <script type="module">
-    const activeThemes = new Set([
+    let activeThemes = new Set([
       "image",
       "labor",
       "capital",
@@ -1040,6 +1186,7 @@
     let clusterCollapsed = true;
     let colorByClass = false;
     const locationCollapsed = new Map();
+    let panelMode = "details";
 
     // Photo overlay state
     let photoOverlayEnabled = false;
@@ -1207,6 +1354,33 @@
       return value || "";
     };
 
+    function updatePanelButtons() {
+      const buttons = document.querySelectorAll("[data-panel-target]");
+      buttons.forEach(btn => {
+        btn.dataset.active = btn.dataset.panelTarget === panelMode ? "true" : "false";
+      });
+    }
+
+    function setPanelMode(mode) {
+      const layout = document.querySelector("main.layout");
+      panelMode = ["details", "insights", "hidden"].includes(mode) ? mode : "details";
+      if (layout) layout.dataset.panel = panelMode;
+      const detailPanel = document.getElementById("detailPanel");
+      const insightsPanel = document.getElementById("insightsPanel");
+      if (detailPanel) detailPanel.style.display = panelMode === "details" ? "block" : "none";
+      if (insightsPanel) insightsPanel.style.display = panelMode === "insights" ? "block" : "none";
+      if (panelMode === "insights") renderInsightsPanel();
+      updatePanelButtons();
+    }
+
+    function syncThemeCheckboxes() {
+      document.querySelectorAll(".filter-group input[type='checkbox']").forEach(cb => {
+        if (themeOrder.includes(cb.value)) {
+          cb.checked = activeThemes.has(cb.value);
+        }
+      });
+    }
+
     // Extract a clean ISBN-10/13 string
     function extractIsbn(raw) {
       const candidates = [];
@@ -1301,6 +1475,7 @@
     }
 
     function renderDetailFromBook(book) {
+      if (panelMode !== "details") setPanelMode("details");
       selectedCluster = null;
       selectedLocation = null;
       const intro = document.getElementById("detailIntro");
@@ -1413,6 +1588,7 @@
     }
 
     function renderDetailFromCluster(zone, theme, items, page = 0) {
+      if (panelMode !== "details") setPanelMode("details");
       selectedBook = null;
       selectedCluster = { zone, theme, page };
       selectedLocation = null;
@@ -1553,6 +1729,98 @@
         .sort((a, b) => b.count - a.count);
     }
 
+    function buildThemeCounts(items) {
+      const counts = new Map();
+      for (const item of items) {
+        const themes = item.themes.length ? item.themes : ["unclassified"];
+        themes.forEach(t => counts.set(t, (counts.get(t) || 0) + 1));
+      }
+      return Array.from(counts.entries())
+        .map(([theme, count]) => ({ theme, count }))
+        .sort((a, b) => b.count - a.count);
+    }
+
+    function renderInsightsPanel() {
+      const container = document.getElementById("insightsBody");
+      if (!container) return;
+      const items = getFilteredItems();
+      container.innerHTML = "";
+
+      const summary = document.createElement("div");
+      summary.className = "book-meta";
+      const locationLabel = locationFilter.size ? `Locations: ${Array.from(locationFilter).join(", ")}` : "All locations";
+      summary.textContent = `${items.length} items in view · ${locationLabel}${searchQuery ? ` · search: "${searchQuery}"` : ""}`;
+      container.appendChild(summary);
+
+      const grid = document.createElement("div");
+      grid.className = "insights-grid";
+
+      const themeCard = document.createElement("div");
+      themeCard.className = "insight-card";
+      const themeTitle = document.createElement("h3");
+      themeTitle.textContent = "Signal finder";
+      themeCard.appendChild(themeTitle);
+
+      const themeCounts = buildThemeCounts(items);
+      const themeWrap = document.createElement("div");
+      themeWrap.className = "insight-pills";
+      themeCounts.forEach(entry => {
+        const btn = document.createElement("button");
+        btn.className = "chip-button full";
+        btn.type = "button";
+        btn.dataset.active = activeThemes.size === 1 && activeThemes.has(entry.theme) ? "true" : "false";
+        btn.textContent = `${entry.theme} (${entry.count})`;
+        btn.addEventListener("click", () => {
+          activeThemes.clear();
+          activeThemes.add(entry.theme);
+          syncThemeCheckboxes();
+          renderShelfRows();
+          renderInsightsPanel();
+        });
+        themeWrap.appendChild(btn);
+      });
+      const resetBtn = document.createElement("button");
+      resetBtn.type = "button";
+      resetBtn.className = "chip-button full";
+      resetBtn.textContent = "Show all signals";
+      resetBtn.addEventListener("click", () => {
+        activeThemes = new Set(themeOrder);
+        syncThemeCheckboxes();
+        renderShelfRows();
+        renderInsightsPanel();
+      });
+      themeWrap.appendChild(resetBtn);
+      themeCard.appendChild(themeWrap);
+      grid.appendChild(themeCard);
+
+      const locationCard = document.createElement("div");
+      locationCard.className = "insight-card";
+      const locTitle = document.createElement("h3");
+      locTitle.textContent = "Top locations";
+      locationCard.appendChild(locTitle);
+      const topLocs = buildLocationOverviewData(items).slice(0, 4);
+      topLocs.forEach(loc => {
+        const row = document.createElement("div");
+        row.className = "insight-stat";
+        row.textContent = `${loc.loc}`;
+        const count = document.createElement("span");
+        count.className = "muted";
+        count.textContent = `${loc.count}`;
+        row.appendChild(count);
+        row.addEventListener("click", () => {
+          locationFilter.clear();
+          locationFilter.add(loc.loc);
+          renderLocationChips();
+          renderShelfRows();
+          renderInsightsPanel();
+        });
+        locationCard.appendChild(row);
+      });
+      grid.appendChild(locationCard);
+
+      container.appendChild(grid);
+    }
+
     function renderLocationOverview(filteredItems) {
       const container = document.getElementById("locationOverview");
       container.innerHTML = "";
@@ -1605,6 +1873,7 @@
     }
 
     function renderDetailFromLocation(locKey, stats) {
+      if (panelMode !== "details") setPanelMode("details");
       selectedBook = null;
       selectedCluster = null;
       selectedLocation = locKey;
@@ -2011,6 +2280,9 @@
         container.appendChild(section);
       }
 
+      if (panelMode === "insights") {
+        renderInsightsPanel();
+      }
       renderClusterMap(filtered);
     }
 
@@ -2339,12 +2611,18 @@
           }
         }
       });
+
+      const panelButtons = document.querySelectorAll("[data-panel-target]");
+      panelButtons.forEach(btn => {
+        btn.addEventListener("click", () => setPanelMode(btn.dataset.panelTarget));
+      });
     }
 
     async function init() {
       const loading = document.getElementById("loadingOverlay");
       loading.style.display = "flex";
       attachFilterHandlers();
+      setPanelMode(panelMode);
 
       try {
         const response = await fetch("data/sekula_inventory.json");

@@ -81,6 +81,14 @@
       padding: 1rem 1.5rem 1.5rem;
     }
 
+    main.layout.compact {
+      grid-template-columns: 260px minmax(0, 1fr);
+    }
+
+    main.layout.compact .detail {
+      display: none;
+    }
+
     @media (max-width: 960px) {
       main.layout {
         grid-template-columns: 1fr;
@@ -134,6 +142,89 @@
       font-size: 0.95rem;
       text-transform: uppercase;
       letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    .detail-tabs {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    .chip-button {
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      border-radius: 0.4rem;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+    }
+
+    .chip-button:hover {
+      border-color: var(--accent);
+      background: var(--surface);
+      transform: translateY(-1px);
+    }
+
+    .chip-button[data-active="true"] {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--surface);
+    }
+
+    .signal-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .signal-chip-button {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 0.4rem;
+      padding: 0.2rem 0.45rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      color: var(--primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+    }
+
+    .signal-chip-button:hover {
+      border-color: var(--accent);
+      background: var(--surface-alt);
+      transform: translateY(-1px);
+    }
+
+    .signal-chip-button[data-active="true"] {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--surface);
+    }
+
+    .insight-stat {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      margin-bottom: 0.35rem;
       color: var(--muted);
     }
 
@@ -1149,9 +1240,17 @@
     </section>
 
     <aside class="detail">
-      <h2>Details</h2>
+      <div class="detail-header">
+        <h2 style="margin:0;">Insights Panel</h2>
+        <div class="detail-tabs">
+          <button id="tabDetails" class="chip-button" data-mode="details">Details</button>
+          <button id="tabInsights" class="chip-button" data-mode="insights">Analytics</button>
+          <button id="tabFinder" class="chip-button" data-mode="finder">Signal Finder</button>
+          <button id="collapsePanel" class="chip-button" aria-label="Hide side panel">Hide Panel</button>
+        </div>
+      </div>
       <div id="detailIntro" class="muted" style="font-size:0.85rem;">
-        Click on a spine to see details.
+        Click on a spine to see details, or open Analytics / Signal Finder to reclaim space.
       </div>
       <div id="detailBody" class="detail-body"></div>
     </aside>
@@ -1173,6 +1272,8 @@
     const activeSignals = new Set(SIGNAL_IDS);
     let colorMode = 'signals';
     let activePalette = getActivePalette();
+    let panelMode = 'details';
+    let panelCollapsed = false;
     const SIGNAL_META_MAP = new Map(SIGNALS.map(s => [s.id, s]));
     const MAX_SAMPLE_POOL_SIZE = 200;
     const MAX_SAMPLE_TITLES = 10;
@@ -1914,6 +2015,13 @@
 
     // Render detail panel
     function renderDetailPanel() {
+      if (panelMode === 'insights') {
+        return renderInsightsPanel();
+      }
+      if (panelMode === 'finder') {
+        return renderFinderPanel();
+      }
+
       const intro = document.getElementById('detailIntro');
       const body = document.getElementById('detailBody');
       
@@ -2135,6 +2243,163 @@
       }
       
       body.appendChild(linksSection);
+    }
+
+    function updatePanelControls() {
+      const tabDetails = document.getElementById('tabDetails');
+      const tabInsights = document.getElementById('tabInsights');
+      const tabFinder = document.getElementById('tabFinder');
+      const collapsePanel = document.getElementById('collapsePanel');
+      if (tabDetails) tabDetails.dataset.active = panelMode === 'details';
+      if (tabInsights) tabInsights.dataset.active = panelMode === 'insights';
+      if (tabFinder) tabFinder.dataset.active = panelMode === 'finder';
+      if (collapsePanel) {
+        collapsePanel.textContent = panelCollapsed ? 'Show Panel' : 'Hide Panel';
+        collapsePanel.setAttribute('aria-label', panelCollapsed ? 'Show side panel' : 'Hide side panel');
+      }
+    }
+
+    function setPanelMode(mode) {
+      panelMode = mode;
+      updatePanelControls();
+      renderDetailPanel();
+    }
+
+    function togglePanelCollapse() {
+      panelCollapsed = !panelCollapsed;
+      const layout = document.querySelector('main.layout');
+      if (layout) {
+        layout.classList.toggle('compact', panelCollapsed);
+      }
+      updatePanelControls();
+    }
+
+    function renderInsightsPanel() {
+      const intro = document.getElementById('detailIntro');
+      const body = document.getElementById('detailBody');
+      intro.style.display = 'none';
+      body.innerHTML = '';
+
+      const filtered = getFilteredItems();
+      const total = enrichedInventory.length;
+
+      const summary = document.createElement('div');
+      summary.className = 'detail-section';
+      const heading = document.createElement('h3');
+      heading.textContent = 'Collection Snapshot';
+      summary.appendChild(heading);
+
+      const stats = [
+        ['Visible items', `${filtered.length} of ${total}`],
+        ['Signals selected', activeSignals.size === SIGNAL_IDS.length ? 'All' : `${activeSignals.size}`],
+        ['Classes represented', new Set(filtered.map(i => i.lcClass).filter(Boolean)).size || 'n/a']
+      ];
+
+      for (const [label, value] of stats) {
+        const row = document.createElement('div');
+        row.className = 'insight-stat';
+        row.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+        summary.appendChild(row);
+      }
+
+      body.appendChild(summary);
+
+      const topSignals = computeTopSignals(filtered, 5);
+      if (topSignals.length) {
+        const sigSection = document.createElement('div');
+        sigSection.className = 'detail-section';
+        const h = document.createElement('h3');
+        h.textContent = 'Top Signals (visible set)';
+        sigSection.appendChild(h);
+
+        const chips = document.createElement('div');
+        chips.className = 'signal-chip-row';
+        topSignals.forEach(([sig, count]) => {
+          const btn = document.createElement('button');
+          btn.className = 'signal-chip-button';
+          btn.textContent = `${SIGNAL_LABELS[sig]} · ${count}`;
+          btn.addEventListener('click', () => {
+            activeSignals.clear();
+            activeSignals.add(sig);
+            renderShelfView();
+            setPanelMode('details');
+          });
+          chips.appendChild(btn);
+        });
+        sigSection.appendChild(chips);
+        body.appendChild(sigSection);
+      }
+
+      const photoCounts = new Map();
+      filtered.forEach(i => {
+        if (i.photo_insert_bucket) {
+          photoCounts.set(i.photo_insert_bucket, (photoCounts.get(i.photo_insert_bucket) || 0) + 1);
+        }
+      });
+      if (photoCounts.size) {
+        const photoSection = document.createElement('div');
+        photoSection.className = 'detail-section';
+        const h = document.createElement('h3');
+        h.textContent = 'Photo Likelihood Buckets';
+        photoSection.appendChild(h);
+        Array.from(photoCounts.entries()).sort((a,b)=>b[1]-a[1]).forEach(([bucket, count]) => {
+          const row = document.createElement('div');
+          row.className = 'insight-stat';
+          row.innerHTML = `<span>${bucket}</span><strong>${count}</strong>`;
+          photoSection.appendChild(row);
+        });
+        body.appendChild(photoSection);
+      }
+    }
+
+    function renderFinderPanel() {
+      const intro = document.getElementById('detailIntro');
+      const body = document.getElementById('detailBody');
+      intro.style.display = 'none';
+      body.innerHTML = '';
+
+      const filtered = getFilteredItems();
+      const signalCounts = new Map();
+      filtered.forEach(item => {
+        item.signals.forEach(sig => signalCounts.set(sig, (signalCounts.get(sig) || 0) + 1));
+      });
+
+      const section = document.createElement('div');
+      section.className = 'detail-section';
+      const h = document.createElement('h3');
+      h.textContent = 'Signal Finder';
+      section.appendChild(h);
+
+      const chips = document.createElement('div');
+      chips.className = 'signal-chip-row';
+      SIGNALS.forEach(sig => {
+        const btn = document.createElement('button');
+        btn.className = 'signal-chip-button';
+        const count = signalCounts.get(sig.id) || 0;
+        btn.textContent = `${sig.label}${count ? ` · ${count}` : ''}`;
+        btn.dataset.active = activeSignals.has(sig.id);
+        btn.addEventListener('click', () => {
+          activeSignals.clear();
+          activeSignals.add(sig.id);
+          renderShelfView();
+          setPanelMode('details');
+        });
+        chips.appendChild(btn);
+      });
+
+      const reset = document.createElement('button');
+      reset.className = 'chip-button';
+      reset.textContent = 'Clear filters';
+      reset.addEventListener('click', () => {
+        activeSignals.clear();
+        SIGNAL_IDS.forEach(id => activeSignals.add(id));
+        renderShelfView();
+        setPanelMode('details');
+      });
+
+      section.appendChild(chips);
+      section.appendChild(reset);
+      body.appendChild(section);
     }
 
     // Render palette grid
@@ -2369,6 +2634,21 @@
           navigateModal(1);
         }
       });
+
+      const tabDetails = document.getElementById('tabDetails');
+      const tabInsights = document.getElementById('tabInsights');
+      const tabFinder = document.getElementById('tabFinder');
+      const collapsePanel = document.getElementById('collapsePanel');
+
+      collapsePanel.addEventListener('click', () => {
+        togglePanelCollapse();
+      });
+
+      tabDetails.addEventListener('click', () => setPanelMode('details'));
+      tabInsights.addEventListener('click', () => setPanelMode('insights'));
+      tabFinder.addEventListener('click', () => setPanelMode('finder'));
+
+      updatePanelControls();
     }
 
     // Load data and initialize
