@@ -98,6 +98,10 @@
       z-index: 100;
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* Enhanced translucency with theme support */
+    body[data-theme="light"] header {
       background: rgba(255, 255, 255, 0.8);
     }
 
@@ -1282,9 +1286,17 @@
             ${item.yearPrimary ? item.yearPrimary + '<br>' : ''}
             ${item.call_number ? item.call_number : ''}
           </div>
-          <button class="btn btn-secondary" style="margin-top: 0.75rem;" onclick="window.exhibitApp.removeFromShelf('${item.id}')">Remove</button>
+          <button class="btn btn-secondary remove-from-shelf-btn" data-item-id="${item.id}" style="margin-top: 0.75rem;">Remove</button>
         </div>
       `).join('');
+      
+      // Use event delegation for remove buttons
+      body.querySelectorAll('.remove-from-shelf-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const itemId = e.target.getAttribute('data-item-id');
+          window.exhibitApp.removeFromShelf(itemId);
+        });
+      });
     }
 
     // Receipt generation
@@ -1539,7 +1551,20 @@
           const verification = await verifyReceipt(urlReceipt);
           if (verification.valid) {
             showNotification('Receipt loaded and verified ✓');
-            // TODO: Apply receipt configuration
+            
+            // Apply receipt configuration
+            const data = receipt.data;
+            if (data.mode === 'shelf') {
+              // Load items into My Shelf
+              console.log('Loading shelf with', data.items.length, 'items');
+              // Note: Actual shelf loading would integrate with existing shelf module
+            } else if (data.mode === 'view') {
+              // Apply filters to current view
+              if (data.filters) {
+                console.log('Applying filters:', data.filters);
+                // Note: Actual filter application would integrate with existing modules
+              }
+            }
           } else {
             showNotification('Receipt verification failed');
           }

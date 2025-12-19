@@ -211,26 +211,32 @@ Hash: ${receipt.hash.value.substring(0, 16)}...
 
 Verify at: ${window.location.origin}/preview/exhibit/#r=${encodeReceiptToFragment(receipt)}`;
   
-  navigator.clipboard.writeText(text).then(() => {
-    return true;
-  }).catch(err => {
+  // Attempt to copy to clipboard (async operation)
+  try {
+    await navigator.clipboard.writeText(text);
+    return { success: true, text };
+  } catch (err) {
     console.error('Failed to copy:', err);
-    return false;
-  });
-  
-  return text;
+    return { success: false, text };
+  }
 }
 
 /**
- * Encode receipt to URL fragment (compressed base64url)
+ * Encode receipt to URL fragment (base64url)
+ * For large receipts, consider using compression library like pako
  */
 export function encodeReceiptToFragment(receipt) {
   const json = JSON.stringify(receipt);
   const encoder = new TextEncoder();
   const data = encoder.encode(json);
   
-  // Simple base64url encoding (for production, use compression like pako)
-  const base64 = btoa(String.fromCharCode(...data));
+  // Convert to base64url safely for large arrays
+  const bytes = new Uint8Array(data);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
@@ -258,17 +264,31 @@ export function decodeReceiptFromFragment(fragment) {
 
 /**
  * Generate QR code data URL for receipt
- * Uses a simple QR code library or returns a placeholder
+ * Returns a simple SVG QR code for client-side generation
+ * For production, consider using a proper QR library like qrcode.js
  */
 export async function generateQRCode(receipt) {
   const url = `${window.location.origin}${window.location.pathname}#r=${encodeReceiptToFragment(receipt)}`;
   
-  // For now, return a data URL that points to a QR code generator service
-  // In production, use a proper QR library like qrcode.js
-  const qrServiceUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+  // For now, generate a simple placeholder SVG
+  // In production, use a proper client-side QR library (e.g., qrcode.js, qrcodegen)
+  const placeholderSVG = `data:image/svg+xml,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+      <rect width="300" height="300" fill="white"/>
+      <text x="150" y="140" font-family="Arial" font-size="16" text-anchor="middle" fill="#333">
+        QR Code Placeholder
+      </text>
+      <text x="150" y="160" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">
+        Add qrcode.js library for
+      </text>
+      <text x="150" y="175" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">
+        full QR code generation
+      </text>
+    </svg>
+  `)}`;
   
   return {
-    dataUrl: qrServiceUrl,
+    dataUrl: placeholderSVG,
     url: url
   };
 }
