@@ -83,6 +83,7 @@ The preview environment showcases a modernized, modular architecture with:
   - `colors.js` - Unified color logic with colorblind-friendly palettes and localStorage persistence
   - `search.js` - Debounced search state with match computation across multiple fields
   - `year.js` - Year normalization utility for messy date strings
+  - `receipt.js` - Digital Receipt system for portable, verifiable data export
 - **Enhanced features**:
   - JSON-based data loading from Primo API harvests
   - Improved accessibility (ARIA roles, keyboard navigation, focus management)
@@ -93,6 +94,56 @@ The preview environment showcases a modernized, modular architecture with:
 
 The preview environment serves as a testing ground for new features before they are promoted to production.
 
+### Exhibit/Studio Environment (`/preview/exhibit/`)
+- **Location**: `docs/preview/exhibit/index.html`
+- **Data Source**: `docs/data/sekula_index.json` (same as Preview)
+- **Status**: ✨ **New** - Museum-ready interface for exhibitions and public installations
+- **Access URL**: https://evcatalyst.github.io/ShelfSignals/preview/exhibit/
+- **Direct link**: [Exhibit Environment](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/)
+- **Kiosk Mode**: Add `?kiosk=1` for fullscreen exhibition installations
+
+The Exhibit environment provides a parallel UI shell with a focus on public-facing exhibitions:
+
+**Design Philosophy**:
+- **Jony Ive aesthetic**: Minimal, calm interface with strong hierarchy and whitespace
+- **Fast & focused**: Progressive disclosure with 3 primary actions front and center
+- **Portable & verifiable**: Digital Receipt system for taking home curated collections
+
+**Key Features**:
+- **8 Curated Paths** (`docs/preview/exhibit/curated-paths.json`):
+  - Labor & Images ⚙️📷
+  - Maritime Globalization 🚢🌊
+  - Borders & Migration 🌍✈️
+  - Archives & Museums 🏛️📚
+  - Cities & Logistics 🏙️🚛
+  - Theory & Method 💭📖
+  - Documentary Practice 📹🎬
+  - Industrial Capital 🏭💰
+  
+- **Digital Receipt System**:
+  - Export/import shelf configurations without server storage
+  - RFC 8785 (JCS) canonical JSON + SHA-256 verification
+  - Shareable via download, QR code, or URL fragment
+  - Human-readable receipt IDs: `SS-XXXX-XXXX-XXXX`
+  
+- **Kiosk Mode** (`?kiosk=1`):
+  - Large typography (3.5rem headings) for readability
+  - High-contrast colors for exhibition lighting
+  - Inactivity timer resets to attract screen (2 min)
+  - Controlled external link behavior
+  
+- **Progressive Disclosure**:
+  - Primary actions: 🎨 Explore Themes, 🔍 Search, 🗺️ Curated Paths
+  - Advanced filters hidden by default
+  - Details drawer (not modal) for editorial item presentation
+
+**Use Cases**:
+- Museum/gallery exhibitions and installations
+- Public library kiosks and browsing stations
+- Educational workshops and classroom demonstrations
+- Research presentations and conferences
+- Take-home collections via Digital Receipt export
+
 ---
 
 ## Repository Structure
@@ -102,13 +153,17 @@ ShelfSignals/
 ├── docs/                           # GitHub Pages deployment
 │   ├── index.html                  # Production interface
 │   ├── preview/
-│   │   └── index.html              # Preview interface
+│   │   ├── index.html              # Preview interface
+│   │   └── exhibit/                # Exhibit/Studio interface
+│   │       ├── index.html          # Museum-ready UI shell
+│   │       └── curated-paths.json  # 8 curated thematic paths
 │   ├── js/                         # Shared JavaScript modules
 │   │   ├── signals.js              # Signal detection & registry
 │   │   ├── lc.js                   # LC call number parser
 │   │   ├── colors.js               # Color palette management
 │   │   ├── search.js               # Search state & matching
-│   │   └── year.js                 # Year normalization
+│   │   ├── year.js                 # Year normalization
+│   │   └── receipt.js              # Digital Receipt system (RFC 8785 + SHA-256)
 │   └── data/                       # Collection data
 │       ├── sekula_inventory.json   # CSV-compatible format
 │       ├── sekula_index.json       # Primo API JSON format
@@ -154,10 +209,13 @@ The Allan Sekula Library serves as the prototype collection because its thematic
 
 - **Production (v1.x)**: Stable interface with proven workflows and CSV-based data loading
 - **Preview (v2.x)**: Experimental modular architecture with enhanced accessibility and JSON-native data
+- **Exhibit (v2.x)**: Museum-ready parallel UI with curated paths, kiosk mode, and Digital Receipt system
 
 ### Migration Path
 
-Features proven in the preview environment will be selectively promoted to production. The modular JavaScript utilities (`signals.js`, `lc.js`, `colors.js`, `search.js`, `year.js`) represent reusable components that can be integrated into future analysis tools beyond the web interface.
+Features proven in the preview environment will be selectively promoted to production. The modular JavaScript utilities (`signals.js`, `lc.js`, `colors.js`, `search.js`, `year.js`, `receipt.js`) represent reusable components that can be integrated into future analysis tools beyond the web interface.
+
+The Exhibit environment demonstrates how ShelfSignals can be adapted for public-facing exhibitions and installations while maintaining the same data foundation and analytical capabilities.
 
 ---
 
