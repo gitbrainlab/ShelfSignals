@@ -1,5 +1,7 @@
 # ShelfSignals
 
+> **Quick Start**: New to ShelfSignals? Read the [**Introduction & User Guide**](INTRODUCTION.md) for a visual walkthrough with screenshots and use cases.
+
 ShelfSignals is a system-agnostic analytics framework for extracting structure,
 patterns, and insights from collection inventories. It is designed for research
 libraries, archives, and any environment where catalog metadata and numbering
@@ -10,6 +12,31 @@ ShelfSignals ingests catalog records, normalizes metadata, and uses configurable
 analysis modules to detect patterns in numbering sequences, item groupings,
 descriptive fields, and other latent structures. The project is entirely
 collection-neutral and adaptable to future datasets.
+
+---
+
+## Quick Links
+
+- 📖 [**Introduction & User Guide**](INTRODUCTION.md) - Visual walkthrough with screenshots and use cases
+- 🌐 [**Live Preview Interface**](https://evcatalyst.github.io/ShelfSignals/preview/) - Recommended interface
+- 🎭 [**Exhibit Interface**](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/) - Museum-ready installation
+- 📸 [**Deep Facets Documentation**](docs/PHOTO_LIKELIHOOD_FACET.md) - AI-powered content detection
+- 💻 [**GitHub Repository**](https://github.com/evcatalyst/ShelfSignals) - Source code and issues
+
+---
+
+## Screenshots
+
+### Preview Interface
+![ShelfSignals Preview Interface](docs/images/preview-interface.png)
+
+The Preview interface showcases the virtual shelf visualization with:
+- Real-time search and filtering
+- Color-coded LC classification
+- Interactive book spines with detailed metadata
+- Enhanced accessibility features
+
+*For more screenshots and visual examples, see the [Introduction & User Guide](INTRODUCTION.md).*
 
 ---
 
@@ -240,4 +267,39 @@ A probabilistic facet that estimates the likelihood (0–100) that books contain
 - [Production interface](https://evcatalyst.github.io/ShelfSignals/) - Toggle "📷 Embedded Photography" in header controls
 - [Preview interface](https://evcatalyst.github.io/ShelfSignals/preview/) - Same feature with enhanced accessibility
 
+---
+
+## Documentation
+
+### Getting Started
+- **[Introduction & User Guide](INTRODUCTION.md)** - Complete visual walkthrough with screenshots, use cases, and workflow examples
+- **[README.md](README.md)** - Technical documentation (this file)
+- **[Deep Facets Guide](docs/PHOTO_LIKELIHOOD_FACET.md)** - AI-powered content detection implementation
+
+### Interface-Specific Guides
+- **Production Interface** (`/`) - Stable, proven workflows ([Launch →](https://evcatalyst.github.io/ShelfSignals/))
+- **Preview Interface** (`/preview/`) - Enhanced features and accessibility ([Launch →](https://evcatalyst.github.io/ShelfSignals/preview/))
+- **Exhibit Interface** (`/preview/exhibit/`) - Museum-ready installation ([Launch →](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/))
+  - Add `?kiosk=1` for fullscreen kiosk mode
+
+### Developer Documentation
+- **Repository structure** - See above
+- **Data pipeline** - Scripts in `/scripts` directory
+- **Modular utilities** - JavaScript modules in `/docs/js`
+
+---
+
+## Contributing
+
+ShelfSignals is an open research project. We welcome:
+- **Feature requests** - Open an issue on GitHub
+- **Bug reports** - Include browser version and reproduction steps
+- **Data contributions** - Adapt to new collections with metadata connectors
+- **Code improvements** - Pull requests for modular utilities
+
+---
+
+## License
+
+ShelfSignals is an open-source research project. See repository for license details.
 
