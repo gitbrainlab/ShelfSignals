@@ -1,5 +1,25 @@
 # ShelfSignals: Introduction & User Guide
 
+## Table of Contents
+- [What is ShelfSignals?](#what-is-shelfsignals)
+- [Why ShelfSignals?](#why-shelfsignals)
+- [Core Features](#core-features)
+- [Getting Started](#getting-started)
+- [Interface Overview](#interface-overview)
+- [Use Cases](#use-cases)
+- [Exhibit Interface Features](#exhibit-interface-features)
+- [Technical Architecture](#technical-architecture)
+- [Data Pipeline](#data-pipeline)
+- [Privacy & Data Ethics](#privacy--data-ethics)
+- [Accessibility](#accessibility)
+- [Browser Support](#browser-support)
+- [Advanced Features](#advanced-features)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
+- [About the Sekula Library](#about-the-sekula-library)
+
+---
+
 ## What is ShelfSignals?
 
 **ShelfSignals** is an innovative visual analytics framework designed to reveal the hidden patterns and organizational structures embedded within library collections. Rather than treating library catalogs as simple databases, ShelfSignals transforms metadata into rich, interactive visualizations that expose the implicit knowledge encoded in call numbers, subject classifications, and collection histories.
@@ -64,6 +84,21 @@ ShelfSignals provides three specialized interfaces for different use cases:
 
 ## Getting Started
 
+### Screenshots & Visual Examples
+
+ShelfSignals provides rich visual interfaces for exploring library collections. Below is the main Preview interface:
+
+![ShelfSignals Preview Interface](docs/images/preview-interface.png)
+*The Preview interface showing the virtual shelf, search panel, and collection visualization*
+
+**Additional Visual Examples:**
+- **Loading State**: The interface displays "Loading Sekula Library data..." while fetching collection metadata
+- **Detail Panels**: Click any book spine to view full catalog information, LC call numbers, and subject classifications
+- **Color Overlays**: Toggle between different visualization modes (LC class, thematic signals, photo likelihood)
+- **Exhibit Interface**: Museum-ready UI with curated paths and kiosk mode (see [live demo](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/))
+
+> **Tip**: Visit the [live Preview interface](https://evcatalyst.github.io/ShelfSignals/preview/) to explore all features interactively.
+
 ### Accessing ShelfSignals
 
 Visit any of the three interfaces (no installation required):
@@ -81,6 +116,9 @@ Visit any of the three interfaces (no installation required):
 ### Interface Overview
 
 ![ShelfSignals Preview Interface](docs/images/preview-interface.png)
+*The ShelfSignals Preview interface displaying the virtual shelf with LC classification-based coloring and search capabilities*
+
+> **Note**: Additional screenshots showing the loading state, detail panels, and exhibit interface can be found in the live applications. Screenshots in this documentation show the actual working interface as deployed on GitHub Pages.
 
 The interface consists of three main areas:
 

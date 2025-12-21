@@ -29,6 +29,7 @@ collection-neutral and adaptable to future datasets.
 
 ### Preview Interface
 ![ShelfSignals Preview Interface](docs/images/preview-interface.png)
+*The Preview interface displaying the virtual shelf with LC classification-based coloring, real-time search, and interactive book spines*
 
 The Preview interface showcases the virtual shelf visualization with:
 - Real-time search and filtering
