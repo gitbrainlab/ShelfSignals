@@ -571,7 +571,7 @@ Each pipeline run can log:
 
 ### Optional for AI Enrichment
 - **xAI (Grok) API**: `https://api.x.ai/v1`
-  - Authentication: API key required (set `XAPIKEY` environment variable or pass `--api-key`)
+  - Authentication: API key required (set `XAI_API_KEY` environment variable or pass `--api-key`)
   - Rate limits: ~100 requests/hour (free tier), higher for paid plans
   - Safe default: Mock mode (`--mock` flag) for testing
 
