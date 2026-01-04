@@ -327,7 +327,7 @@ async function verifyReceipt(receipt) {
 ❌ **Personal information**: No user accounts, logins, or tracking  
 ❌ **Browse history**: Only final selections, not navigation path  
 ❌ **Timing data**: When items were selected (only final export timestamp)  
-✅ **Full collection data**: Only selected items, not entire dataset  
+❌ **Full collection data**: Only selected items, not entire dataset  
 ❌ **Server state**: No backend dependencies or API calls  
 
 ## What Guarantees a Receipt Provides
