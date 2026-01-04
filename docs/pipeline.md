@@ -91,7 +91,7 @@ Collect catalog records from external sources and convert to ShelfSignals' norma
 **What it does**:
 - Connects to Primo VE JSON API to fetch catalog records
 - Paginates through result sets with offset-based traversal
-- Applies collection filter (`lds07` field = "Allan Sekula Library")
+- Applies collection filter (Sekula deployment example: `lds07` field = "Allan Sekula Library"; adapt to your institution, e.g., appropriate `lds07` value for Clark Art Institute)
 - Shards queries by publication decade to avoid API offset limits (5,000 max)
 - Implements rate limiting, retry logic, and checkpointing
 
