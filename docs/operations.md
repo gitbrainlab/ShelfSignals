@@ -343,7 +343,7 @@ chmod +x full_pipeline.sh
 Add xAI API key to repository secrets:
 1. Go to Settings → Secrets and variables → Actions
 2. Click "New repository secret"
-3. Name: `XAPIKEY`
+3. Name: `XAI_API_KEY`
 4. Value: Your xAI API key
 5. Click "Add secret"
 
