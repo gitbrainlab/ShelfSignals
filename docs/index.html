@@ -1174,7 +1174,6 @@
     // Allow ?legacy=1 to bypass redirect for testing
     if (!window.location.search.includes('legacy=1')) {
       window.location.replace('./preview/');
-      // The redirect above prevents further script execution
     }
     
     let activeThemes = new Set([
