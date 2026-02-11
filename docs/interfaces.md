@@ -34,7 +34,7 @@ Stable, proven interface for general collection exploration and research.
 - **Data Source**: `docs/data/sekula_inventory.json` (CSV-compatible format)
 
 ### Status
-⚠️ **Deprecated**: Known performance issues with large datasets (freezing, slow rendering). Users are automatically redirected to Preview v2.x for the best experience.
+⚠️ **Deprecated**: Known performance issues with large datasets (freezing, slow rendering). Users are automatically redirected to Preview v2.x for the best experience. To access the legacy Production interface for testing purposes, append `?legacy=1` to the URL.
 
 ### Features
 - **Virtual Shelf**: Books rendered as colored spines in LC call number order

@@ -1170,6 +1170,12 @@
   </main>
 
   <script type="module">
+    // Auto-redirect to Preview interface (Production is deprecated with known bugs)
+    // Allow ?legacy=1 to bypass redirect for testing
+    if (!window.location.search.includes('legacy=1')) {
+      window.location.replace('./preview/');
+    }
+    
     let activeThemes = new Set([
       "image",
       "labor",
