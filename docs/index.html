@@ -1173,7 +1173,8 @@
     // Auto-redirect to Preview interface (Production is deprecated with known bugs)
     // Allow ?legacy=1 to bypass redirect for testing
     if (!window.location.search.includes('legacy=1')) {
-      window.location.href = './preview/';
+      window.location.replace('./preview/');
+      throw new Error('Redirecting'); // Halt script execution
     }
     
     let activeThemes = new Set([
