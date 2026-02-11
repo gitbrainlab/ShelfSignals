@@ -246,7 +246,7 @@ async function generateReceipt(state, selectedItems) {
 
 **Example**:
 ```
-https://evcatalyst.github.io/ShelfSignals/preview/exhibit/#receipt=eyJyZWNlaXB0X2lkIjoi...
+https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/#receipt=eyJyZWNlaXB0X2lkIjoi...
 ```
 
 **Import method**: Navigate to URL → receipt auto-loads from fragment
@@ -586,7 +586,7 @@ Users should store receipts in:
 
 ## Next Steps
 
-- **See receipts in action**: Try [Exhibit Interface](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/)
+- **See receipts in action**: Try [Exhibit Interface](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
 - **Understand interface features**: See [docs/interfaces.md](interfaces.md)
 - **Learn about data pipeline**: See [docs/pipeline.md](pipeline.md)
 - **Run locally**: See [docs/operations.md](operations.md)

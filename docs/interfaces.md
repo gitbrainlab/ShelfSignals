@@ -30,7 +30,7 @@ Stable, proven interface for general collection exploration and research.
 
 ### Location
 - **File**: `docs/index.html`
-- **URL**: https://evcatalyst.github.io/ShelfSignals/
+- **URL**: https://gitbrainlab.github.io/ShelfSignals/
 - **Data Source**: `docs/data/sekula_inventory.json` (CSV-compatible format)
 
 ### Status
@@ -80,7 +80,7 @@ Experimental environment for testing new features before promotion to production
 
 ### Location
 - **File**: `docs/preview/index.html`
-- **URL**: https://evcatalyst.github.io/ShelfSignals/preview/
+- **URL**: https://gitbrainlab.github.io/ShelfSignals/preview/
 - **Data Source**: `docs/data/sekula_index.json` (JSON-native from Primo API)
 
 ### Status
@@ -203,7 +203,7 @@ Museum-ready interface for public-facing exhibitions, gallery installations, and
 
 ### Location
 - **File**: `docs/preview/exhibit/index.html`
-- **URL**: https://evcatalyst.github.io/ShelfSignals/preview/exhibit/
+- **URL**: https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/
 - **Data Source**: `docs/data/sekula_index.json` (same as Preview)
 - **Curated Paths**: `docs/preview/exhibit/curated-paths.json`
 
@@ -301,7 +301,7 @@ Museum-ready interface for public-facing exhibitions, gallery installations, and
 
 **Activation**: Add `?kiosk=1` to URL
 ```
-https://evcatalyst.github.io/ShelfSignals/preview/exhibit/?kiosk=1
+https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/?kiosk=1
 ```
 
 **Kiosk-specific features**:

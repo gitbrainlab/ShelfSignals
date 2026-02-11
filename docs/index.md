@@ -236,7 +236,7 @@ Built for discovery and insight, not end-user search:
 
 ## Next Steps
 
-1. **Explore a live deployment**: [Preview Interface](https://evcatalyst.github.io/ShelfSignals/preview/) or [Exhibit Interface](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/)
+1. **Explore a live deployment**: [Preview Interface](https://gitbrainlab.github.io/ShelfSignals/preview/) or [Exhibit Interface](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
 2. **Understand the data pipeline**: Read [docs/pipeline.md](pipeline.md)
 3. **Learn about interfaces**: See [docs/interfaces.md](interfaces.md)
 4. **Run locally**: Follow [docs/operations.md](operations.md)

@@ -21,13 +21,13 @@ The framework is **source-agnostic** and **collection-neutral**—adapt it to an
 ## Quick Start
 
 ### 🌐 Try it Live
-- [**Preview Interface**](https://evcatalyst.github.io/ShelfSignals/preview/) - Explore the virtual shelf (recommended)
-- [**Exhibit Interface**](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/) - Museum-ready with curated paths
+- [**Preview Interface**](https://gitbrainlab.github.io/ShelfSignals/preview/) - Explore the virtual shelf (recommended)
+- [**Exhibit Interface**](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/) - Museum-ready with curated paths
 
 ### 💻 Run Locally
 ```bash
 # Clone and serve
-git clone https://github.com/evcatalyst/ShelfSignals.git
+git clone https://github.com/gitbrainlab/ShelfSignals.git
 cd ShelfSignals/docs
 python -m http.server 8000
 # Open http://localhost:8000/preview/
@@ -94,9 +94,9 @@ See [**docs/operations.md**](docs/operations.md) for complete pipeline documenta
 ### 🎨 Three Specialized Interfaces
 | Interface | Status | Best For |
 |-----------|--------|----------|
-| [**Production**](https://evcatalyst.github.io/ShelfSignals/) | Deprecated (v1.x) | Legacy compatibility |
-| [**Preview**](https://evcatalyst.github.io/ShelfSignals/preview/) | ✅ Active (v2.x) | Research, accessibility |
-| [**Exhibit**](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/) | ✅ Active (v2.x) | Museums, kiosks, public engagement |
+| [**Production**](https://gitbrainlab.github.io/ShelfSignals/) | Deprecated (v1.x) | Legacy compatibility |
+| [**Preview**](https://gitbrainlab.github.io/ShelfSignals/preview/) | ✅ Active (v2.x) | Research, accessibility |
+| [**Exhibit**](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/) | ✅ Active (v2.x) | Museums, kiosks, public engagement |
 
 See [**docs/interfaces.md**](docs/interfaces.md) for detailed comparison.
 
