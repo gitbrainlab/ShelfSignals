@@ -41,7 +41,7 @@ pip install requests
 #### Quick Start (All Interfaces)
 ```bash
 # Clone repository
-git clone https://github.com/evcatalyst/ShelfSignals.git
+git clone https://github.com/gitbrainlab/ShelfSignals.git
 cd ShelfSignals/docs
 
 # Start local web server
@@ -320,7 +320,7 @@ chmod +x full_pipeline.sh
 2. **Scheduled** (optional): Add cron schedule to workflow file
 
 **Manual Run Steps**:
-1. Go to https://github.com/evcatalyst/ShelfSignals/actions
+1. Go to https://github.com/gitbrainlab/ShelfSignals/actions
 2. Select "Photo Likelihood Scoring" workflow
 3. Click "Run workflow"
 4. Configure options:

@@ -68,17 +68,17 @@ ShelfSignals includes **Embedded Photography Likelihood**—a probabilistic face
 ShelfSignals provides three specialized interfaces for different use cases:
 
 #### 1. Production Interface (`/`)
-- **URL**: https://evcatalyst.github.io/ShelfSignals/
+- **URL**: https://gitbrainlab.github.io/ShelfSignals/
 - **Status**: Stable, proven workflows
 - **Best for**: General exploration and research
 
 #### 2. Preview Interface (`/preview/`)
-- **URL**: https://evcatalyst.github.io/ShelfSignals/preview/
+- **URL**: https://gitbrainlab.github.io/ShelfSignals/preview/
 - **Status**: Experimental, enhanced features
 - **Best for**: Testing new features and improved accessibility
 
 #### 3. Exhibit Interface (`/preview/exhibit/`)
-- **URL**: https://evcatalyst.github.io/ShelfSignals/preview/exhibit/
+- **URL**: https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/
 - **Status**: Museum-ready, public-facing
 - **Best for**: Exhibitions, installations, and public engagement
 
@@ -95,15 +95,15 @@ ShelfSignals provides rich visual interfaces for exploring library collections. 
 - **Loading State**: The interface displays "Loading Sekula Library data..." while fetching collection metadata
 - **Detail Panels**: Click any book spine to view full catalog information, LC call numbers, and subject classifications
 - **Color Overlays**: Toggle between different visualization modes (LC class, thematic signals, photo likelihood)
-- **Exhibit Interface**: Museum-ready UI with curated paths and kiosk mode (see [live demo](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/))
+- **Exhibit Interface**: Museum-ready UI with curated paths and kiosk mode (see [live demo](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/))
 
-> **Tip**: Visit the [live Preview interface](https://evcatalyst.github.io/ShelfSignals/preview/) to explore all features interactively and see the interface in action.
+> **Tip**: Visit the [live Preview interface](https://gitbrainlab.github.io/ShelfSignals/preview/) to explore all features interactively and see the interface in action.
 
 ### Accessing ShelfSignals
 
 Visit any of the three interfaces (no installation required):
-- **Try it now**: [Preview Interface](https://evcatalyst.github.io/ShelfSignals/preview/)
-- **Museum mode**: [Exhibit Interface](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/)
+- **Try it now**: [Preview Interface](https://gitbrainlab.github.io/ShelfSignals/preview/)
+- **Museum mode**: [Exhibit Interface](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
 
 ### Basic Workflow
 
@@ -317,13 +317,13 @@ ShelfSignals is an open research project. Contributions welcome:
 ### Full Documentation
 - **README.md**: Comprehensive technical documentation
 - **PHOTO_LIKELIHOOD_FACET.md**: Deep Facets implementation guide
-- **Repository**: https://github.com/evcatalyst/ShelfSignals
+- **Repository**: https://github.com/gitbrainlab/ShelfSignals
 
 ### Quick Links
-- [Production Interface](https://evcatalyst.github.io/ShelfSignals/)
-- [Preview Interface](https://evcatalyst.github.io/ShelfSignals/preview/)
-- [Exhibit Interface](https://evcatalyst.github.io/ShelfSignals/preview/exhibit/)
-- [GitHub Repository](https://github.com/evcatalyst/ShelfSignals)
+- [Production Interface](https://gitbrainlab.github.io/ShelfSignals/)
+- [Preview Interface](https://gitbrainlab.github.io/ShelfSignals/preview/)
+- [Exhibit Interface](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
+- [GitHub Repository](https://github.com/gitbrainlab/ShelfSignals)
 
 ## About the Sekula Library
 
@@ -341,4 +341,4 @@ ShelfSignals is an open-source research project. See the repository for license 
 
 ---
 
-**Ready to explore?** [Launch ShelfSignals Preview →](https://evcatalyst.github.io/ShelfSignals/preview/)
+**Ready to explore?** [Launch ShelfSignals Preview →](https://gitbrainlab.github.io/ShelfSignals/preview/)
