@@ -1174,7 +1174,8 @@
     // Allow ?legacy=1 to bypass redirect for testing
     if (!window.location.search.includes('legacy=1')) {
       window.location.replace('./preview/');
-      throw new Error('Redirecting'); // Halt script execution
+      // Note: The above redirect prevents further execution, but we throw for clarity
+      throw new Error('Production interface is deprecated - redirected to Preview');
     }
     
     let activeThemes = new Set([
