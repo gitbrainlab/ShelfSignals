@@ -1,344 +1,173 @@
-# ShelfSignals: Introduction & User Guide
+# ShelfSignals 2.0.0: introduction and user guide
 
-## Table of Contents
-- [What is ShelfSignals?](#what-is-shelfsignals)
-- [Why ShelfSignals?](#why-shelfsignals)
-- [Core Features](#core-features)
-- [Getting Started](#getting-started)
-- [Interface Overview](#interface-overview)
-- [Use Cases](#use-cases)
-- [Exhibit Interface Features](#exhibit-interface-features)
-- [Technical Architecture](#technical-architecture)
-- [Data Pipeline](#data-pipeline)
-- [Privacy & Data Ethics](#privacy--data-ethics)
-- [Accessibility](#accessibility)
-- [Browser Support](#browser-support)
-- [Advanced Features](#advanced-features)
-- [Contributing](#contributing)
-- [Documentation](#documentation)
-- [About the Sekula Library](#about-the-sekula-library)
+ShelfSignals is an editorial collection browser for the Allan Sekula Library at the Clark Art Institute. It starts from catalog evidence—titles, creators, subjects, dates, identifiers, formats, call numbers, notes, provenance, and Clark record links—and turns that evidence into an explorable field of relationships.
 
----
+![ShelfSignals 2.0.0 desktop interface](docs/images/cinematic-desktop.png)
 
-## What is ShelfSignals?
+## What the interface represents
 
-**ShelfSignals** is an innovative visual analytics framework designed to reveal the hidden patterns and organizational structures embedded within library collections. Rather than treating library catalogs as simple databases, ShelfSignals transforms metadata into rich, interactive visualizations that expose the implicit knowledge encoded in call numbers, subject classifications, and collection histories.
+The primary interface combines two kinds of book image:
 
-## Why ShelfSignals?
+1. A small set of remote cover references resolved offline through conservative identifier matches and recorded in `docs/data/book_visuals.json`.
+2. CSS-generated book objects for all other records. These use real record metadata and deterministic colors; they do not claim to reproduce a physical cover or spine.
 
-Traditional library interfaces focus on finding specific items. ShelfSignals takes a different approach—it helps you **discover patterns**, **explore themes**, and **understand relationships** across entire collections. It's designed for researchers, curators, librarians, and anyone interested in understanding how knowledge is organized on library shelves.
+All displayed titles, creators, dates, call numbers, subjects, notes, and Clark catalog destinations come from `docs/data/sekula_index.json`.
 
-### Key Insights
+## Start browsing
 
-Library collections contain implicit signals that reveal:
-- **Historical organization**: How classifications evolved over time
-- **Thematic clusters**: Books grouped by invisible conceptual threads
-- **Sequential patterns**: Numbering systems that encode provenance
-- **Subject relationships**: Connections between seemingly distant topics
+Open the [primary ShelfSignals interface](https://gitbrainlab.github.io/ShelfSignals/). No account, API key, backend, or build step is required.
 
-## Core Features
+### Featured shelf
 
-### 🎨 Visual Collection Browser
+The opening shelf is a bounded editorial selection of real Alma record IDs from `docs/data/featured_items.json`. Hover, focus, or tap a book to identify it; click or press Enter to open the record drawer. Mobile users can pan the shelf horizontally.
 
-Transform library metadata into an interactive "virtual shelf" where:
-- **Books are represented as colored spines** based on their subject classification
-- **LC call numbers** determine shelf position and visual proximity
-- **Color themes** highlight different subject areas (Photography, Labor, Maritime, etc.)
-- **Search and filtering** reveal patterns across thousands of items
+### Search
 
-### 🔍 Smart Search & Filtering
+Use the large opening search field, the collection search field, or Command/Ctrl+K. Search covers:
 
-- **Real-time search** across titles, authors, subjects, and call numbers
-- **Multi-field matching** with highlighted results
-- **Subject-based filtering** using thematic signals
-- **LC class filtering** for precise call number ranges
+- title and alternate title;
+- creators and contributors;
+- subjects;
+- request call number;
+- notes and Sekula provenance;
+- publisher, format, description, and contents;
+- ISBN, ISSN, OCLC, LCCN, Alma MMS, and record ID.
 
-### 📊 Deep Facets: AI-Powered Content Detection
+Multiple words are combined: every term must occur somewhere in the record's indexed metadata.
 
-ShelfSignals includes **Embedded Photography Likelihood**—a probabilistic facet that estimates whether books contain photographic content, even when not cataloged as photography books.
+### Signals and paths
 
-**Features:**
-- Conservative, metadata-driven scoring (0-100)
-- Visual overlay with color-coded likelihood
-- Detailed reasoning for each score
-- Toggleable display in all interfaces
+Signals are reproducible keyword rules registered in `docs/js/signals.js`. They reveal possible thematic relationships such as Image, Labor, Capital, Sea, Cities, Borders, Archives, Art, and Theory.
 
-### 🎭 Three User Interfaces
+Curated paths are editorial descriptions plus signal rules. The current configuration does not contain fixed item lists, so the result count is calculated from the dataset each time and is labeled as a dynamic match. A path is an invitation to investigate, not a statement that every result was individually selected by a curator.
 
-ShelfSignals provides three specialized interfaces for different use cases:
+### Collection filters
 
-#### 1. Production Interface (`/`)
-- **URL**: https://gitbrainlab.github.io/ShelfSignals/
-- **Status**: Stable, proven workflows
-- **Best for**: General exploration and research
+The primary browser provides:
 
-#### 2. Preview Interface (`/preview/`)
-- **URL**: https://gitbrainlab.github.io/ShelfSignals/preview/
-- **Status**: Experimental, enhanced features
-- **Best for**: Testing new features and improved accessibility
-
-#### 3. Exhibit Interface (`/preview/exhibit/`)
-- **URL**: https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/
-- **Status**: Museum-ready, public-facing
-- **Best for**: Exhibitions, installations, and public engagement
-
-## Getting Started
-
-### Screenshots & Visual Examples
-
-ShelfSignals provides rich visual interfaces for exploring library collections. Below is the main Preview interface:
-
-![ShelfSignals Preview Interface](docs/images/preview-interface.png)
-*The Preview interface showing the virtual shelf, search panel, and collection visualization*
-
-**Key Interface Features:**
-- **Loading State**: The interface displays "Loading Sekula Library data..." while fetching collection metadata
-- **Detail Panels**: Click any book spine to view full catalog information, LC call numbers, and subject classifications
-- **Color Overlays**: Toggle between different visualization modes (LC class, thematic signals, photo likelihood)
-- **Exhibit Interface**: Museum-ready UI with curated paths and kiosk mode (see [live demo](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/))
-
-> **Tip**: Visit the [live Preview interface](https://gitbrainlab.github.io/ShelfSignals/preview/) to explore all features interactively and see the interface in action.
-
-### Accessing ShelfSignals
-
-Visit any of the three interfaces (no installation required):
-- **Try it now**: [Preview Interface](https://gitbrainlab.github.io/ShelfSignals/preview/)
-- **Museum mode**: [Exhibit Interface](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
-
-### Basic Workflow
-
-1. **Browse the virtual shelf** - Scroll through the visual representation of the collection
-2. **Search for topics** - Use the search box to find books by title, author, or subject
-3. **Filter by theme** - Toggle color overlays to highlight specific subject areas
-4. **Explore details** - Click any book spine to view complete catalog information
-5. **Export selections** - Use the Digital Receipt system to save and share curated collections
-
-### Interface Overview
-
-The interface consists of three main areas:
-
-#### Left Panel: Signals & Search
-- **Search box**: Real-time filtering across all fields
-- **Color by LC Class**: Toggle classification-based coloring
-- **Signal themes**: Filter by Photography, Labor, Maritime, etc.
-- **Legend**: Visual guide to active color schemes
-
-#### Center Panel: Collection View
-- **Virtual shelf**: Visual representation of the collection
-- **Book spines**: Click to view details
-- **Loading indicator**: Shows data processing status
-- **Scroll navigation**: Browse through the entire collection
-
-#### Right Panel: Details
-- **Item information**: Full catalog metadata
-- **LC call number**: Classification details
-- **Subject headings**: Topical classifications
-- **Catalog links**: Direct access to library records
-- **Photo likelihood**: AI-powered content detection (when available)
-
-## Use Cases
-
-### For Researchers
-- **Pattern discovery**: Find thematic clusters across subject boundaries
-- **Collection analysis**: Understand how topics are distributed
-- **Sequence detection**: Identify numbering patterns and anomalies
-- **Cross-collection studies**: Compare organizational structures
-
-### For Librarians & Curators
-- **Collection visualization**: See the shelf from a bird's-eye view
-- **Gap analysis**: Identify underrepresented areas
-- **Weeding decisions**: Visual assessment of shelf density
-- **Exhibition planning**: Curate thematic pathways through the collection
-
-### For Educators
-- **Library instruction**: Demonstrate classification systems visually
-- **Information literacy**: Teach subject relationships and discovery
-- **Research workshops**: Guide students through collection exploration
-- **Digital humanities**: Integrate with metadata analysis courses
-
-### For Museum Visitors
-- **Curated paths**: Explore pre-selected thematic journeys
-- **Digital receipts**: Take home personalized collections
-- **Kiosk mode**: Self-guided exploration in exhibition spaces
-- **Accessibility**: Enhanced interfaces for diverse needs
-
-## Exhibit Interface Features
-
-The **Exhibit environment** is purpose-built for public-facing installations:
-
-### 🗺️ Curated Paths
-Eight thematic journeys through the collection:
-- **Labor & Images** ⚙️📷
-- **Maritime Globalization** 🚢🌊
-- **Borders & Migration** 🌍✈️
-- **Archives & Museums** 🏛️📚
-- **Cities & Logistics** 🏙️🚛
-- **Theory & Method** 💭📖
-- **Documentary Practice** 📹🎬
-- **Industrial Capital** 🏭💰
-
-### 🎫 Digital Receipt System
-Take home your curated collections:
-- **Export/import** shelf configurations
-- **SHA-256 verification** for data integrity
-- **QR codes** for easy sharing
-- **Human-readable IDs**: `SS-XXXX-XXXX-XXXX`
-- **No server storage** required—fully portable
-
-### 🖥️ Kiosk Mode
-Optimized for exhibition installations:
-- **Large typography** for readability (3.5rem headings)
-- **High contrast** for various lighting conditions
-- **Inactivity timer** (2 minutes) auto-resets to attract screen
-- **Controlled navigation** for public touchscreens
-- **URL parameter**: Add `?kiosk=1` to any Exhibit URL
-
-### Design Philosophy
-- **Jony Ive aesthetic**: Minimal, calm, strong hierarchy
-- **Fast & focused**: Progressive disclosure with 3 primary actions
-- **Portable & verifiable**: Digital Receipt system for take-home curation
-- **Exhibition-ready**: Tested in museum and gallery environments
-
-## Technical Architecture
-
-### Static Site, No Server Required
-- **Pure HTML/CSS/JavaScript**—no backend dependencies
-- **GitHub Pages deployment**—instant global availability
-- **Offline-capable**—data loads once and caches locally
-- **Mobile-responsive**—works on any device
-
-### Modular JavaScript Utilities
-Located in `docs/js/`:
-- **`signals.js`**: Centralized signal (theme) registry and keyword matching
-- **`lc.js`**: LC call number parser for classification and sorting
-- **`colors.js`**: Color palette management with accessibility options
-- **`search.js`**: Debounced search with multi-field matching
-- **`year.js`**: Date normalization for messy temporal data
-- **`receipt.js`**: Digital Receipt system (RFC 8785 + SHA-256)
-
-### Data Formats
-- **JSON-native**: `sekula_index.json` from Primo API harvests
-- **CSV-compatible**: `sekula_inventory.json` for spreadsheet analysis
-- **CSV export**: `sekula_index.csv` for external tools
-
-### Performance Optimizations
-- **Lazy loading**: Books render progressively as you scroll
-- **Debounced search**: Prevents UI lag during typing
-- **IndexedDB caching**: Faster subsequent loads
-- **Modular architecture**: Load only what you need
-
-## Data Pipeline
-
-ShelfSignals uses a multi-stage pipeline for data collection and enrichment:
-
-### 1. Harvesting
-**Script**: `scripts/sekula_indexer.py`
-- Connects to Primo API to harvest catalog records
-- Normalizes metadata fields
-- Extracts LC call numbers and subject headings
-
-### 2. Analysis
-**Scripts**: `scripts/facet_scout.py`, `scripts/photo_feature_extractor.py`
-- Detects thematic patterns in metadata
-- Generates feature packets for AI scoring
-- Identifies classification clusters
-
-### 3. AI Enrichment
-**Script**: `scripts/photo_likelihood_scorer.py`
-- Uses xAI (Grok) API for content detection
-- Conservative, evidence-based scoring
-- Provides reasoning for each assessment
-
-### 4. Merging & Export
-**Scripts**: `scripts/merge_scores_to_json.py`, `scripts/merge_scores_to_csv.py`
-- Integrates AI scores with catalog data
-- Exports enriched datasets
-- Maintains data integrity with verification tools
-
-## Privacy & Data Ethics
-
-ShelfSignals is designed with privacy and transparency:
-- **No user tracking**: No analytics, cookies, or user profiling
-- **Public metadata only**: All data is from public library catalogs
-- **Open source**: Full transparency in code and methods
-- **Portable exports**: Users control their curated data
-- **No server storage**: Digital Receipts are client-side only
-
-## Accessibility
-
-All interfaces include:
-- **ARIA roles** for screen reader compatibility
-- **Keyboard navigation** for mouse-free operation
-- **High contrast modes** for visual impairments
-- **Colorblind-friendly palettes** for diverse color perception
-- **Scalable typography** for readability
-- **Focus management** for logical tab order
-
-## Browser Support
-
-ShelfSignals works on all modern browsers:
-- **Chrome/Edge** 90+
-- **Firefox** 88+
-- **Safari** 14+
-- **Mobile browsers**: iOS Safari, Chrome Mobile
-
-## Advanced Features
-
-### Color Palettes
-Choose from multiple visualization schemes:
-- **Default**: Balanced, general-purpose palette
-- **Colorblind-friendly**: Optimized for deuteranopia and protanopia
-- **High contrast**: Enhanced visibility for low-vision users
-- **Custom themes**: Persistent localStorage preferences
-
-### Search Operators
-Use advanced search syntax:
-- **Exact phrases**: `"maritime labor"`
-- **Field prefixes**: `author:sekula`, `subject:photography`
-- **Boolean logic**: Implicit AND across terms
-- **Fuzzy matching**: Handles spelling variations
-
-### LC Call Number Navigation
-- **Class filtering**: Click LC class badges to filter
-- **Range browsing**: Navigate by shelf sections
-- **Sorting keys**: Proper LC sort order (not alphabetic)
-- **Cutter number support**: Full LC classification parsing
-
-## Contributing
-
-ShelfSignals is an open research project. Contributions welcome:
-- **Feature requests**: Open an issue on GitHub
-- **Bug reports**: Include browser version and steps to reproduce
-- **Data contributions**: Adapt to new collections with metadata connectors
-- **Code improvements**: Pull requests for modular utilities
-
-## Documentation
-
-### Full Documentation
-- **README.md**: Comprehensive technical documentation
-- **PHOTO_LIKELIHOOD_FACET.md**: Deep Facets implementation guide
-- **Repository**: https://github.com/gitbrainlab/ShelfSignals
-
-### Quick Links
-- [Production Interface](https://gitbrainlab.github.io/ShelfSignals/)
-- [Preview Interface](https://gitbrainlab.github.io/ShelfSignals/preview/)
-- [Exhibit Interface](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
-- [GitHub Repository](https://github.com/gitbrainlab/ShelfSignals)
-
-## About the Sekula Library
-
-The inaugural ShelfSignals deployment visualizes the **Allan Sekula Library Collection**—a research library focused on:
-- **Photography** as documentary practice and critical medium
-- **Labor history** and working-class studies
-- **Maritime culture** and globalization
-- **Critical theory** and visual studies
-
-The collection's thematic coherence makes it an ideal test case for pattern detection, but ShelfSignals is **collection-neutral** and can be adapted to any library catalog with structured metadata.
-
-## License
-
-ShelfSignals is an open-source research project. See the repository for license details.
-
----
-
-**Ready to explore?** [Launch ShelfSignals Preview →](https://gitbrainlab.github.io/ShelfSignals/preview/)
+- signal filtering;
+- parsed call-number-class filtering;
+- material-type filtering;
+- decade filtering;
+- experimental photo-likelihood buckets;
+- grouping by call-number class, decade, or material;
+- cover, spine, and accessible list modes.
+
+Only 72 more results are added to the DOM per batch, even when all 11,176 records match.
+
+### Record details
+
+The drawer contains the canonical catalog title and the fields available for that record. “View in Clark catalog” uses the record's exact `record_url`. Previous/next follows the active filtered result set.
+
+The collection's `call_number` is usually the Sekula physical request/accession mark, not a topical LC classification. ShelfSignals keeps that distinction visible and does not infer room-wall positions from ordinary LC cutters.
+
+The Embedded Photography Likelihood field is labeled as an experimental metadata estimate. The currently committed values were produced by the repository's mock heuristic pipeline; they are not statements based on inspecting the physical copy.
+
+## My Shelf
+
+“My Shelf” is stored locally in the browser as a list of Alma record IDs. No account is created and no shelf data is sent to a ShelfSignals server.
+
+You can:
+
+- add or remove records;
+- keep the shelf across reloads;
+- export a text reading list containing real Clark catalog URLs;
+- export a hash-verified Digital Receipt JSON file;
+- restore a supported receipt and resolve its item IDs against the current dataset.
+
+QR export is not offered in `2.0.0`: the earlier prototype displayed a placeholder rather than encoding a genuine QR code.
+
+## Shareable URLs
+
+The selected record and meaningful collection state can be shared through query parameters. Examples:
+
+```text
+?record=alma991002035079708431
+?q=waterfront+labor&view=list
+?signals=image,labor&group=decade
+?path=labor-images
+```
+
+Stable Alma IDs are used instead of array positions.
+
+## Accessibility and motion
+
+- Use Tab to reach navigation, signals, featured records, filters, and result cards.
+- Press Enter/Space to activate native buttons.
+- Press Escape to close a drawer or dialog.
+- Use Left/Right Arrow while a record drawer is open.
+- Use Command/Ctrl+K to open global search.
+- Select List mode for dense research reading.
+- `prefers-reduced-motion` removes nonessential transitions and smooth scrolling.
+
+The interface uses visible focus states, semantic landmarks, text controls for all spatial books, and dark colors tested for readable contrast.
+
+## Interface routes
+
+- `/` — primary `2.0.0` interface.
+- `/legacy/` — archived v1 interface.
+- `/preview/` — preserved Preview research interface.
+- `/preview/exhibit/` — preserved Exhibit interface.
+
+See [the interface guide](docs/interfaces.md) for architectural and migration details.
+
+## Run locally
+
+From the repository root:
+
+```bash
+python3 -m http.server 8000 --directory docs
+```
+
+Then open `http://localhost:8000/`. Do not use `file://`; modules and catalog data are fetched over HTTP.
+
+Run the fast contract tests:
+
+```bash
+node scripts/cinematic_unit_tests.mjs
+node scripts/preview_acceptance_tests.mjs
+```
+
+Run browser smoke tests after installing Playwright and Chromium:
+
+```bash
+python3 -m pip install playwright
+python3 -m playwright install chromium
+python3 scripts/cinematic_smoke_tests.py
+```
+
+## Cover enrichment
+
+A small dry run does not write output:
+
+```bash
+python3 scripts/enrich_book_visuals.py --limit 5 --dry-run
+```
+
+A cached refresh writes the versioned manifest without downloading cover binaries into the repository:
+
+```bash
+python3 scripts/enrich_book_visuals.py --limit 100
+```
+
+Matches prefer exact ISBN and record their provider, identifier, confidence, attribution, timestamps, and source link. Negative, ambiguous, and error outcomes are cached so repeated runs remain respectful of public providers. See [cover enrichment and attribution](docs/cover-enrichment.md).
+
+## Privacy and security
+
+- Catalog metadata is rendered through text nodes, not interpolated as executable HTML.
+- External cover URLs must use HTTPS and an allowlisted provider host.
+- Clark links open with `noopener noreferrer`.
+- The browser contains no API keys.
+- Shelf state and receipts remain client-side unless the user chooses to share a file.
+
+## Known limitations
+
+- Initial download still includes the full canonical catalog dataset. Normal HTTP compression reduces transfer size, but parsing cost depends on the device.
+- Remote covers can disappear or rate-limit. Every record remains usable through its metadata-derived representation.
+- Keyword signals can produce false positives or miss context; they are discovery aids.
+- The dataset does not expose a trustworthy “recently added” date, so the primary UI uses editorial highlights rather than making that claim.
+- Most physical accession marks begin `NE`; richer topical LC browsing requires exporting Primo's separate bibliographic call number in a future harvest.
+
+## About the Allan Sekula Library
+
+The project documentation describes the library as a collection spanning photography, labor history, maritime culture, political economy, art, cities, archives, and critical theory. ShelfSignals does not attempt to summarize Sekula's library into one theme. It offers several catalog-grounded ways to move through it while keeping the Clark catalog one click away.

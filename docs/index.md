@@ -43,9 +43,10 @@ See [docs/receipts.md](receipts.md) for detailed documentation.
 
 ### Interfaces
 User-facing environments for exploring analyzed collections:
-- **Production**: Stable interface for general research
-- **Preview**: Experimental features and enhanced accessibility
-- **Exhibit**: Museum-ready installation with curated paths and kiosk mode
+- **Primary (`2.0.0`)**: Cinematic, progressively rendered research browser at the site root
+- **Legacy**: Archived v1 interface at `/legacy/`
+- **Preview**: Preserved spatial-research compatibility route
+- **Exhibit**: Preserved installation and kiosk experiments
 
 Each interface serves different personas (researchers, curators, public visitors) while sharing the same underlying data and analysis pipeline.
 
@@ -121,7 +122,7 @@ For scholars and digital humanities researchers:
 1. Use Exhibit interface to explore curated paths
 2. Search and filter to find items matching exhibition themes
 3. Annotate selections with curatorial notes (via Digital Receipt metadata)
-4. Generate QR codes or shareable URLs for installation labels
+4. Export a verified Digital Receipt JSON or shareable filtered URL
 
 **Outputs**:
 - Curated paths configuration (JSON)
@@ -168,7 +169,8 @@ For scholars and digital humanities researchers:
 
 ### Deep Dive
 - **[docs/pipeline.md](pipeline.md)**: Data model, normalization, enrichment, and reproducibility practices
-- **[docs/interfaces.md](interfaces.md)**: Production/Preview/Exhibit interface documentation
+- **[docs/interfaces.md](interfaces.md)**: Primary, Legacy, Preview, and Exhibit route documentation
+- **[docs/cover-enrichment.md](cover-enrichment.md)**: Visual-manifest generation, provider policy, and attribution
 - **[docs/receipts.md](receipts.md)**: Digital Receipt system for portable, verifiable exports
 - **[docs/operations.md](operations.md)**: Running locally, scheduling, storage layout, and export formats
 
@@ -232,11 +234,11 @@ Built for discovery and insight, not end-user search:
 - **Mock API mode**: Test pipelines without external API costs
 - **Checkpointing**: Resume interrupted harvests without re-fetching
 - **Rate limiting**: Configurable delays and exponential backoff
-- **Offline-capable interfaces**: Data caches locally after first load
+- **Static deployment**: no backend is required; the catalog and application are served by GitHub Pages
 
 ## Next Steps
 
-1. **Explore a live deployment**: [Preview Interface](https://gitbrainlab.github.io/ShelfSignals/preview/) or [Exhibit Interface](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
+1. **Explore a live deployment**: [ShelfSignals 2.0.0](https://gitbrainlab.github.io/ShelfSignals/) or the [Exhibit compatibility route](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
 2. **Understand the data pipeline**: Read [docs/pipeline.md](pipeline.md)
 3. **Learn about interfaces**: See [docs/interfaces.md](interfaces.md)
 4. **Run locally**: Follow [docs/operations.md](operations.md)

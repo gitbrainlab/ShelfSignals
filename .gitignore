@@ -13,6 +13,9 @@ archive/
 # Node/build caches (if ever used)
 node_modules/
 dist/
+.cache/
+*.sqlite-shm
+*.sqlite-wal
 
 # Editor/IDE
 .vscode/
