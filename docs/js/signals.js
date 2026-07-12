@@ -11,7 +11,7 @@ export const SIGNALS = [
     legendStyle: "border-style:solid;",
     keywords: [
       /photograph/i, /photo\b/i, /camera/i, /cinema/i, /film\b/i, /motion picture/i,
-      /documentary film/i, /visual/i, /media/i, /photojournalism/i
+      /documentary film/i, /visual/i, /\bmedia\b/i, /photojournalism/i
     ]
   },
   {
@@ -40,7 +40,7 @@ export const SIGNALS = [
     color: "#2ca02c",
     legendStyle: "border-radius:0;",
     keywords: [
-      /harbor/i, /harbour/i, /port\b/i, /shipping/i, /dock/i, /maritime/i,
+      /harbor/i, /harbour/i, /\bport\b/i, /\bshipping\b/i, /\bdock/i, /maritime/i,
       /ocean/i, /sea\b/i, /seafaring/i, /naval/i, /merchant marine/i, /ship\b/i, /shipwreck/i
     ]
   },
@@ -50,8 +50,8 @@ export const SIGNALS = [
     color: "#9467bd",
     legendStyle: "border-style:double;",
     keywords: [
-      /los angeles/i, /urban/i, /city\b/i, /cities and towns/i, /metropolitan/i,
-      /infrastructure/i, /transport/i, /railroad/i, /road/i, /logistic/i
+      /los angeles/i, /urban/i, /\bcity\b/i, /cities and towns/i, /metropolitan/i,
+      /infrastructure/i, /transport/i, /railroad/i, /\broad(?:s)?\b/i, /logistic/i
     ]
   },
   {
@@ -60,7 +60,7 @@ export const SIGNALS = [
     color: "#8c564b",
     legendStyle: "border-style:solid;border-color:#999;",
     keywords: [
-      /war/i, /military/i, /armed forces/i, /militarism/i, /police/i, /policing/i,
+      /\bwar(?:s|fare|time)?\b/i, /military/i, /armed forces/i, /militarism/i, /police/i, /policing/i,
       /prison/i, /penal/i, /security/i, /surveillance/i
     ]
   },
@@ -89,7 +89,7 @@ export const SIGNALS = [
     color: "#d62728",
     legendStyle: "border-style:solid;border-color:#444;",
     keywords: [
-      /art\b/i, /artist/i, /painting/i, /sculpture/i, /photography\b/i, /photography.*artistic/i,
+      /\bart\b/i, /artist/i, /painting/i, /sculpture/i, /photography\b/i, /photography.*artistic/i,
       /fiction/i, /poetry/i, /drama/i, /literature/i
     ]
   },

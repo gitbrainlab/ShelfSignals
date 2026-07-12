@@ -8,7 +8,7 @@
  * - RFC 8785 (JCS) canonical JSON serialization
  * - SHA-256 hashing via WebCrypto API
  * - Human-readable receipt IDs (SS-XXXX-XXXX-XXXX)
- * - QR code generation for sharing
+ * - URL-fragment compatibility helpers (QR export is intentionally unavailable)
  * - URL fragment encoding for shareable links
  */
 
@@ -112,9 +112,11 @@ export async function createReceipt(options = {}) {
     mode = 'shelf', // 'shelf' | 'view'
     items = [],
     filters = {},
+    annotations = {},
     datasetName = 'Allan Sekula Library',
     datasetUrl = null,
-    appVersion = 'v2.x'
+    appVersion = '2.0.0',
+    appChannel = 'primary'
   } = options;
   
   // Compute dataset hash if URL provided
@@ -129,7 +131,7 @@ export async function createReceipt(options = {}) {
     createdAt: new Date().toISOString(),
     app: {
       name: 'ShelfSignals',
-      channel: 'preview',
+      channel: appChannel,
       version: appVersion
     },
     dataset: {
@@ -138,7 +140,8 @@ export async function createReceipt(options = {}) {
     },
     mode: mode,
     items: items.map(item => item.id || item),
-    filters: filters
+    filters: filters,
+    annotations: annotations
   };
   
   // Compute hash of payload
@@ -209,7 +212,7 @@ Items: ${receipt.items.length}
 Dataset: ${receipt.dataset.name}
 Hash: ${receipt.hash.value.substring(0, 16)}...
 
-Verify at: ${window.location.origin}/preview/exhibit/#r=${encodeReceiptToFragment(receipt)}`;
+Verify at: ${window.location.origin}${window.location.pathname}#r=${encodeReceiptToFragment(receipt)}`;
   
   // Attempt to copy to clipboard (async operation)
   try {
@@ -263,34 +266,12 @@ export function decodeReceiptFromFragment(fragment) {
 }
 
 /**
- * Generate QR code data URL for receipt
- * Returns a simple SVG QR code for client-side generation
- * For production, consider using a proper QR library like qrcode.js
+ * QR export is intentionally unavailable until a real encoder is bundled.
+ * Callers should disable the option instead of presenting a placeholder image.
  */
 export async function generateQRCode(receipt) {
   const url = `${window.location.origin}${window.location.pathname}#r=${encodeReceiptToFragment(receipt)}`;
-  
-  // For now, generate a simple placeholder SVG
-  // In production, use a proper client-side QR library (e.g., qrcode.js, qrcodegen)
-  const placeholderSVG = `data:image/svg+xml,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
-      <rect width="300" height="300" fill="white"/>
-      <text x="150" y="140" font-family="Arial" font-size="16" text-anchor="middle" fill="#333">
-        QR Code Placeholder
-      </text>
-      <text x="150" y="160" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">
-        Add qrcode.js library for
-      </text>
-      <text x="150" y="175" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">
-        full QR code generation
-      </text>
-    </svg>
-  `)}`;
-  
-  return {
-    dataUrl: placeholderSVG,
-    url: url
-  };
+  return { available: false, dataUrl: null, url };
 }
 
 /**

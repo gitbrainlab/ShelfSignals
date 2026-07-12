@@ -1,521 +1,123 @@
-# ShelfSignals Interfaces
+# ShelfSignals interfaces
 
-## Overview
+ShelfSignals `2.0.0` makes the GitHub Pages root the canonical Allan Sekula Library browser. Earlier interfaces remain available at explicit compatibility routes; none of the routes redirect to one another.
 
-ShelfSignals provides **three specialized web interfaces** for exploring collection metadata, each optimized for different user personas and contexts:
+## Route map
 
-1. **Production** (`/`) - Stable, research-oriented interface
-2. **Preview** (`/preview/`) - Experimental features and enhanced accessibility
-3. **Exhibit** (`/preview/exhibit/`) - Museum-ready installation with curated paths
+| Route | File | Status | Purpose |
+|---|---|---|---|
+| `/ShelfSignals/` | `docs/index.html` | Primary, `2.0.0` | Cinematic entry, full catalog browser, details, filters, and My Shelf |
+| `/ShelfSignals/legacy/` | `docs/legacy/index.html` | Archived | Preserved v1 interface with known large-DOM performance limitations |
+| `/ShelfSignals/preview/` | `docs/preview/index.html` | Compatibility | Earlier research UI and spatial experiments |
+| `/ShelfSignals/preview/exhibit/` | `docs/preview/exhibit/index.html` | Compatibility | Exhibit cycles, paths, kiosk, and receipt experiments |
 
-All interfaces share the same underlying data but differ in **UI design**, **feature sets**, and **intended audience**.
+The root no longer needs the redirect proposed in PR #20. Its intent—preventing users from landing on the broken v1 selection flow—is addressed by placing v1 at `/legacy/` and serving the new application directly from `/`.
 
-## Interface Comparison
+## Primary interface (`2.0.0`)
 
-| Feature | Production | Preview | Exhibit |
-|---------|-----------|---------|---------|
-| **Status** | Deprecated (v1.x) | Active development (v2.x) | Active (v2.x) |
-| **Data Format** | CSV-compatible JSON | JSON-native (Primo API) | JSON-native (Primo API) |
-| **Target Audience** | Researchers | Researchers, librarians | Museum visitors, public |
-| **UI Philosophy** | Functional, data-dense | Modular, accessible | Minimal, exhibition-ready |
-| **Accessibility** | Basic | Enhanced (ARIA, keyboard nav) | Enhanced + kiosk mode |
-| **Key Features** | Virtual shelf, LC coloring | All Production + AI overlays | Curated paths, Digital Receipts |
-| **Performance** | Known issues (freezing) | Optimized | Optimized |
-| **Recommended Use** | Legacy compatibility | Current best practice | Public installations |
+The primary interface is a zero-build static application composed of semantic HTML, CSS, and ES modules.
 
-## Production Interface (`/`)
+### Entry experience
 
-### Purpose
-Stable, proven interface for general collection exploration and research.
+- A shallow CSS-perspective shelf contains a bounded set of real records configured in `docs/data/featured_items.json`.
+- Verified cover references from `docs/data/book_visuals.json` can appear on a front or spine surface.
+- Every fallback book uses the record's real title, creator, date, call number, material type, and deterministic color. It is an interface representation, not a photograph of the object.
+- Motion is limited and disabled by `prefers-reduced-motion`.
 
-### Location
-- **File**: `docs/index.html`
-- **URL**: https://gitbrainlab.github.io/ShelfSignals/
-- **Data Source**: `docs/data/sekula_inventory.json` (CSV-compatible format)
+### Complete collection browser
 
-### Status
-⚠️ **Deprecated**: Known performance issues with large datasets (freezing, slow rendering). Users are automatically redirected to Preview v2.x for the best experience.
+- Search covers title, creator, contributors, subjects, notes, provenance, call number, formats, publishers, contents, ISBN, OCLC, LCCN, and record ID.
+- Filters cover registered signals, parsed call-number class, material type, decade, and the experimental photo-likelihood bucket.
+- Cover, spine, and list modes expose the same records.
+- The browser renders at most 72 additional records per batch. It never creates 11,176 book elements at once.
+- All curated-path counts are derived at runtime. The current path schema contains signal rules rather than fixed reading lists, so the UI labels them as dynamic paths.
 
-### Features
-- **Virtual Shelf**: Books rendered as colored spines in LC call number order
-- **LC Classification Coloring**: Color-coded by main LC class (TR = red, N = blue, etc.)
-- **Search**: Real-time filtering across title, author, subject fields
-- **Detail Panel**: Click any spine to view full catalog metadata
-- **Signal Overlays**: Toggle Photography, Labor, Maritime, Theory themes
-- **Photo Likelihood Overlay**: Show/hide AI-scored embedded photography facet
+### Details and catalog truth
 
-### Architecture
-- **Monolithic HTML**: Single-file interface with embedded CSS/JavaScript
-- **CSV-to-JSON data loading**: Flattened structure for backward compatibility
-- **Synchronous rendering**: All spines rendered at once (performance bottleneck)
+The detail drawer uses text-node DOM construction and treats catalog metadata as untrusted text. It exposes the canonical title, recorded creators, publication string, publisher, material/format, physical request call number, subjects, notes, provenance, availability, identifiers, and the exact `record_url` from the ShelfSignals dataset. No Amazon or inferred catalog links are generated.
 
-### Known Issues
-1. **Freezing with large datasets** (>5,000 items): Synchronous DOM manipulation blocks UI thread
-2. **Memory leaks**: Event listeners not properly cleaned up
-3. **Slow search**: No debouncing or index optimization
+The committed `call_number` is usually the physical Sekula accession mark (`NE2698 .S4637L #####`), not a topical bibliographic LC class. The interface does not present inferred East/West wall positions as catalog facts. A future harvest should export Primo's bibliographic call number separately.
 
-### Build/Run Steps
-No build required—pure static HTML:
+### Deep links
 
-```bash
-# Local development
-cd /home/runner/work/ShelfSignals/ShelfSignals/docs
-python -m http.server 8000
-# Open http://localhost:8000 in browser
+Stable query parameters include:
 
-# Production deployment (GitHub Pages)
-# Automatically deployed from docs/ folder on push to main branch
-```
+- `?record=alma…`
+- `?q=…`
+- `?signals=image,labor`
+- `?path=labor-images`
+- `?lc=TR`, `?material=book`, `?decade=1970`, `?photo=Likely`
+- `?group=decade`, `?view=list`
 
-### Migration Notes
-New features are **not** backported to Production. Users should migrate to Preview for:
-- Better performance
-- Accessibility improvements
-- New deep facets and analysis modules
+History state restores the filter/view state and selected record. Unknown record IDs are removed without crashing the page.
 
-## Preview Interface (`/preview/`)
+### My Shelf and Digital Receipts
 
-### Purpose
-Experimental environment for testing new features before promotion to production. Showcases modular architecture with enhanced accessibility.
+My Shelf persists a de-duplicated list of Alma record IDs under the existing `shelfsignals_shelf` localStorage key. This preserves earlier Preview selections while avoiding stale embedded metadata.
 
-### Location
-- **File**: `docs/preview/index.html`
-- **URL**: https://gitbrainlab.github.io/ShelfSignals/preview/
-- **Data Source**: `docs/data/sekula_index.json` (JSON-native from Primo API)
+Users can:
 
-### Status
-✅ **Active Development**: Recommended interface for all users. Serves as staging ground for production-bound features.
+- add and remove records;
+- clear the shelf;
+- export a human-readable text list with Clark catalog URLs;
+- export a `shelfsignals-receipt@1` JSON receipt;
+- restore and verify a receipt before resolving its IDs against the current dataset.
 
-### Features
+QR export is deliberately disabled. The earlier implementation returned a placeholder image, not a real QR code.
 
-#### Core Visualization
-- **Virtual Shelf**: Progressive rendering with lazy loading
-- **Color Modes**:
-  - LC Classification (default)
-  - Thematic signals (Photography, Labor, Maritime, Theory)
-  - Photo Likelihood (AI-scored overlay with 4 buckets)
-- **Detail Panel**: Enhanced metadata display with:
-  - LC class breakdown with ranges
-  - Signal counts and keywords
-  - Direct catalog links
-  - Photo likelihood score and reasoning (when available)
+### Accessibility
 
-#### Search & Filtering
-- **Debounced Search**: 300ms delay prevents UI lag during typing
-- **Multi-Field Matching**: Title, author, subjects, call number, notes
-- **Match Highlighting**: Visual feedback showing which fields matched
-- **Empty States**: Explicit messaging when no results found
-- **Signal Filters**: Toggle visibility of items by thematic signal
-- **LC Class Filters**: Filter by main class or subclass ranges
-- **Photo Bucket Filters**: Filter by AI likelihood bands (Strongly Likely, Likely, Plausible, Unlikely)
+- semantic page landmarks and native buttons/links;
+- skip link and visible focus styling;
+- keyboard search with Command/Ctrl+K;
+- keyboard-operable featured shelf, results, drawers, previous/next navigation, and Escape close;
+- a research-oriented list mode;
+- text alternatives for book controls and decorative cover images hidden from assistive technology;
+- reduced-motion support and no scroll hijacking.
 
-#### Accessibility
-- **ARIA Roles**: Screen reader support for all interactive elements
-- **Keyboard Navigation**: Tab order, Enter/Space for activation, Escape to close
-- **Focus Management**: Proper focus trapping in modals and detail panels
-- **High Contrast Mode**: Toggle for visual impairments
-- **Colorblind-Friendly Palettes**: Alternative color schemes (stored in localStorage)
-- **Scalable Typography**: Responsive font sizing
+## Preview compatibility route
 
-#### Performance Optimizations
-- **Lazy Loading**: Books render progressively as they enter viewport
-- **Debounced Search**: Prevents excessive re-rendering during typing
-- **IndexedDB Caching**: Faster subsequent loads (data cached locally)
-- **Modular JavaScript**: Load only needed utilities
+Preview retains earlier modular utilities, spatial research controls, explainable signal evidence, overlap discovery, Data Sandbox diagnostics, and annotated receipts. It remains useful for research comparison, but it is not the recommended public landing route.
 
-### Architecture
+The physical S-number parser now accepts the Clark collection mark or an explicit S-number label and rejects ordinary `.S43` LC cutters and trailing publication years.
 
-#### Modular JavaScript Utilities
-Located in `docs/js/`:
+## Exhibit compatibility route
 
-1. **`signals.js`** - Signal registry and keyword matching
-   ```javascript
-   // Detect thematic signals in metadata
-   detectSignals(item)  // → ["photography", "maritime"]
-   getSignalColor(signalId)  // → "#e74c3c"
-   ```
+Exhibit preserves dynamic paths, exhibition cycles, presence/voting prototypes, and kiosk-oriented display. Its path definitions in `curated-paths.json` are signal rules, not hand-picked lists. QR is shown as unavailable until a real static client-side encoder is bundled.
 
-2. **`lc.js`** - LC call number parser
-   ```javascript
-   // Parse and sort LC call numbers
-   parseCallNumber("TR820 .S45 1995")
-   // → { class: "TR", subclass: "TR820", cutter: "S45", year: "1995", sortKey: "TR 0820 S45 1995" }
-   ```
+## Local development
 
-3. **`colors.js`** - Color palette management
-   ```javascript
-   // Unified color logic with persistence
-   getColorForClass(lcClass)  // → "#ff6b6b"
-   setPalette("colorblind")  // Switch to colorblind-friendly palette
-   ```
-
-4. **`search.js`** - Debounced search state
-   ```javascript
-   // Search with match computation
-   performSearch(query, items)  // → { matches: [...], count: 42 }
-   ```
-
-5. **`year.js`** - Year normalization
-   ```javascript
-   // Handle messy temporal data
-   normalizeYear("c1995")  // → 1995
-   normalizeYear("[1990-1995]")  // → 1990
-   ```
-
-6. **`receipt.js`** - Digital Receipt system
-   ```javascript
-   // Generate verifiable exports (see docs/receipts.md)
-   generateReceipt(state)  // → { id: "SS-A1B2-C3D4-E5F6", hash: "...", data: {...} }
-   ```
-
-### Build/Run Steps
-No build required—pure static HTML + modular JavaScript:
+Run from the repository root:
 
 ```bash
-# Local development
-cd /home/runner/work/ShelfSignals/ShelfSignals/docs/preview
-python -m http.server 8001
-# Open http://localhost:8001 in browser
-
-# Production deployment (GitHub Pages)
-# Automatically deployed from docs/preview/ folder on push to main branch
+python3 -m http.server 8000 --directory docs
 ```
 
-### Data Loading Flow
-1. Fetch `docs/data/sekula_index.json` (JSON array of ~11,000 items)
-2. Parse LC call numbers and compute sort keys (`lc.js`)
-3. Detect signals in metadata (`signals.js`)
-4. Normalize years and decades (`year.js`)
-5. Render virtual shelf with lazy loading
-6. Attach event listeners for search, filters, detail panel
+Open:
 
-### User Workflow Example
-1. **Browse**: Scroll through virtual shelf, see colored spines by LC class
-2. **Search**: Type "maritime labor" → see highlighted matches
-3. **Filter**: Toggle "Labor" signal → only Labor-related items visible
-4. **Inspect**: Click spine → detail panel with full metadata, LC breakdown, signals
-5. **Export**: Generate Digital Receipt → download JSON or QR code
+- `http://localhost:8000/`
+- `http://localhost:8000/legacy/`
+- `http://localhost:8000/preview/`
+- `http://localhost:8000/preview/exhibit/`
 
-## Exhibit Interface (`/preview/exhibit/`)
+`file://` is unsupported because ES modules and JSON fetches require an HTTP origin.
 
-### Purpose
-Museum-ready interface for public-facing exhibitions, gallery installations, and educational kiosks. Emphasizes **curated paths**, **progressive disclosure**, and **take-home collections** via Digital Receipts.
+## Data and modules
 
-### Location
-- **File**: `docs/preview/exhibit/index.html`
-- **URL**: https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/
-- **Data Source**: `docs/data/sekula_index.json` (same as Preview)
-- **Curated Paths**: `docs/preview/exhibit/curated-paths.json`
+- `docs/data/sekula_index.json`: canonical 11,176-record source used by all metadata display.
+- `docs/data/book_visuals.json`: versioned, provider-attributed cover-reference manifest.
+- `docs/data/featured_items.json`: version-controlled real record IDs for the hero and highlights.
+- `docs/js/cinematic-app.js`: primary application orchestration and safe DOM rendering.
+- `docs/js/catalog.js`: record normalization, full-field search, filters, grouping, and URL state.
+- `docs/js/visuals.js`: identifier normalization, manifest validation, deterministic book appearance, and featured resolution.
+- `docs/js/shelf.js`: ID-only persistence and receipt restoration.
+- `docs/js/signals.js`, `lc.js`, `year.js`, `colors.js`, `receipt.js`: shared utilities.
 
-### Status
-✅ **Active**: Recommended for museum installations, library kiosks, and public engagement.
+## Known limitations
 
-### Design Philosophy
-
-#### Jony Ive Aesthetic
-- **Minimal interface**: Strong hierarchy, generous whitespace
-- **Calm interactions**: Subtle animations, no visual clutter
-- **Typography-first**: Large, readable text (3.5rem headings in kiosk mode)
-- **Progressive disclosure**: Hide complexity until needed
-
-#### Fast & Focused
-- **3 Primary Actions** (front and center):
-  1. 🎨 **Explore Themes** - Browse by signal overlays
-  2. 🔍 **Search** - Direct item lookup
-  3. 🗺️ **Curated Paths** - Pre-selected thematic journeys
-- **Advanced filters hidden by default** - Click "Advanced Filters" to expand
-- **Details drawer (not modal)** - Non-intrusive item presentation
-
-#### Portable & Verifiable
-- **Digital Receipt System**: Export curated collections without server storage
-- **QR Code Sharing**: Generate scannable codes for mobile access
-- **URL Fragment Encoding**: Shareable links with embedded state
-- **No login required**: Fully client-side, privacy-respecting
-
-### Features
-
-#### 1. Curated Paths
-**8 thematic journeys** through the collection, hand-picked by curators:
-
-| Path | Icon | Description | Items |
-|------|------|-------------|-------|
-| **Labor & Images** | ⚙️📷 | Photography as documentary labor practice | 18 |
-| **Maritime Globalization** | 🚢🌊 | Shipping, ports, and global capital flows | 15 |
-| **Borders & Migration** | 🌍✈️ | Movement, displacement, border regimes | 12 |
-| **Archives & Museums** | 🏛️📚 | Institutional memory and collection politics | 14 |
-| **Cities & Logistics** | 🏙️🚛 | Urban infrastructure and distribution networks | 16 |
-| **Theory & Method** | 💭📖 | Critical frameworks and research practice | 20 |
-| **Documentary Practice** | 📹🎬 | Film, video, and observational methods | 13 |
-| **Industrial Capital** | 🏭💰 | Manufacturing, automation, financialization | 17 |
-
-**Data structure** (`curated-paths.json`):
-```json
-{
-  "paths": [
-    {
-      "id": "labor-images",
-      "title": "Labor & Images",
-      "icon": "⚙️📷",
-      "description": "Photography as documentary labor practice",
-      "curator_note": "Explores how photographic work intersects with labor history...",
-      "item_ids": [
-        "alma991002311449708431",
-        "alma991002311450008431",
-        ...
-      ]
-    }
-  ]
-}
-```
-
-**User flow**:
-1. Click "🗺️ Curated Paths" button
-2. Select a path from the menu
-3. Virtual shelf filters to show only path items
-4. Curator note appears in header
-5. Navigate between items or return to full shelf
-
-#### 2. Digital Receipt System
-**Portable, verifiable exports** of user-curated collections.
-
-**Features**:
-- **RFC 8785 canonical JSON** - Deterministic serialization
-- **SHA-256 verification** - Tamper-proof integrity checking
-- **Human-readable IDs** - `SS-A1B2-C3D4-E5F6` format
-- **No server storage** - Fully client-side (privacy-respecting)
-
-**Export formats**:
-- **JSON Download**: `receipt-SS-A1B2-C3D4-E5F6.json`
-- **QR Code**: PNG image for mobile scanning
-- **URL Fragment**: `#receipt=...` shareable link
-
-**Import/Restore**:
-- Drag-and-drop JSON file
-- Scan QR code with mobile camera
-- Navigate to URL with `#receipt=...` fragment
-
-**See [docs/receipts.md](receipts.md) for complete documentation.**
-
-#### 3. Kiosk Mode
-**Optimized for unattended public installations.**
-
-**Activation**: Add `?kiosk=1` to URL
-```
-https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/?kiosk=1
-```
-
-**Kiosk-specific features**:
-- **Large typography**: 3.5rem headings, 1.25rem body text
-- **High contrast**: Optimized for exhibition lighting conditions
-- **Inactivity timer**: Auto-reset to attract screen after 2 minutes of no interaction
-- **Controlled navigation**: External links open in same tab (not new windows)
-- **Simplified UI**: Hide advanced features, focus on primary actions
-- **Fullscreen mode**: Recommended for touchscreen kiosks
-
-**Reset behavior** (after 2 min idle):
-1. Clear all filters and search
-2. Return to full shelf view
-3. Show attract screen: "Touch to explore the collection"
-4. Resume normal interaction on any touch/click
-
-#### 4. Progressive Disclosure
-**Hide complexity until needed.**
-
-**Primary actions** (always visible):
-- 🎨 Explore Themes (signal overlays)
-- 🔍 Search (text input)
-- 🗺️ Curated Paths (dropdown menu)
-
-**Secondary actions** (revealed on demand):
-- Advanced Filters (click to expand)
-  - LC Class filters
-  - Photo Likelihood buckets
-  - Signal toggles
-- Color Palette selector (settings icon)
-- Digital Receipt export (share icon)
-
-**Detail drawer** (not modal):
-- Slides in from right
-- Doesn't block shelf view
-- Dismissable with Escape or click outside
-- Shows full metadata, signals, photo likelihood
-
-### Architecture
-
-#### Parallel UI Shell
-Exhibit is a **separate HTML file** (`docs/preview/exhibit/index.html`) that:
-- Shares JavaScript modules from `docs/js/` (signals, lc, colors, search, receipt)
-- Loads same data (`docs/data/sekula_index.json`)
-- Implements different UI layout and interaction patterns
-- Adds curated paths layer (`curated-paths.json`)
-
-#### Code Reuse
-- **Data loading**: Same JSON parsing logic as Preview
-- **Search logic**: Same `search.js` module
-- **LC parsing**: Same `lc.js` module
-- **Receipt generation**: Same `receipt.js` module
-- **Signal detection**: Same `signals.js` module
-
-#### Divergence from Preview
-- **Layout**: Horizontal navigation bar (not sidebar)
-- **Detail view**: Drawer (not modal)
-- **Primary actions**: Curated paths front and center
-- **Advanced filters**: Hidden by default
-- **Typography**: Larger scale for public viewing
-- **Kiosk mode**: Additional UI state for unattended operation
-
-### Build/Run Steps
-No build required—pure static HTML + shared JavaScript modules:
-
-```bash
-# Local development
-cd /home/runner/work/ShelfSignals/ShelfSignals/docs/preview/exhibit
-python -m http.server 8002
-# Open http://localhost:8002 in browser
-
-# Kiosk mode
-# Open http://localhost:8002?kiosk=1
-
-# Production deployment (GitHub Pages)
-# Automatically deployed from docs/preview/exhibit/ folder on push to main branch
-```
-
-### User Workflow Examples
-
-#### Casual Visitor (Kiosk)
-1. **Attract screen**: "Touch to explore the Allan Sekula Library collection"
-2. **Touch screen** → shelf loads with colored spines
-3. **See prompt**: "Try: Explore Themes | Search | Curated Paths"
-4. **Click "Curated Paths"** → menu of 8 themed journeys
-5. **Select "Labor & Images"** → shelf filters to 18 items, curator note appears
-6. **Click spine** → detail drawer with photo, metadata, signals
-7. **Idle for 2 min** → auto-reset to attract screen
-
-#### Museum Visitor (Take-Home Collection)
-1. **Browse shelf** via search or curated paths
-2. **Click 5-10 items** of interest (spines marked as "selected")
-3. **Click share icon** → "Export Digital Receipt"
-4. **Download JSON** or **scan QR code** with phone
-5. **Email to self** or **save to cloud**
-6. **At home**: Upload JSON to retrieve exact collection
-
-#### Researcher (Advanced Exploration)
-1. **Search**: "maritime labor"
-2. **Click "Advanced Filters"** → expand LC class, signals, photo likelihood
-3. **Filter**: LC class = "HD" (Economics), Signal = "Labor", Photo Likelihood = "Likely"
-4. **Review results**: ~50 items matching all criteria
-5. **Export Receipt**: Download JSON for citation in paper
-6. **Verify integrity**: Check SHA-256 hash in receipt
-
-### Curated Paths Management
-
-#### Editing Paths
-**File**: `docs/preview/exhibit/curated-paths.json`
-
-To add or modify paths:
-1. Edit JSON file with text editor
-2. Verify `item_ids` exist in `sekula_index.json`
-3. Test in browser (paths auto-reload on file change during development)
-4. Commit changes to Git
-
-**Example path entry**:
-```json
-{
-  "id": "new-path-id",
-  "title": "New Thematic Path",
-  "icon": "🎨📐",
-  "description": "Brief one-line description",
-  "curator_note": "Longer explanation of curatorial choices, themes, and connections between items...",
-  "item_ids": [
-    "alma991002311449708431",
-    "alma991002311450008431"
-  ]
-}
-```
-
-#### Best Practices
-- **Path size**: 10-20 items (enough depth, not overwhelming)
-- **Thematic coherence**: Clear conceptual thread across items
-- **Diverse formats**: Mix books, catalogs, monographs
-- **LC spread**: Don't cluster too narrowly in one class
-- **Curator notes**: 2-3 sentences explaining the selection rationale
-
-## Interface Selection Guide
-
-### Choose **Production** if:
-- ❌ **Not recommended** - Use Preview instead
-
-### Choose **Preview** if:
-- ✅ You're a **researcher** exploring the collection
-- ✅ You need **advanced filtering** and **AI-powered facets**
-- ✅ You want the **latest features** and **best performance**
-- ✅ You value **accessibility** (screen readers, keyboard nav)
-- ✅ You're **developing** new analysis modules or UI features
-
-### Choose **Exhibit** if:
-- ✅ You're **installing in a museum** or gallery
-- ✅ You need **kiosk mode** for public touchscreens
-- ✅ You want **curated paths** for guided exploration
-- ✅ You're enabling **take-home collections** via Digital Receipts
-- ✅ You value **minimal, exhibition-ready UI**
-- ✅ You're presenting at **conferences** or **workshops**
-
-## Where Outputs Live
-
-### Interface Artifacts
-All interfaces generate **client-side only** artifacts (no server storage):
-
-| Artifact | Location | Persistence |
-|----------|----------|-------------|
-| **Search state** | Browser memory | Lost on page reload |
-| **Active filters** | Browser memory | Lost on page reload |
-| **Color palette preference** | `localStorage` | Persists across sessions |
-| **Digital Receipts** | User downloads (JSON files) | User-managed |
-| **QR codes** | Generated dynamically (PNG) | User-managed |
-| **Screenshots** | User-captured via browser | User-managed |
-
-### Data Sources (Read-Only)
-- **Production**: `docs/data/sekula_inventory.json` (~5MB)
-- **Preview**: `docs/data/sekula_index.json` (~8MB)
-- **Exhibit**: `docs/data/sekula_index.json` + `docs/preview/exhibit/curated-paths.json` (~10KB)
-
-### Static Assets
-- **HTML**: `docs/*.html`, `docs/preview/*.html`, `docs/preview/exhibit/*.html`
-- **JavaScript**: `docs/js/*.js` (shared modules)
-- **CSS**: Embedded in HTML files (no separate stylesheets)
-- **Images**: `docs/images/*.png` (screenshots for documentation)
-
-## Accessibility Features (Preview & Exhibit)
-
-### Screen Reader Support
-- **ARIA roles**: `role="button"`, `role="dialog"`, `role="listitem"`
-- **ARIA labels**: `aria-label="Search books"`, `aria-describedby="search-help"`
-- **ARIA live regions**: `aria-live="polite"` for search result counts
-- **Semantic HTML**: `<nav>`, `<main>`, `<article>`, `<aside>` for structure
-
-### Keyboard Navigation
-- **Tab order**: Logical focus sequence through interactive elements
-- **Enter/Space**: Activate buttons and toggle controls
-- **Escape**: Close modals, detail panels, or menus
-- **Arrow keys**: Navigate between search results or shelf items (optional)
-
-### Visual Accessibility
-- **High contrast mode**: Toggle for low-vision users
-- **Colorblind-friendly palettes**: Deuteranopia/protanopia-optimized colors
-- **Scalable typography**: Responsive font sizing (em/rem units)
-- **Focus indicators**: Visible outlines on keyboard focus
-
-### Testing
-Accessibility features tested with:
-- **NVDA** (Windows screen reader)
-- **VoiceOver** (macOS/iOS screen reader)
-- **ChromeVox** (Chrome extension)
-- **Keyboard-only navigation** (no mouse)
-- **Color contrast analyzers** (WCAG AA compliance)
-
-## Next Steps
-
-- **Run interfaces locally**: See [docs/operations.md](operations.md)
-- **Understand Digital Receipts**: See [docs/receipts.md](receipts.md)
-- **Learn about the data pipeline**: See [docs/pipeline.md](pipeline.md)
-- **Explore deep facets**: See [docs/PHOTO_LIKELIHOOD_FACET.md](PHOTO_LIKELIHOOD_FACET.md)
+- The canonical JSON is about 39 MB uncompressed (about 4 MB with normal HTTP compression); initial parsing still depends on the visitor's device.
+- The visual manifest covers a small, conservatively verified subset. Most records intentionally use metadata-derived fallback objects.
+- Remote cover hosts can fail or rate-limit; layout and metadata remain functional when they do.
+- `photo_insert_*` values currently come from a mock heuristic dataset. The UI labels them experimental and does not claim edition inspection.
+- The current signal registry is keyword-based. Counts are reproducible, not curatorial endorsements.
+- Preview and Exhibit remain historical experiments and may render more DOM than the primary interface.

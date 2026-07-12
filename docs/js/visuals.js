@@ -1,0 +1,186 @@
+/**
+ * Deterministic visual helpers for real ShelfSignals catalog records.
+ * Generated colors and book forms are interface representations, never scans.
+ */
+
+export const VISUAL_MANIFEST_SCHEMA = "shelfsignals-book-visuals@1";
+export const FEATURED_SCHEMA = "shelfsignals-featured-items@1";
+
+const SAFE_COVER_HOSTS = new Set([
+  "covers.openlibrary.org",
+  "books.google.com",
+  "books.googleusercontent.com",
+  "books.googleusercontent.com"
+]);
+
+export function normalizeIsbn(value = "") {
+  const compact = String(value).toUpperCase().replace(/[^0-9X]/g, "");
+  if (/^\d{9}[\dX]$/.test(compact)) {
+    const total = [...compact].reduce((sum, digit, index) => sum + (digit === "X" ? 10 : Number(digit)) * (10 - index), 0);
+    return total % 11 === 0 ? compact : "";
+  }
+  if (/^\d{13}$/.test(compact)) {
+    const total = [...compact].reduce((sum, digit, index) => sum + Number(digit) * (index % 2 ? 3 : 1), 0);
+    return total % 10 === 0 ? compact : "";
+  }
+  return "";
+}
+
+export function normalizeOclc(value = "") {
+  const text = String(value).trim();
+  const tagged = text.match(/(?:OCoLC|ocolc|ocm|ocn|on)?\s*0*(\d{4,})/i);
+  return tagged ? tagged[1] : "";
+}
+
+export function normalizeLccn(value = "") {
+  return String(value).toLowerCase().replace(/^lccn\s*/i, "").replace(/[^a-z0-9]/g, "");
+}
+
+export function stableHash(value = "") {
+  let hash = 2166136261;
+  for (const char of String(value)) {
+    hash ^= char.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function hslToHex(hue, saturation, lightness) {
+  const s = saturation / 100;
+  const l = lightness / 100;
+  const chroma = (1 - Math.abs(2 * l - 1)) * s;
+  const segment = hue / 60;
+  const second = chroma * (1 - Math.abs((segment % 2) - 1));
+  let rgb = [0, 0, 0];
+  if (segment < 1) rgb = [chroma, second, 0];
+  else if (segment < 2) rgb = [second, chroma, 0];
+  else if (segment < 3) rgb = [0, chroma, second];
+  else if (segment < 4) rgb = [0, second, chroma];
+  else if (segment < 5) rgb = [second, 0, chroma];
+  else rgb = [chroma, 0, second];
+  const offset = l - chroma / 2;
+  return `#${rgb.map(channel => Math.round((channel + offset) * 255).toString(16).padStart(2, "0")).join("")}`;
+}
+
+export function deterministicBookColors(record = {}) {
+  const seed = stableHash(record.id || record.title || record.call_number || "shelfsignals");
+  const hueFamilies = [18, 27, 36, 47, 82, 136, 164, 193, 211, 226, 246, 278, 328, 354];
+  const hue = (hueFamilies[seed % hueFamilies.length] + ((seed >>> 8) % 13) - 6 + 360) % 360;
+  const saturation = 18 + ((seed >>> 12) % 27);
+  const baseLightness = 19 + ((seed >>> 18) % 17);
+  return {
+    color: hslToHex(hue, saturation, baseLightness),
+    light: hslToHex(hue, Math.max(12, saturation - 3), Math.min(52, baseLightness + 14)),
+    dark: hslToHex(hue, Math.min(55, saturation + 7), Math.max(7, baseLightness - 10)),
+    ink: baseLightness > 29 ? "#f1eadc" : "#ded0b5"
+  };
+}
+
+export function parsePhysicalHeight(formats = []) {
+  const values = Array.isArray(formats) ? formats : [formats];
+  for (const value of values) {
+    const matches = [...String(value || "").matchAll(/(?:^|[;,:x×]\s*|\b)(\d{1,3}(?:\.\d+)?)\s*cm\b/gi)];
+    if (matches.length) {
+      const candidate = Number(matches[matches.length - 1][1]);
+      if (candidate >= 5 && candidate <= 100) return candidate;
+    }
+  }
+  return null;
+}
+
+export function physicalBookHeight(record = {}, min = 18, max = 34) {
+  const cm = parsePhysicalHeight(record.formats);
+  const clamped = Math.max(min, Math.min(max, cm || 23));
+  return { cm, ratio: (clamped - min) / (max - min) };
+}
+
+export function shortDisplayTitle(title = "", max = 92) {
+  const clean = String(title || "Untitled").replace(/\s+/g, " ").trim();
+  const responsibility = clean.indexOf(" / ");
+  const candidate = responsibility > 10 ? clean.slice(0, responsibility) : clean;
+  if (candidate.length <= max) return candidate;
+  const clipped = candidate.slice(0, max - 1).replace(/\s+\S*$/, "").trim();
+  return `${clipped || candidate.slice(0, max - 1)}…`;
+}
+
+export function isAllowedCoverUrl(value) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && SAFE_COVER_HOSTS.has(url.hostname.toLowerCase());
+  } catch (_) {
+    return false;
+  }
+}
+
+export function parseVisualManifest(raw = {}) {
+  if (!raw || raw.schema !== VISUAL_MANIFEST_SCHEMA || typeof raw.items !== "object" || Array.isArray(raw.items)) {
+    return { schema: VISUAL_MANIFEST_SCHEMA, generated_at: null, items: {}, rejected: true };
+  }
+  const items = {};
+  for (const [id, visual] of Object.entries(raw.items)) {
+    if (!visual || visual.status !== "resolved" || !isAllowedCoverUrl(visual.image_url || visual.thumbnail_url)) continue;
+    const imageUrl = isAllowedCoverUrl(visual.image_url) ? visual.image_url : visual.thumbnail_url;
+    items[id] = {
+      ...visual,
+      image_url: imageUrl,
+      thumbnail_url: isAllowedCoverUrl(visual.thumbnail_url) ? visual.thumbnail_url : imageUrl
+    };
+  }
+  return { ...raw, items, rejected: false };
+}
+
+export function getRecordVisual(record = {}, manifest = {}) {
+  const visual = manifest.items?.[record.id];
+  return visual && isAllowedCoverUrl(visual.image_url) ? visual : null;
+}
+
+export function resolveFeaturedItems(records = [], config = {}, manifest = {}, desired = 11) {
+  const byId = new Map(records.map(record => [record.id, record]));
+  const requested = Array.isArray(config.hero) ? config.hero : [];
+  const selected = [];
+  const seen = new Set();
+  for (const id of requested) {
+    const record = byId.get(id);
+    if (record && !seen.has(id)) {
+      selected.push(record);
+      seen.add(id);
+    }
+  }
+  if (selected.length < desired) {
+    const coverFirst = records.filter(record => getRecordVisual(record, manifest));
+    const fallback = coverFirst.length ? coverFirst : records;
+    for (const record of fallback) {
+      if (selected.length >= desired) break;
+      if (!record?.id || seen.has(record.id)) continue;
+      selected.push(record);
+      seen.add(record.id);
+    }
+  }
+  return selected.slice(0, desired);
+}
+
+export function bookStyleProperties(record = {}, visual = null) {
+  const colors = deterministicBookColors(record);
+  const { ratio } = physicalBookHeight(record);
+  const aspect = Number(visual?.aspect_ratio);
+  return {
+    "--book-color": colors.color,
+    "--book-light": colors.light,
+    "--book-dark": colors.dark,
+    "--book-ink": colors.ink,
+    "--book-height": `${330 + ratio * 160}px`,
+    "--mobile-height": `${250 + ratio * 70}px`,
+    "--spine-height": `${112 + ratio * 80}px`,
+    "--spine-width": `${24 + (stableHash(record.id) % 15)}px`,
+    "--book-ratio": Number.isFinite(aspect) && aspect > .35 && aspect < 1.2 ? String(aspect) : ".68",
+    ...(visual ? { "--cover-image": `url("${visual.thumbnail_url || visual.image_url}")` } : {})
+  };
+}
+
+export function applyBookStyle(element, record, visual = null) {
+  for (const [property, value] of Object.entries(bookStyleProperties(record, visual))) {
+    element.style.setProperty(property, value);
+  }
+  if (visual) element.classList.add("has-cover");
+}

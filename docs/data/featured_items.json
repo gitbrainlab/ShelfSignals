@@ -1,0 +1,24 @@
+{
+  "schema": "shelfsignals-featured-items@1",
+  "version": "2.0.0",
+  "hero": [
+    "alma991002293459708431",
+    "alma991002035079708431",
+    "alma991002036209708431",
+    "alma991000988109708431",
+    "alma991002098269708431",
+    "alma991002060819708431",
+    "alma991002071159708431",
+    "alma991000755499708431",
+    "alma991002007049708431",
+    "alma991001614609708431",
+    "alma991002293449708431"
+  ],
+  "highlights": [
+    "alma991002043689708431",
+    "alma991001928559708431",
+    "alma991002057629708431",
+    "alma991002006419708431"
+  ],
+  "notes": "Record IDs are resolved against docs/data/sekula_index.json. The interface ignores missing IDs and fills from records with verified cover references."
+}
