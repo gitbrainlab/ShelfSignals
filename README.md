@@ -68,6 +68,7 @@ See [**docs/operations.md**](docs/operations.md) for complete pipeline documenta
 - **[docs/interfaces.md](docs/interfaces.md)** - Production/Preview/Exhibit interface documentation
 - **[docs/receipts.md](docs/receipts.md)** - Digital Receipt system for portable, verifiable exports
 - **[docs/operations.md](docs/operations.md)** - Running locally, scheduling, storage layout, export formats
+- **[docs/edition-enrichment.md](docs/edition-enrichment.md)** - Exact-edition metadata, provenance, physical evidence, and regeneration
 
 ### 📖 Getting Started Guides
 - **[INTRODUCTION.md](INTRODUCTION.md)** - Visual user guide with screenshots and workflows
@@ -89,6 +90,7 @@ See [**docs/operations.md**](docs/operations.md) for complete pipeline documenta
 - **Normalization Layer**: LC parsing, publisher canonicalization, year normalization, subject cleanup
 - **Pattern Detection**: Sequence analysis, signal matching, classification clustering
 - **Visual Intelligence**: Virtual shelf, LC coloring, thematic overlays, interactive exploration
+- **Evidence-Aware Book Forms**: Clark catalog geometry plus exact-edition physical metadata with property-level provenance
 - **AI Deep Facets**: Embedded Photography Likelihood scorer (xAI Grok API)
 
 ### 🎨 Three Specialized Interfaces
@@ -228,4 +230,3 @@ See [**docs/operations.md - Adapting to New Collections**](docs/operations.md#ad
 ## License
 
 ShelfSignals is an open-source research project. See repository for license details.
-

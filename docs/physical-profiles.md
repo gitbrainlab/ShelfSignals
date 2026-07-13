@@ -20,7 +20,7 @@ The manifest is produced by `scripts/build_book_profiles.py`. The browser-side p
 
 Clark's records rarely state book-block thickness. When a book record gives pages or leaves, ShelfSignals calculates a bounded interface estimate from page-equivalent count plus a modest cover allowance. Folded sheets, portfolios, folders, housings, loose-leaf objects, and multi-volume sets are excluded. The result is labeled `Estimated from extent` everywhere it appears. It is not written back to the catalog and must not be described as a measured collection fact.
 
-If extent is missing, multi-volume, or structurally unsuitable, the depth remains unknown and the interface uses a neutral fallback width. No record receives a random physical width.
+If extent is missing, multi-volume, or structurally unsuitable, the depth remains unknown and the interface uses a neutral fallback width. No record receives a random physical width. A conflict-free, exact-ISBN three-axis edition specification may replace the generic model, but it remains visibly labeled external provider-edition evidence rather than a measurement of the Clark copy.
 
 ## Cover-image optical analysis
 
@@ -31,14 +31,15 @@ For the small exact-ISBN cover sample, `scripts/analyze_cover_visuals.py` uses P
 For future exact-edition enrichment, use identifiers rather than title similarity:
 
 1. Clark/Alma physical description and local copy measurements;
-2. exact ISBN data from the [Google Books Volumes API](https://developers.google.com/books/docs/v1/reference/volumes), whose volume schema can include height, width, and thickness;
-3. exact ISBN edition data from [Open Library](https://openlibrary.org/developers/api), within its published low-volume API and covers usage guidance;
-4. exact control-number MARC records using the Library of Congress [MARC 21 physical-description field](https://www.loc.gov/marc/bibliographic/bd300.html) and, where present, [physical-medium details](https://www.loc.gov/marc/bibliographic/bd340.html);
-5. Internet Archive scans as evidence for front/back cover imagery, never as an assumed spine measurement.
+2. exact ISBN edition data from the official [Open Library monthly Editions dump](https://openlibrary.org/data), whose records can include format, dimensions, weight, pagination, and page count;
+3. licensed publisher/distributor ONIX data, whose product records can include shelf height, cover width, spine thickness, weight, binding, and spine imagery;
+4. exact ISBN data from the [Google Books Volumes API](https://developers.google.com/books/docs/v1/reference/volumes), whose volume schema can include height, width, and thickness, used only within its live-API terms and project quota;
+5. exact control-number MARC records using the Library of Congress [MARC 21 physical-description field](https://www.loc.gov/marc/bibliographic/bd300.html) and, where present, [physical-medium details](https://www.loc.gov/marc/bibliographic/bd340.html);
+6. Internet Archive scans as evidence for front/back cover imagery, never as an assumed spine measurement.
 
 Store source, identifier, match method, confidence, unit, and raw evidence with every enriched value. A title-only or similar-edition match must never become factual geometry.
 
-Open Library explicitly discourages hundreds of single-book requests and bulk harvesting; the committed analyzer therefore touches only the 13 already verified exact-ISBN cover references and keeps a local cache.
+Open Library explicitly directs collection-scale work to its monthly dumps. ShelfSignals therefore builds edition metadata locally without per-book API traffic. The matching, conflict, provenance, Common Crawl, and runtime rules are documented in [Edition metadata enrichment](./edition-enrichment.md). The cover analyzer remains limited to the 13 already verified exact-ISBN image references and keeps a local cache.
 
 ## What would provide a true side profile
 

@@ -21,6 +21,7 @@ The primary interface is a zero-build static application composed of semantic HT
 
 - A shallow CSS-perspective shelf contains a bounded set of real records configured in `docs/data/featured_items.json`.
 - Verified cover references from `docs/data/book_visuals.json` can appear on a front or spine surface.
+- Exact-identifier edition evidence from `docs/data/book_editions.json` loads after the first render and can fill otherwise unknown synthetic geometry without delaying the initial catalog browser.
 - Every fallback book uses the record's real title, creator, date, call number, material type, and deterministic color. It is an interface representation, not a photograph of the object.
 - Motion is limited and disabled by `prefers-reduced-motion`.
 
@@ -34,7 +35,7 @@ The primary interface is a zero-build static application composed of semantic HT
 
 ### Details and catalog truth
 
-The detail drawer uses text-node DOM construction and treats catalog metadata as untrusted text. It exposes the canonical title, recorded creators, publication string, publisher, material/format, physical request call number, subjects, notes, provenance, availability, identifiers, and the exact `record_url` from the ShelfSignals dataset. No Amazon or inferred catalog links are generated.
+The detail drawer uses text-node DOM construction and treats catalog metadata as untrusted text. It exposes the canonical title, recorded creators, publication string, publisher, material/format, physical request call number, subjects, notes, provenance, availability, identifiers, and the exact `record_url` from the ShelfSignals dataset. A separate panel can expose a validated Open Library edition URL and exact match evidence; it is explicitly labeled provider-edition metadata rather than evidence about the Clark copy. No Amazon or inferred catalog links are generated.
 
 The committed `call_number` is usually the physical Sekula accession mark (`NE2698 .S4637L #####`), not a topical bibliographic LC class. The interface does not present inferred East/West wall positions as catalog facts. A future harvest should export Primo's bibliographic call number separately.
 

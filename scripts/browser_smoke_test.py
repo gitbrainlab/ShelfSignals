@@ -222,6 +222,36 @@ def featured_record(
     )
 
 
+def edition_enrichment_record(
+    records: Sequence[Dict[str, Any]], manifest: Any
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    check(
+        isinstance(manifest, dict)
+        and manifest.get("schema") == "shelfsignals-edition-enrichment@1"
+        and isinstance(manifest.get("items"), dict),
+        "The served edition-enrichment manifest is missing or incompatible.",
+    )
+    by_id = {str(record["id"]): record for record in records}
+    items = manifest["items"]
+    priorities = ("physical_dimensions", "physical_format", "number_of_pages", None)
+    for field in priorities:
+        for record_id, item in items.items():
+            record = by_id.get(str(record_id))
+            if not record or not isinstance(item, dict) or not item.get("candidates"):
+                continue
+            resolved = item.get("resolved", {})
+            if field and field not in resolved:
+                continue
+            if field == "physical_dimensions":
+                formats = string_values(record.get("formats"))
+                if any(re.search(r"\d\s*[x×X]\s*\d[^;]*\bcm\b", value) for value in formats):
+                    continue
+            return record, item
+    raise SmokeFailure(
+        "No valid exact-edition record is available for enrichment browser testing."
+    )
+
+
 def string_values(value: Any) -> List[str]:
     if isinstance(value, list):
         return [str(item) for item in value if item]
@@ -617,6 +647,118 @@ def run_cover_failure_flow(
         context.close()
 
 
+def run_edition_enrichment_flow(
+    browser: Any,
+    base_url: str,
+    record: Dict[str, Any],
+    manifest_item: Dict[str, Any],
+    timeout_ms: int,
+) -> None:
+    context = browser.new_context(viewport={"width": 1440, "height": 1000})
+    page = context.new_page()
+    page.set_default_timeout(timeout_ms)
+    errors = BrowserErrors(page)
+    try:
+        wait_for_primary_app(page, base_url, timeout_ms)
+        record_id = str(record["id"])
+        page.locator("#collectionSearch").fill(record_id)
+        page.locator('.view-button[data-view="spines"]').click()
+        spine = page.locator(
+            f'#collectionGrid .spine-book[data-record-id="{record_id}"]'
+        )
+        spine.wait_for(state="visible", timeout=timeout_ms)
+        page.wait_for_function(
+            "element => element.classList.contains('has-edition-evidence')",
+            arg=spine.element_handle(),
+            timeout=timeout_ms,
+        )
+        check(
+            spine.locator(".spine-title").inner_text().strip()
+            == short_display_title(record["title"]),
+            "Enriched spine title does not match the served catalog record.",
+        )
+        check(
+            spine.locator(".spine-evidence").count() == 1,
+            "Exact-edition spine does not expose its evidence marker.",
+        )
+        check(
+            spine.locator(".spine-meta").count() == 1,
+            "Enriched spine does not expose real compact catalog metadata.",
+        )
+        spine.click()
+        page.locator("#detailDrawer").wait_for(state="visible", timeout=timeout_ms)
+        page.locator("#detailEdition").wait_for(state="visible", timeout=timeout_ms)
+        note = page.locator("#editionEvidenceNote").inner_text().casefold()
+        check(
+            "provider edition" in note and "not evidence about the clark copy" in note,
+            f"External-edition disclosure is incomplete: {note!r}",
+        )
+        source_url = page.locator("#editionEvidenceLink").get_attribute("href") or ""
+        check(
+            bool(re.fullmatch(r"https://openlibrary\.org/books/OL\d+M", source_url)),
+            f"External-edition link is not a validated Open Library edition URL: {source_url!r}",
+        )
+        metadata_text = page.locator("#editionMetadata").inner_text().casefold()
+        check(
+            "exact" in metadata_text and "open library id" in metadata_text,
+            "External-edition panel omits its match method or provider record ID.",
+        )
+        formats = string_values(record.get("formats"))
+        dimensions_fill_a_gap = (
+            "physical_dimensions" in manifest_item.get("resolved", {})
+            and not any(
+                re.search(r"\d\s*[x×X]\s*\d[^;]*\bcm\b", value)
+                for value in formats
+            )
+        )
+        if dimensions_fill_a_gap:
+            check(
+                "open library edition" in page.locator("#physicalMetrics").inner_text().casefold(),
+                "A gap-filling exact-edition dimension is not labeled Open Library edition.",
+            )
+        report(
+            "exact-edition metadata enriches the real spine and detail with copy-scope disclosure"
+        )
+        errors.assert_clean("edition enrichment flow")
+    finally:
+        context.close()
+
+
+def run_edition_failure_flow(
+    browser: Any, base_url: str, timeout_ms: int
+) -> None:
+    context = browser.new_context(viewport={"width": 1280, "height": 900})
+    page = context.new_page()
+    page.set_default_timeout(timeout_ms)
+    page.route(route_url(base_url, "data/book_editions.json"), lambda route: route.abort())
+    errors = BrowserErrors(page)
+    try:
+        wait_for_primary_app(page, base_url, timeout_ms)
+        page.wait_for_timeout(1800)
+        page.locator('.view-button[data-view="spines"]').click()
+        page.locator("#collectionGrid .spine-book").first.wait_for(
+            state="visible", timeout=timeout_ms
+        )
+        check(
+            page.locator("#collectionGrid .spine-book").count() > 0,
+            "The Clark-only shelf disappeared when external enrichment failed.",
+        )
+        check(
+            page.locator("#collectionGrid .spine-book.has-edition-evidence").count() == 0,
+            "A failed manifest request left an unverified edition-evidence marker.",
+        )
+        report("edition-manifest failure preserves the complete Clark-only browser")
+        unexpected = [error for error in errors.errors if "net::ERR_FAILED" not in error]
+        check(
+            not unexpected,
+            "Edition failure flow emitted errors unrelated to the intentionally aborted manifest: "
+            f"{unexpected}",
+        )
+        report("edition failure flow emitted only the intentionally aborted manifest request")
+    finally:
+        context.close()
+
+
 def run_mobile_flow(browser: Any, base_url: str, timeout_ms: int) -> None:
     context = browser.new_context(
         viewport={"width": 390, "height": 844},
@@ -885,6 +1027,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             visual_manifest = load_json_url(
                 route_url(base_url, "data/book_visuals.json"), timeout_seconds
             )
+            edition_manifest = load_json_url(
+                route_url(base_url, "data/book_editions.json"), timeout_seconds
+            )
+            edition_record, edition_item = edition_enrichment_record(
+                records, edition_manifest
+            )
             by_id = {str(record["id"]): record for record in records}
             cover_record = next(
                 (
@@ -913,6 +1061,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 run_primary_flow(browser, base_url, records, hero_record, args.timeout_ms)
                 run_reduced_motion_flow(browser, base_url, args.timeout_ms)
                 run_cover_failure_flow(browser, base_url, cover_record, args.timeout_ms)
+                run_edition_enrichment_flow(
+                    browser,
+                    base_url,
+                    edition_record,
+                    edition_item,
+                    args.timeout_ms,
+                )
+                run_edition_failure_flow(browser, base_url, args.timeout_ms)
                 run_mobile_flow(browser, base_url, args.timeout_ms)
                 run_compatibility_routes(browser, base_url, args.timeout_ms)
                 if args.screenshot_dir:

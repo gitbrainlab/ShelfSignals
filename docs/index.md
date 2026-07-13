@@ -171,6 +171,8 @@ For scholars and digital humanities researchers:
 - **[docs/pipeline.md](pipeline.md)**: Data model, normalization, enrichment, and reproducibility practices
 - **[docs/interfaces.md](interfaces.md)**: Primary, Legacy, Preview, and Exhibit route documentation
 - **[docs/cover-enrichment.md](cover-enrichment.md)**: Visual-manifest generation, provider policy, and attribution
+- **[docs/edition-enrichment.md](edition-enrichment.md)**: Exact-edition joins, physical evidence, provenance, and Common Crawl assessment
+- **[docs/physical-profiles.md](physical-profiles.md)**: Catalog dimensions, bounded depth modeling, and copy-specific evidence limits
 - **[docs/receipts.md](receipts.md)**: Digital Receipt system for portable, verifiable exports
 - **[docs/operations.md](operations.md)**: Running locally, scheduling, storage layout, and export formats
 
