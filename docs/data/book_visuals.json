@@ -8,7 +8,8 @@
     "checked": 13,
     "resolved": 13,
     "rejected": 0,
-    "ambiguous": 0
+    "ambiguous": 0,
+    "analyzed": 13
   },
   "items": {
     "alma991000755499708431": {
@@ -22,7 +23,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.75,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 375,
+          "height": 500
+        },
+        "stored_raster_pixels": {
+          "width": 375,
+          "height": 500
+        },
+        "source_bytes": 56686,
+        "source_sha256": "sha256:488ae6d55a96d4568548ce01176890306589e89cad5bea85b2512aa377f55929",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.75,
+        "palette": [
+          {
+            "hex": "#2a2217",
+            "share": 0.225532,
+            "pixel_count": 24942
+          },
+          {
+            "hex": "#b49e83",
+            "share": 0.184172,
+            "pixel_count": 20368
+          },
+          {
+            "hex": "#957e67",
+            "share": 0.177933,
+            "pixel_count": 19678
+          },
+          {
+            "hex": "#3a3125",
+            "share": 0.153221,
+            "pixel_count": 16945
+          },
+          {
+            "hex": "#58493b",
+            "share": 0.146918,
+            "pixel_count": 16248
+          },
+          {
+            "hex": "#c9b69b",
+            "share": 0.112223,
+            "pixel_count": 12411
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.397467,
+          "luminance_contrast": 0.220396,
+          "luminance_entropy_bits": 7.333328,
+          "gradient_energy": 0.016919,
+          "high_frequency_energy": 0.021454,
+          "border_mean_luminance": 0.215295,
+          "inner_mean_luminance": 0.442297,
+          "border_inner_luminance_delta": 0.227002,
+          "border_inner_color_distance": 0.222742,
+          "border_band_fraction": 0.0625
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "0374226261",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/0374226261-L.jpg?default=false",
+          "working_pixels": {
+            "width": 288,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991000988109708431": {
       "status": "resolved",
@@ -35,7 +107,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.791579,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 376,
+          "height": 475
+        },
+        "stored_raster_pixels": {
+          "width": 376,
+          "height": 475
+        },
+        "source_bytes": 44194,
+        "source_sha256": "sha256:0ac4e7c89be82c8f28404fa5aa028bcb5244482c0e56c5162cb828823e950ce1",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.791579,
+        "palette": [
+          {
+            "hex": "#474343",
+            "share": 0.190798,
+            "pixel_count": 22273
+          },
+          {
+            "hex": "#d2cac7",
+            "share": 0.190481,
+            "pixel_count": 22236
+          },
+          {
+            "hex": "#8d8582",
+            "share": 0.179482,
+            "pixel_count": 20952
+          },
+          {
+            "hex": "#ebe3e1",
+            "share": 0.164319,
+            "pixel_count": 19182
+          },
+          {
+            "hex": "#ada4a1",
+            "share": 0.142107,
+            "pixel_count": 16589
+          },
+          {
+            "hex": "#f6efee",
+            "share": 0.132812,
+            "pixel_count": 15504
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.648329,
+          "luminance_contrast": 0.261248,
+          "luminance_entropy_bits": 7.710794,
+          "gradient_energy": 0.025729,
+          "high_frequency_energy": 0.034411,
+          "border_mean_luminance": 0.562666,
+          "inner_mean_luminance": 0.668567,
+          "border_inner_luminance_delta": 0.105901,
+          "border_inner_color_distance": 0.105832,
+          "border_band_fraction": 0.0625
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "0883891123",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/0883891123-L.jpg?default=false",
+          "working_pixels": {
+            "width": 304,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991001614609708431": {
       "status": "resolved",
@@ -48,7 +191,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.856,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 428,
+          "height": 500
+        },
+        "stored_raster_pixels": {
+          "width": 428,
+          "height": 500
+        },
+        "source_bytes": 56676,
+        "source_sha256": "sha256:d59a41635d5548500743902e0d7a259d84fde09ddddd4635e5e5b4b7fc7e2367",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.856,
+        "palette": [
+          {
+            "hex": "#02070c",
+            "share": 0.260361,
+            "pixel_count": 32893
+          },
+          {
+            "hex": "#545c62",
+            "share": 0.180155,
+            "pixel_count": 22760
+          },
+          {
+            "hex": "#0e1922",
+            "share": 0.160786,
+            "pixel_count": 20313
+          },
+          {
+            "hex": "#d8dfe3",
+            "share": 0.137744,
+            "pixel_count": 17402
+          },
+          {
+            "hex": "#b8ab8d",
+            "share": 0.136184,
+            "pixel_count": 17205
+          },
+          {
+            "hex": "#a11039",
+            "share": 0.12477,
+            "pixel_count": 15763
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.334499,
+          "luminance_contrast": 0.296234,
+          "luminance_entropy_bits": 7.409051,
+          "gradient_energy": 0.03271,
+          "high_frequency_energy": 0.040825,
+          "border_mean_luminance": 0.268811,
+          "inner_mean_luminance": 0.3445,
+          "border_inner_luminance_delta": 0.07569,
+          "border_inner_color_distance": 0.100975,
+          "border_band_fraction": 0.06079
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "089236811X",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/089236811X-L.jpg?default=false",
+          "working_pixels": {
+            "width": 329,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991001928559708431": {
       "status": "resolved",
@@ -61,7 +275,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.8,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 320,
+          "height": 400
+        },
+        "stored_raster_pixels": {
+          "width": 320,
+          "height": 400
+        },
+        "source_bytes": 29464,
+        "source_sha256": "sha256:0bc11cfdeb2ec3e0a7e5b6d71cb4a45d8acd057940eb46095397a42127ae1e0f",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.8,
+        "palette": [
+          {
+            "hex": "#a7a39e",
+            "share": 0.236462,
+            "pixel_count": 27876
+          },
+          {
+            "hex": "#262521",
+            "share": 0.209708,
+            "pixel_count": 24722
+          },
+          {
+            "hex": "#4b4a47",
+            "share": 0.184472,
+            "pixel_count": 21747
+          },
+          {
+            "hex": "#bbb6b1",
+            "share": 0.16279,
+            "pixel_count": 19191
+          },
+          {
+            "hex": "#d1cdc8",
+            "share": 0.111097,
+            "pixel_count": 13097
+          },
+          {
+            "hex": "#6d6b67",
+            "share": 0.095472,
+            "pixel_count": 11255
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.477802,
+          "luminance_contrast": 0.249358,
+          "luminance_entropy_bits": 7.454102,
+          "gradient_energy": 0.013891,
+          "high_frequency_energy": 0.01873,
+          "border_mean_luminance": 0.513919,
+          "inner_mean_luminance": 0.467798,
+          "border_inner_luminance_delta": 0.046121,
+          "border_inner_color_distance": 0.046361,
+          "border_band_fraction": 0.061889
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9781606061381",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9781606061381-L.jpg?default=false",
+          "working_pixels": {
+            "width": 307,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002006419708431": {
       "status": "resolved",
@@ -74,7 +359,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 1.070664,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 500,
+          "height": 467
+        },
+        "stored_raster_pixels": {
+          "width": 500,
+          "height": 467
+        },
+        "source_bytes": 51192,
+        "source_sha256": "sha256:2afa5743fecac95c9f59173e6ac7e1f9a356a837e52a7f03b35bd02553b644ac",
+        "source_format": "jpeg",
+        "aspect_ratio": 1.070664,
+        "palette": [
+          {
+            "hex": "#0a0a08",
+            "share": 0.227897,
+            "pixel_count": 31417
+          },
+          {
+            "hex": "#1c1715",
+            "share": 0.19812,
+            "pixel_count": 27312
+          },
+          {
+            "hex": "#20201c",
+            "share": 0.188835,
+            "pixel_count": 26032
+          },
+          {
+            "hex": "#2e2725",
+            "share": 0.174907,
+            "pixel_count": 24112
+          },
+          {
+            "hex": "#b4a29c",
+            "share": 0.107968,
+            "pixel_count": 14884
+          },
+          {
+            "hex": "#673b38",
+            "share": 0.102273,
+            "pixel_count": 14099
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.193767,
+          "luminance_contrast": 0.206645,
+          "luminance_entropy_bits": 6.791089,
+          "gradient_energy": 0.011131,
+          "high_frequency_energy": 0.013464,
+          "border_mean_luminance": 0.169895,
+          "inner_mean_luminance": 0.196687,
+          "border_inner_luminance_delta": 0.026792,
+          "border_inner_color_distance": 0.034764,
+          "border_band_fraction": 0.061281
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9781568983080",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9781568983080-L.jpg?default=false",
+          "working_pixels": {
+            "width": 384,
+            "height": 359
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002007049708431": {
       "status": "resolved",
@@ -87,7 +443,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.942,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 471,
+          "height": 500
+        },
+        "stored_raster_pixels": {
+          "width": 471,
+          "height": 500
+        },
+        "source_bytes": 57077,
+        "source_sha256": "sha256:0cd68477bd952606983c1091441d9054dfb96e2add6563571074de7a3663cd54",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.942,
+        "palette": [
+          {
+            "hex": "#131313",
+            "share": 0.211434,
+            "pixel_count": 29391
+          },
+          {
+            "hex": "#181817",
+            "share": 0.183889,
+            "pixel_count": 25562
+          },
+          {
+            "hex": "#9b9180",
+            "share": 0.174731,
+            "pixel_count": 24289
+          },
+          {
+            "hex": "#201b19",
+            "share": 0.166293,
+            "pixel_count": 23116
+          },
+          {
+            "hex": "#564d44",
+            "share": 0.135438,
+            "pixel_count": 18827
+          },
+          {
+            "hex": "#beb4a3",
+            "share": 0.128216,
+            "pixel_count": 17823
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.283447,
+          "luminance_contrast": 0.238027,
+          "luminance_entropy_bits": 6.800028,
+          "gradient_energy": 0.012056,
+          "high_frequency_energy": 0.017014,
+          "border_mean_luminance": 0.19166,
+          "inner_mean_luminance": 0.308698,
+          "border_inner_luminance_delta": 0.117039,
+          "border_inner_color_distance": 0.115331,
+          "border_band_fraction": 0.060773
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9780870705274",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9780870705274-L.jpg?default=false",
+          "working_pixels": {
+            "width": 362,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002035079708431": {
       "status": "resolved",
@@ -100,7 +527,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.712,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 356,
+          "height": 500
+        },
+        "stored_raster_pixels": {
+          "width": 356,
+          "height": 500
+        },
+        "source_bytes": 57217,
+        "source_sha256": "sha256:77dbc85badcbfc589c791b0fa1c225310a8d3171ade2fe662dc70fc5054ac5a8",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.712,
+        "palette": [
+          {
+            "hex": "#3a342a",
+            "share": 0.235644,
+            "pixel_count": 24703
+          },
+          {
+            "hex": "#f1e3b0",
+            "share": 0.221783,
+            "pixel_count": 23250
+          },
+          {
+            "hex": "#a49776",
+            "share": 0.203697,
+            "pixel_count": 21354
+          },
+          {
+            "hex": "#796f58",
+            "share": 0.125019,
+            "pixel_count": 13106
+          },
+          {
+            "hex": "#fbf9ed",
+            "share": 0.116062,
+            "pixel_count": 12167
+          },
+          {
+            "hex": "#ccbc8d",
+            "share": 0.097795,
+            "pixel_count": 10252
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.598897,
+          "luminance_contrast": 0.279023,
+          "luminance_entropy_bits": 7.63207,
+          "gradient_energy": 0.020487,
+          "high_frequency_energy": 0.027245,
+          "border_mean_luminance": 0.767304,
+          "inner_mean_luminance": 0.557797,
+          "border_inner_luminance_delta": 0.209507,
+          "border_inner_color_distance": 0.194305,
+          "border_band_fraction": 0.062271
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9780520270947",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9780520270947-L.jpg?default=false",
+          "working_pixels": {
+            "width": 273,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002036209708431": {
       "status": "resolved",
@@ -113,7 +611,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 1.179245,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 500,
+          "height": 424
+        },
+        "stored_raster_pixels": {
+          "width": 500,
+          "height": 424
+        },
+        "source_bytes": 56449,
+        "source_sha256": "sha256:6dc455e365621aee7c14f640b4a12a66e668ddcbe068e7497e057815d47e0d3d",
+        "source_format": "jpeg",
+        "aspect_ratio": 1.179245,
+        "palette": [
+          {
+            "hex": "#333a30",
+            "share": 0.239424,
+            "pixel_count": 29972
+          },
+          {
+            "hex": "#babfba",
+            "share": 0.197597,
+            "pixel_count": 24736
+          },
+          {
+            "hex": "#5a6259",
+            "share": 0.168903,
+            "pixel_count": 21144
+          },
+          {
+            "hex": "#8e958e",
+            "share": 0.139531,
+            "pixel_count": 17467
+          },
+          {
+            "hex": "#444c42",
+            "share": 0.13731,
+            "pixel_count": 17189
+          },
+          {
+            "hex": "#cdd1ce",
+            "share": 0.117235,
+            "pixel_count": 14676
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.47504,
+          "luminance_contrast": 0.225432,
+          "luminance_entropy_bits": 7.332585,
+          "gradient_energy": 0.018667,
+          "high_frequency_energy": 0.024813,
+          "border_mean_luminance": 0.546567,
+          "inner_mean_luminance": 0.460663,
+          "border_inner_luminance_delta": 0.085905,
+          "border_inner_color_distance": 0.088118,
+          "border_band_fraction": 0.06135
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9783869302560",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9783869302560-L.jpg?default=false",
+          "working_pixels": {
+            "width": 384,
+            "height": 326
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002043689708431": {
       "status": "resolved",
@@ -126,7 +695,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.661053,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 314,
+          "height": 475
+        },
+        "stored_raster_pixels": {
+          "width": 314,
+          "height": 475
+        },
+        "source_bytes": 25675,
+        "source_sha256": "sha256:1a58547d9a4da6d7baac12a85e8bba704bfb331c74a465225731479dac9fdd9d",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.661053,
+        "palette": [
+          {
+            "hex": "#f8e984",
+            "share": 0.279743,
+            "pixel_count": 27285
+          },
+          {
+            "hex": "#f4f8cb",
+            "share": 0.193231,
+            "pixel_count": 18847
+          },
+          {
+            "hex": "#f3f6bf",
+            "share": 0.188443,
+            "pixel_count": 18380
+          },
+          {
+            "hex": "#f8fdce",
+            "share": 0.140574,
+            "pixel_count": 13711
+          },
+          {
+            "hex": "#bfba71",
+            "share": 0.115506,
+            "pixel_count": 11266
+          },
+          {
+            "hex": "#f5ed9c",
+            "share": 0.082503,
+            "pixel_count": 8047
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.877811,
+          "luminance_contrast": 0.139238,
+          "luminance_entropy_bits": 5.946111,
+          "gradient_energy": 0.018053,
+          "high_frequency_energy": 0.02825,
+          "border_mean_luminance": 0.896893,
+          "inner_mean_luminance": 0.885904,
+          "border_inner_luminance_delta": 0.010989,
+          "border_inner_color_distance": 0.010778,
+          "border_band_fraction": 0.059055
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9780375504440",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9780375504440-L.jpg?default=false",
+          "working_pixels": {
+            "width": 254,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002057629708431": {
       "status": "resolved",
@@ -139,7 +779,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.755789,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 359,
+          "height": 475
+        },
+        "stored_raster_pixels": {
+          "width": 359,
+          "height": 475
+        },
+        "source_bytes": 8909,
+        "source_sha256": "sha256:70454a7be651cbe9b84bcab23a0b53ff6643d3fee45a0cb9f6f929c3d539efe1",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.755789,
+        "palette": [
+          {
+            "hex": "#000000",
+            "share": 0.914413,
+            "pixel_count": 101829
+          },
+          {
+            "hex": "#e4e4e4",
+            "share": 0.021893,
+            "pixel_count": 2438
+          },
+          {
+            "hex": "#010101",
+            "share": 0.020295,
+            "pixel_count": 2260
+          },
+          {
+            "hex": "#060606",
+            "share": 0.019666,
+            "pixel_count": 2190
+          },
+          {
+            "hex": "#393939",
+            "share": 0.012751,
+            "pixel_count": 1420
+          },
+          {
+            "hex": "#030303",
+            "share": 0.010982,
+            "pixel_count": 1223
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.024727,
+          "luminance_contrast": 0.136976,
+          "luminance_entropy_bits": 0.933713,
+          "gradient_energy": 0.005526,
+          "high_frequency_energy": 0.007081,
+          "border_mean_luminance": 0.0,
+          "inner_mean_luminance": 0.031153,
+          "border_inner_luminance_delta": 0.031153,
+          "border_inner_color_distance": 0.031153,
+          "border_band_fraction": 0.062069
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9781931885256",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9781931885256-L.jpg?default=false",
+          "working_pixels": {
+            "width": 290,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002060819708431": {
       "status": "resolved",
@@ -152,7 +863,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.662,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 331,
+          "height": 500
+        },
+        "stored_raster_pixels": {
+          "width": 331,
+          "height": 500
+        },
+        "source_bytes": 26164,
+        "source_sha256": "sha256:7fc2dc141aee0e65442fa18ed3301fdce6a12854a2783002505b4b657c6576ed",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.662,
+        "palette": [
+          {
+            "hex": "#a32f1f",
+            "share": 0.270741,
+            "pixel_count": 26407
+          },
+          {
+            "hex": "#383940",
+            "share": 0.250953,
+            "pixel_count": 24477
+          },
+          {
+            "hex": "#040306",
+            "share": 0.230438,
+            "pixel_count": 22476
+          },
+          {
+            "hex": "#b1adad",
+            "share": 0.12012,
+            "pixel_count": 11716
+          },
+          {
+            "hex": "#706868",
+            "share": 0.109149,
+            "pixel_count": 10646
+          },
+          {
+            "hex": "#5d3b3d",
+            "share": 0.018598,
+            "pixel_count": 1814
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.289633,
+          "luminance_contrast": 0.212269,
+          "luminance_entropy_bits": 5.573682,
+          "gradient_energy": 0.016614,
+          "high_frequency_energy": 0.020107,
+          "border_mean_luminance": 0.174795,
+          "inner_mean_luminance": 0.301215,
+          "border_inner_luminance_delta": 0.12642,
+          "border_inner_color_distance": 0.131286,
+          "border_band_fraction": 0.059055
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9780252031861",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9780252031861-L.jpg?default=false",
+          "working_pixels": {
+            "width": 254,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002071159708431": {
       "status": "resolved",
@@ -165,7 +947,78 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.616,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 308,
+          "height": 500
+        },
+        "stored_raster_pixels": {
+          "width": 308,
+          "height": 500
+        },
+        "source_bytes": 14555,
+        "source_sha256": "sha256:2b270b36d2fcf51f77f69cbbb41071cc0c17befe310ce1b4271b719c2df28e09",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.616,
+        "palette": [
+          {
+            "hex": "#ffffff",
+            "share": 0.882659,
+            "pixel_count": 80329
+          },
+          {
+            "hex": "#fbfbfb",
+            "share": 0.02891,
+            "pixel_count": 2631
+          },
+          {
+            "hex": "#363636",
+            "share": 0.026987,
+            "pixel_count": 2456
+          },
+          {
+            "hex": "#fefefe",
+            "share": 0.026877,
+            "pixel_count": 2446
+          },
+          {
+            "hex": "#d1d1d1",
+            "share": 0.019954,
+            "pixel_count": 1816
+          },
+          {
+            "hex": "#fdfdfd",
+            "share": 0.014614,
+            "pixel_count": 1330
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.971703,
+          "luminance_contrast": 0.139701,
+          "luminance_entropy_bits": 1.166382,
+          "gradient_energy": 0.008149,
+          "high_frequency_energy": 0.013253,
+          "border_mean_luminance": 0.999922,
+          "inner_mean_luminance": 0.965406,
+          "border_inner_luminance_delta": 0.034515,
+          "border_inner_color_distance": 0.034515,
+          "border_band_fraction": 0.059072
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9781844678822",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9781844678822-L.jpg?default=false",
+          "working_pixels": {
+            "width": 237,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     },
     "alma991002098269708431": {
       "status": "resolved",
@@ -178,7 +1031,92 @@
       "match_confidence": 1.0,
       "attribution": "Cover reference served by Open Library Covers API",
       "checked_at": "2026-07-12T00:00:00Z",
-      "aspect_ratio": 0.67
+      "aspect_ratio": 0.829474,
+      "image_analysis": {
+        "schema": "shelfsignals-cover-optical-analysis@1",
+        "source_pixels": {
+          "width": 394,
+          "height": 475
+        },
+        "stored_raster_pixels": {
+          "width": 394,
+          "height": 475
+        },
+        "source_bytes": 55541,
+        "source_sha256": "sha256:b63105f3832c96cd3dfd54af148e9e3ecd45517293b0b421419c73e8ee8e56a8",
+        "source_format": "jpeg",
+        "aspect_ratio": 0.829474,
+        "palette": [
+          {
+            "hex": "#221c20",
+            "share": 0.271307,
+            "pixel_count": 33234
+          },
+          {
+            "hex": "#151216",
+            "share": 0.196308,
+            "pixel_count": 24047
+          },
+          {
+            "hex": "#564c43",
+            "share": 0.175818,
+            "pixel_count": 21537
+          },
+          {
+            "hex": "#f4d759",
+            "share": 0.174528,
+            "pixel_count": 21379
+          },
+          {
+            "hex": "#411d1f",
+            "share": 0.098256,
+            "pixel_count": 12036
+          },
+          {
+            "hex": "#cdaf57",
+            "share": 0.083782,
+            "pixel_count": 10263
+          }
+        ],
+        "optical_metrics": {
+          "mean_luminance": 0.321393,
+          "luminance_contrast": 0.275594,
+          "luminance_entropy_bits": 7.2992,
+          "gradient_energy": 0.033188,
+          "high_frequency_energy": 0.046662,
+          "border_mean_luminance": 0.215949,
+          "inner_mean_luminance": 0.347472,
+          "border_inner_luminance_delta": 0.131522,
+          "border_inner_color_distance": 0.105116,
+          "border_band_fraction": 0.059561
+        },
+        "provenance": {
+          "provider": "openlibrary",
+          "source_id": "9780393045680",
+          "analyzed_from_url": "https://covers.openlibrary.org/b/isbn/9780393045680-L.jpg?default=false",
+          "working_pixels": {
+            "width": 319,
+            "height": 384
+          },
+          "orientation_applied": false,
+          "algorithm": "ShelfSignals Pillow analyzer 1.0.0",
+          "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
+        }
+      }
     }
+  },
+  "analysis": {
+    "schema": "shelfsignals-cover-optical-analysis@1",
+    "analyzer_version": "1.0.0",
+    "engine": {
+      "name": "Pillow",
+      "version": "11.3.0"
+    },
+    "working_long_edge_pixels": 384,
+    "palette_color_count": 6,
+    "items_analyzed": 13,
+    "analysis_sha256": "sha256:6946ee5d0f7e223c68d38af0b766dadcca40676a116a8b6714d8775fe18dc2f3",
+    "source_policy": "Existing manifest entries resolved by exact ISBN to the approved Open Library Covers HTTPS host; HTTPS delivery may use Open Library's narrowly validated Internet Archive image backend. No provider discovery or title matching occurs here.",
+    "interpretation": "Image-derived optical measurements only; they do not measure or infer physical book dimensions, thickness, spine geometry, binding, material texture, or condition."
   }
 }

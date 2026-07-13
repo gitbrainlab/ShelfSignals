@@ -175,7 +175,7 @@ See [**docs/index.md**](docs/index.md#key-principles) for detailed principles.
 
 ### Web Interfaces
 - **No dependencies**: Pure HTML/CSS/JavaScript
-- Runs on any modern browser (Chrome 90+, Firefox 88+, Safari 14+)
+- Runs on modern browsers with native modal isolation (Chrome 102+, Firefox 112+, Safari 15.5+)
 - GitHub Pages hosting (free for public repositories)
 
 See [**docs/pipeline.md**](docs/pipeline.md#external-api-dependencies) for API details.
@@ -228,5 +228,4 @@ See [**docs/operations.md - Adapting to New Collections**](docs/operations.md#ad
 ## License
 
 ShelfSignals is an open-source research project. See repository for license details.
-
 

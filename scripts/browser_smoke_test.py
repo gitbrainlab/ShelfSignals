@@ -315,6 +315,12 @@ def run_primary_flow(
             "A closed primary drawer remains keyboard-focusable.",
         )
         check(
+            page.evaluate(
+                "['detailDrawer', 'shelfDrawer'].every(id => { const el = document.getElementById(id); return el?.getAttribute('role') === 'dialog' && el?.getAttribute('aria-modal') === 'true'; })"
+            ),
+            "Primary drawers do not expose modal dialog semantics.",
+        )
+        check(
             page.locator("#activeFilters").get_attribute("role") == "group",
             "Active filters do not expose a valid labelled group role.",
         )
@@ -378,6 +384,31 @@ def run_primary_flow(
             timeout=timeout_ms,
         )
 
+        page.locator('.view-button[data-view="spines"]').click()
+        page.locator("#collectionGrid .spine-book").first.wait_for(
+            state="visible", timeout=timeout_ms
+        )
+        check(
+            page.locator("#profileMethod").is_visible(),
+            "Physical view does not disclose its catalog/estimate method.",
+        )
+        check(
+            "modeled" in page.locator("#profileMethod").inner_text().casefold(),
+            "Physical view does not disclose its modeled spine depth.",
+        )
+        first_spine_width = page.locator("#collectionGrid .spine-book").first.evaluate(
+            "element => element.style.getPropertyValue('--spine-width')"
+        )
+        check(
+            bool(re.fullmatch(r"\d+px", first_spine_width)),
+            "Physical shelf did not receive a bounded profile width.",
+        )
+        page.locator('.view-button[data-view="covers"]').click()
+        page.locator("#collectionGrid .book-card").first.wait_for(
+            state="visible", timeout=timeout_ms
+        )
+        report("Physical view discloses provenance and renders profile-based shelf geometry")
+
         record_id = str(hero_record["id"])
         page.locator("#collectionSearch").fill(record_id)
         result_card = page.locator(
@@ -406,6 +437,19 @@ def run_primary_flow(
             not drawer.evaluate("element => element.inert"),
             "Open record detail drawer is still inert.",
         )
+        page.wait_for_function(
+            "document.activeElement?.id === 'closeDetail'", timeout=timeout_ms
+        )
+        check(
+            page.evaluate(
+                "[document.querySelector('.site-header'), document.querySelector('main'), document.querySelector('.site-footer')].every(element => element?.inert)"
+            ),
+            "Open detail drawer does not isolate the background page.",
+        )
+        check(
+            page.locator("#detailVisual .book-object").get_attribute("aria-hidden") == "true",
+            "Decorative detail book repeats the record's accessible title and metadata.",
+        )
         check(
             page.locator("#detailTitle").inner_text().strip() == title,
             "Detail drawer title does not exactly match the dataset record.",
@@ -429,6 +473,29 @@ def run_primary_flow(
             f"  rendered: {rendered_catalog_url}\n  dataset:  {record_url}",
         )
         report("detail drawer exposes exact dataset metadata and Clark record_url")
+
+        physical_formats = string_values(hero_record.get("formats"))
+        check(
+            page.locator("#physicalMetrics").is_visible(),
+            "Detail drawer does not expose the physical profile.",
+        )
+        physical_metrics_text = page.locator("#physicalMetrics").inner_text()
+        check(
+            "clark catalog" in physical_metrics_text.casefold(),
+            "Physical profile does not identify catalog-stated measurements: "
+            f"{physical_metrics_text!r}",
+        )
+        if physical_formats:
+            check(
+                physical_formats[0] in page.locator("#physicalEvidence").inner_text(),
+                "Physical evidence does not preserve the served catalog description.",
+            )
+        check(
+            "estimated from extent" in physical_metrics_text.casefold(),
+            "Physical depth is not explicitly labeled as estimated from extent: "
+            f"{physical_metrics_text!r}",
+        )
+        report("detail physical profile preserves Clark evidence and estimation labels")
 
         page.locator("#detailShelfButton").click()
         page.locator("#shelfCount").wait_for(state="visible", timeout=timeout_ms)
@@ -574,6 +641,29 @@ def run_mobile_flow(browser: Any, base_url: str, timeout_ms: int) -> None:
             == "none",
             "Desktop primary navigation remains visible at the mobile breakpoint.",
         )
+        filter_toggle = page.locator("#toggleFilters")
+        check(filter_toggle.is_visible(), "Mobile filter disclosure is not visible.")
+        check(
+            filter_toggle.get_attribute("aria-expanded") == "false"
+            and page.locator(".filters-panel").evaluate(
+                "element => element.classList.contains('mobile-collapsed')"
+            ),
+            "Mobile filters are not collapsed by default.",
+        )
+        filter_toggle.click()
+        check(
+            filter_toggle.get_attribute("aria-expanded") == "true"
+            and page.locator("#collectionSearch").is_visible(),
+            "Mobile filter disclosure does not reveal its controls.",
+        )
+        target_heights = page.locator(".filter-heading button, .filter-options label").evaluate_all(
+            "elements => elements.map(element => element.getBoundingClientRect().height)"
+        )
+        check(
+            target_heights and min(target_heights) >= 24,
+            f"Mobile filter targets fall below 24 CSS pixels: {min(target_heights) if target_heights else 'none'}.",
+        )
+        filter_toggle.click()
         columns = page.locator("#collectionGrid").evaluate(
             "element => getComputedStyle(element).gridTemplateColumns.split(/\\s+/).filter(Boolean).length"
         )
@@ -600,7 +690,7 @@ def run_mobile_flow(browser: Any, base_url: str, timeout_ms: int) -> None:
             and mobile_metrics["wordmarkRight"] <= mobile_metrics["width"] + 1,
             f"Mobile heading or wordmark is clipped: {mobile_metrics}",
         )
-        report("mobile viewport renders the responsive hero and two-column collection")
+        report("mobile viewport renders collapsible filters, responsive hero, and two-column collection")
         errors.assert_clean("mobile flow")
     finally:
         context.close()
@@ -688,6 +778,28 @@ def capture_qa_screenshots(
                 full_page=False,
                 animations="disabled",
             )
+            page.locator('.view-button[data-view="spines"]').click()
+            page.locator("#collectionTitle").evaluate(
+                "element => window.scrollTo(0, element.getBoundingClientRect().top + scrollY - 84)"
+            )
+            page.wait_for_timeout(80)
+            page.locator("#collectionGrid .spine-book").first.wait_for(
+                state="visible", timeout=timeout_ms
+            )
+            page.screenshot(
+                path=str(directory / f"physical-{label}.png"),
+                full_page=False,
+                animations="disabled",
+            )
+            if label == "desktop":
+                page.locator("#collectionGrid .spine-book").first.click()
+                page.locator("#detailDrawer").wait_for(state="visible", timeout=timeout_ms)
+                page.locator("#detailPhysical").scroll_into_view_if_needed()
+                page.screenshot(
+                    path=str(directory / "physical-detail-desktop.png"),
+                    full_page=False,
+                    animations="disabled",
+                )
         finally:
             context.close()
     legacy_context = browser.new_context(viewport={"width": 1440, "height": 900})
