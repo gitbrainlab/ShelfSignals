@@ -221,7 +221,6 @@ function renderHero() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "hero-book";
-    button.setAttribute("role", "listitem");
     button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}`);
     applyBookStyle(button, record, visual);
     appendCoverImage(button, record, visual, index < 5);
@@ -291,8 +290,8 @@ function renderPaths() {
     button.setAttribute("aria-label", `Open path ${path.title}, ${formatNumber(results.length)} matching records`);
     button.append(textElement("span", "path-number", `PATH ${String(index + 1).padStart(2, "0")}`));
     button.append(textElement("span", "path-signals", (path.signals || []).map(id => SIGNAL_LABELS[id]?.split(" /")[0] || id).join(" · ")));
-    button.append(textElement("h3", "", path.title));
-    button.append(textElement("p", "", path.subtitle || path.narrative || "A dynamic route through catalog metadata."));
+    button.append(textElement("span", "path-title", path.title));
+    button.append(textElement("span", "path-description", path.subtitle || path.narrative || "A dynamic route through catalog metadata."));
     button.append(textElement("span", "path-count", `${formatNumber(results.length)} matching records →`));
     button.addEventListener("click", () => applyPath(path));
     dom.pathGrid.append(button);
@@ -428,7 +427,6 @@ function createCoverCard(record, index) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "book-card";
-  button.setAttribute("role", "listitem");
   button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}`);
   button.append(makeBookObject(record));
   button.append(textElement("strong", "book-card-title", record.displayTitle));
@@ -443,7 +441,6 @@ function createListBook(record, index) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "list-book";
-  button.setAttribute("role", "listitem");
   button.append(textElement("span", "list-book-index", String(index + 1).padStart(3, "0")));
   button.append(textElement("span", "list-book-title", record.title));
   button.append(textElement("span", "list-book-author", authorLabel(record)));
@@ -491,7 +488,8 @@ function renderCollection() {
         header.append(textElement("span", "", group.label), textElement("span", "", `${formatNumber(group.items.length)} shown`));
         const shelf = document.createElement("div");
         shelf.className = "spine-shelf";
-        shelf.setAttribute("role", "list");
+        shelf.setAttribute("role", "group");
+        shelf.setAttribute("aria-label", `${group.label} books`);
         group.items.forEach(record => shelf.append(createSpine(record)));
         section.append(header, shelf);
         dom.collectionGrid.append(section);
@@ -516,6 +514,7 @@ function setDrawer(drawer, open) {
     if (state.activeDrawer && state.activeDrawer !== drawer) setDrawer(state.activeDrawer, false);
     state.activeDrawer = drawer;
     state.lastFocus = document.activeElement;
+    drawer.inert = false;
     drawer.classList.add("open");
     drawer.setAttribute("aria-hidden", "false");
     dom.drawerBackdrop.hidden = false;
@@ -524,6 +523,7 @@ function setDrawer(drawer, open) {
   } else {
     drawer.classList.remove("open");
     drawer.setAttribute("aria-hidden", "true");
+    drawer.inert = true;
     if (state.activeDrawer === drawer) state.activeDrawer = null;
     if (!state.activeDrawer) {
       dom.drawerBackdrop.hidden = true;

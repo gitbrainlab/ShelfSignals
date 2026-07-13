@@ -1045,7 +1045,7 @@
       </p>
       <p style="background:var(--chip-bg);padding:0.75rem;border-radius:4px;margin:0.5rem 0;">
         <strong>Need stability?</strong> Switch to the 
-        <a href="../" style="color:var(--accent);">Production Interface (v1.x) →</a><br>
+        <a href="../" style="color:var(--accent);text-decoration:underline;text-underline-offset:0.15em;">Primary Interface (2.0.0) →</a><br>
         <span style="font-size:0.85rem;color:var(--muted);">
           Uses proven workflows with CSV-based data loading and stable feature set.
         </span>
@@ -1160,7 +1160,7 @@
   <header>
     <div>
       <h1>ShelfSignals Preview</h1>
-      <p>Preview v2.x – Experimental Features <span style="margin-left:0.5rem;">·</span> <a href="../" style="color:var(--accent);text-decoration:none;">← Back to Production v1.x</a></p>
+      <p>Preview v2.x – Experimental Features <span style="margin-left:0.5rem;">·</span> <a href="../" style="color:var(--accent);text-decoration:underline;text-underline-offset:0.15em;">← Back to ShelfSignals 2.0.0</a></p>
     </div>
     <div class="header-controls">
       <button id="toggleTheme" class="link-button" aria-label="Toggle theme">🌙</button>
@@ -1890,7 +1890,7 @@
         
         const spines = document.createElement('div');
         spines.className = 'spines';
-        spines.setAttribute('role', 'list');
+        spines.setAttribute('role', 'group');
         spines.setAttribute('aria-label', `Books in ${group.key}`);
         
         for (const item of group.items) {

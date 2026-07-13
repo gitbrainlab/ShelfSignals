@@ -12,7 +12,7 @@
       --surface: #ffffff;
       --text-primary: #1a1a1a;
       --text-secondary: #666666;
-      --text-tertiary: #999999;
+      --text-tertiary: #595959;
       --accent: #007aff;
       --border: #e5e5e5;
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
@@ -27,7 +27,7 @@
       --surface: #1c1c1e;
       --text-primary: #ffffff;
       --text-secondary: #ababab;
-      --text-tertiary: #6e6e6e;
+      --text-tertiary: #a3a3a3;
       --accent: #0a84ff;
       --border: #2c2c2e;
       --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
@@ -232,6 +232,10 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 2rem;
+      width: 100%;
+      color: inherit;
+      font: inherit;
+      appearance: none;
       cursor: pointer;
       transition: all var(--transition);
       text-align: center;
@@ -244,16 +248,22 @@
     }
 
     .action-card-icon {
+      display: block;
       font-size: 3rem;
       margin-bottom: 1rem;
     }
 
-    .action-card h3 {
+    .action-card-title {
+      display: block;
       margin-bottom: 0.5rem;
       color: var(--text-primary);
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
     }
 
-    .action-card p {
+    .action-card-description {
+      display: block;
       color: var(--text-secondary);
       font-size: 0.9375rem;
     }
@@ -279,6 +289,11 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 1.75rem;
+      width: 100%;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      appearance: none;
       cursor: pointer;
       transition: all var(--transition);
     }
@@ -290,16 +305,21 @@
     }
 
     .path-card-icon {
+      display: block;
       font-size: 2rem;
       margin-bottom: 0.75rem;
     }
 
-    .path-card h3 {
+    .path-card-title {
+      display: block;
       margin-bottom: 0.5rem;
       font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
     }
 
     .path-card .subtitle {
+      display: block;
       color: var(--text-secondary);
       font-size: 0.875rem;
       margin-bottom: 0.75rem;
@@ -437,6 +457,11 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+    }
+
+    .drawer-header h2 {
+      margin: 0;
+      font-size: 1.25rem;
     }
 
     .drawer-body {
@@ -781,21 +806,21 @@
 
       <!-- Primary actions -->
       <div class="primary-actions">
-        <div class="action-card" id="actionExplore">
-          <div class="action-card-icon">🎨</div>
-          <h3>Explore Themes</h3>
-          <p>Browse the collection by thematic signals</p>
-        </div>
-        <div class="action-card" id="actionSearch">
-          <div class="action-card-icon">🔍</div>
-          <h3>Search</h3>
-          <p>Find specific titles, authors, or subjects</p>
-        </div>
-        <div class="action-card" id="actionPaths">
-          <div class="action-card-icon">🗺️</div>
-          <h3>Curated Paths</h3>
-          <p>Follow expert-designed thematic journeys</p>
-        </div>
+        <button type="button" class="action-card" id="actionExplore">
+          <span class="action-card-icon">🎨</span>
+          <span class="action-card-title">Explore Themes</span>
+          <span class="action-card-description">Browse the collection by thematic signals</span>
+        </button>
+        <button type="button" class="action-card" id="actionSearch">
+          <span class="action-card-icon">🔍</span>
+          <span class="action-card-title">Search</span>
+          <span class="action-card-description">Find specific titles, authors, or subjects</span>
+        </button>
+        <button type="button" class="action-card" id="actionPaths">
+          <span class="action-card-icon">🗺️</span>
+          <span class="action-card-title">Curated Paths</span>
+          <span class="action-card-description">Follow expert-designed thematic journeys</span>
+        </button>
       </div>
 
       <!-- Curated paths section -->
@@ -844,9 +869,9 @@
   </main>
 
   <!-- Details drawer -->
-  <div id="detailsDrawer" class="details-drawer">
+  <aside id="detailsDrawer" class="details-drawer" aria-labelledby="detailsDrawerTitle" aria-hidden="true" inert>
     <div class="drawer-header">
-      <h3>Details</h3>
+      <h2 id="detailsDrawerTitle">Details</h2>
       <button class="btn btn-ghost" id="closeDrawer" aria-label="Close">✕</button>
     </div>
     <div class="drawer-body" id="drawerBody"></div>
@@ -854,7 +879,7 @@
       <button class="btn btn-secondary" id="addToShelf" style="flex:1;">Add to Shelf</button>
       <button class="btn btn-primary" id="viewInCatalog" style="flex:1;">View in Catalog</button>
     </div>
-  </div>
+  </aside>
 
   <!-- Receipt modal -->
   <div id="receiptModal" class="modal-backdrop">
@@ -873,9 +898,9 @@
   </div>
 
   <!-- My Shelf panel (similar structure) -->
-  <div id="shelfPanel" class="details-drawer">
+  <aside id="shelfPanel" class="details-drawer" aria-labelledby="shelfPanelTitle" aria-hidden="true" inert>
     <div class="drawer-header">
-      <h3>My Shelf</h3>
+      <h2 id="shelfPanelTitle">My Shelf</h2>
       <button class="btn btn-ghost" id="closeShelfPanel" aria-label="Close">✕</button>
     </div>
     <div class="drawer-body" id="shelfPanelBody"></div>
@@ -883,7 +908,7 @@
       <button class="btn btn-secondary" id="clearShelf" style="flex:1;">Clear All</button>
       <button class="btn btn-primary" id="exportShelfReceipt" style="flex:1;">Export Receipt</button>
     </div>
-  </div>
+  </aside>
 
   <script type="module">
     // Import modules
@@ -1119,13 +1144,15 @@
     }
 
     function createPathCard(path) {
-      const card = document.createElement('div');
+      const card = document.createElement('button');
+      card.type = 'button';
       card.className = 'path-card';
+      card.setAttribute('aria-label', `Open path ${path.title}`);
       card.innerHTML = `
-        <div class="path-card-icon">${path.icon}</div>
-        <h3>${path.title}</h3>
-        <div class="subtitle">${path.subtitle}</div>
-        <div class="narrative">${path.narrative}</div>
+        <span class="path-card-icon">${path.icon}</span>
+        <span class="path-card-title">${path.title}</span>
+        <span class="subtitle">${path.subtitle}</span>
+        <span class="narrative">${path.narrative}</span>
       `;
       card.addEventListener('click', () => activatePath(path));
       return card;
@@ -1236,8 +1263,11 @@
           </div>
         ` : ''}
       `;
-      
+
+      drawer.inert = false;
+      drawer.setAttribute('aria-hidden', 'false');
       drawer.classList.add('open');
+      requestAnimationFrame(() => document.getElementById('closeDrawer').focus());
       
       // Update footer actions
       document.getElementById('addToShelf').onclick = () => addToShelf(item);
@@ -1251,18 +1281,27 @@
     }
 
     function closeDetails() {
-      document.getElementById('detailsDrawer').classList.remove('open');
+      const drawer = document.getElementById('detailsDrawer');
+      drawer.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+      drawer.inert = true;
     }
 
     // Shelf panel
     function openShelfPanel() {
       const panel = document.getElementById('shelfPanel');
+      panel.inert = false;
+      panel.setAttribute('aria-hidden', 'false');
       panel.classList.add('open');
       renderShelfPanel();
+      requestAnimationFrame(() => document.getElementById('closeShelfPanel').focus());
     }
 
     function closeShelfPanel() {
-      document.getElementById('shelfPanel').classList.remove('open');
+      const panel = document.getElementById('shelfPanel');
+      panel.classList.remove('open');
+      panel.setAttribute('aria-hidden', 'true');
+      panel.inert = true;
     }
 
     function renderShelfPanel() {
