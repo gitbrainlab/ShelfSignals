@@ -304,6 +304,21 @@ def run_primary_flow(
     try:
         wait_for_primary_app(page, base_url, timeout_ms)
         check("ShelfSignals" in page.title(), "Primary route title does not identify ShelfSignals.")
+        check(
+            page.locator('button[role="listitem"]').count() == 0,
+            "Primary route assigns the prohibited listitem role to native buttons.",
+        )
+        check(
+            page.evaluate(
+                "['detailDrawer', 'shelfDrawer'].every(id => document.getElementById(id)?.inert)"
+            ),
+            "A closed primary drawer remains keyboard-focusable.",
+        )
+        check(
+            page.locator("#activeFilters").get_attribute("role") == "group",
+            "Active filters do not expose a valid labelled group role.",
+        )
+        report("primary ARIA roles and closed-drawer focus isolation are valid")
         displayed_total = integer_text(page.locator("#collectionCount").inner_text())
         check(
             displayed_total == len(records),
@@ -388,6 +403,10 @@ def run_primary_flow(
             "Record detail drawer did not expose its open state.",
         )
         check(
+            not drawer.evaluate("element => element.inert"),
+            "Open record detail drawer is still inert.",
+        )
+        check(
             page.locator("#detailTitle").inner_text().strip() == title,
             "Detail drawer title does not exactly match the dataset record.",
         )
@@ -432,8 +451,16 @@ def run_primary_flow(
         check(saved_ids == [record_id], "My Shelf localStorage did not survive reload.")
         if page.locator("#detailDrawer").get_attribute("aria-hidden") == "false":
             page.locator("#closeDetail").click()
+            check(
+                page.locator("#detailDrawer").evaluate("element => element.inert"),
+                "Closed record detail drawer remains focusable.",
+            )
         page.locator("#openShelf").click()
         page.locator("#shelfDrawer").wait_for(state="visible", timeout=timeout_ms)
+        check(
+            not page.locator("#shelfDrawer").evaluate("element => element.inert"),
+            "Open My Shelf drawer is still inert.",
+        )
         check(
             page.locator("#shelfList .shelf-item").count() == 1,
             "Reloaded My Shelf does not render the saved record.",
@@ -603,6 +630,32 @@ def run_compatibility_routes(browser: Any, base_url: str, timeout_ms: int) -> No
             )
             page.locator(loader).wait_for(state="hidden", timeout=timeout_ms)
             page.locator(content).first.wait_for(state="visible", timeout=timeout_ms)
+            if route == "legacy/":
+                check(
+                    page.locator("#deprecationNotice").evaluate(
+                        "element => element.tagName === 'ASIDE'"
+                    ),
+                    "Legacy archive notice is outside a landmark.",
+                )
+            elif route == "preview/":
+                check(
+                    page.locator('.spines[role="group"]').count() > 0
+                    and page.locator('.spines[role="list"]').count() == 0,
+                    "Preview shelves expose an invalid list without listitem children.",
+                )
+            elif route == "preview/exhibit/":
+                check(
+                    page.locator(".action-card").evaluate_all(
+                        "elements => elements.length === 3 && elements.every(element => element.tagName === 'BUTTON')"
+                    ),
+                    "Exhibit primary actions are not native keyboard-operable buttons.",
+                )
+                check(
+                    page.evaluate(
+                        "['detailsDrawer', 'shelfPanel'].every(id => document.getElementById(id)?.inert)"
+                    ),
+                    "A closed Exhibit drawer remains keyboard-focusable.",
+                )
             report(f"{expected_title} compatibility route loaded")
             errors.assert_clean(f"{expected_title} route")
         finally:

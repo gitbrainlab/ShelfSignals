@@ -50,8 +50,8 @@
         </form>
       </div>
 
-      <div class="hero-library" aria-label="Featured books from the collection">
-        <div class="hero-stage" id="heroStage" role="list"></div>
+      <div class="hero-library">
+        <div class="hero-stage" id="heroStage" role="group" aria-label="Featured books from the collection"></div>
         <div class="hero-focus" id="heroFocus" aria-live="polite">
           <span class="hero-focus-index" id="heroFocusIndex">01</span>
           <div><strong id="heroFocusTitle">Loading featured books</strong><span id="heroFocusMeta"></span></div>
@@ -99,7 +99,7 @@
       </header>
 
       <div class="browser-shell">
-        <aside class="filters-panel" aria-label="Collection filters">
+        <section class="filters-panel" aria-label="Collection filters">
           <div class="filter-heading"><span>Refine</span><button type="button" id="resetFilters">Reset all</button></div>
           <label class="browser-search">
             <span class="sr-only">Search collection</span>
@@ -136,11 +136,11 @@
             <legend>Group by</legend>
             <label><span class="sr-only">Grouping</span><select id="groupFilter"><option value="lc">LC class</option><option value="decade">Decade</option><option value="material">Material</option></select></label>
           </fieldset>
-        </aside>
+        </section>
 
         <div class="results-region">
-          <div class="active-filters" id="activeFilters" aria-label="Active filters"></div>
-          <div class="collection-grid covers-view" id="collectionGrid" role="list"></div>
+          <div class="active-filters" id="activeFilters" role="group" aria-label="Active filters"></div>
+          <div class="collection-grid covers-view" id="collectionGrid" role="group" aria-label="Collection results"></div>
           <div class="empty-state" id="emptyState" hidden>
             <span aria-hidden="true">∅</span><h3>No records meet this view</h3><p>Try removing a filter or searching for a broader term.</p><button type="button" id="emptyReset">Reset filters</button>
           </div>
@@ -173,7 +173,7 @@
   </dialog>
 
   <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
-  <aside class="detail-drawer" id="detailDrawer" aria-labelledby="detailTitle" aria-hidden="true">
+  <aside class="detail-drawer" id="detailDrawer" aria-labelledby="detailTitle" aria-hidden="true" inert>
     <div class="drawer-toolbar">
       <span id="detailPosition">Record</span>
       <div><button id="previousBook" type="button" aria-label="Previous record">←</button><button id="nextBook" type="button" aria-label="Next record">→</button><button id="closeDetail" type="button" aria-label="Close details">✕</button></div>
@@ -190,7 +190,7 @@
     </div>
   </aside>
 
-  <aside class="shelf-drawer" id="shelfDrawer" aria-labelledby="shelfTitle" aria-hidden="true">
+  <aside class="shelf-drawer" id="shelfDrawer" aria-labelledby="shelfTitle" aria-hidden="true" inert>
     <div class="drawer-toolbar"><span>Saved locally</span><button id="closeShelf" type="button" aria-label="Close My Shelf">✕</button></div>
     <div class="shelf-content">
       <p class="section-index">My Shelf</p><h2 id="shelfTitle">A portable reading list</h2>
