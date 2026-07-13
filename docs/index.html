@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#090a0a">
   <meta name="description" content="Browse the Allan Sekula Library through ShelfSignals: an editorial, data-driven view of the Clark Art Institute collection.">
   <title>ShelfSignals — Allan Sekula Library</title>
+  <link rel="preconnect" href="https://covers.openlibrary.org" crossorigin>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23070808'/%3E%3Cpath d='M14 14h9v36h-9zm13 6h10v30H27zm14-9h9v39h-9z' fill='%23c5a875'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./css/cinematic.css">
 </head>
@@ -93,14 +94,20 @@
         </div>
         <div class="view-controls" aria-label="Collection view">
           <button type="button" class="view-button active" data-view="covers" aria-pressed="true">Covers</button>
-          <button type="button" class="view-button" data-view="spines" aria-pressed="false">Spines</button>
+          <button type="button" class="view-button" data-view="spines" aria-pressed="false">Physical</button>
           <button type="button" class="view-button" data-view="list" aria-pressed="false">List</button>
         </div>
       </header>
 
+      <p class="profile-method" id="profileMethod" hidden>
+        <span>Physical view</span>
+        When recorded, dimensions follow Clark. Otherwise front width uses a verified cover proportion or a neutral form; depth is explicitly labeled when modeled from extent.
+      </p>
+
       <div class="browser-shell">
         <section class="filters-panel" aria-label="Collection filters">
-          <div class="filter-heading"><span>Refine</span><button type="button" id="resetFilters">Reset all</button></div>
+          <div class="filter-heading"><span>Refine</span><div><button class="filter-toggle" type="button" id="toggleFilters" aria-expanded="true" aria-controls="collectionFilterOptions">Hide filters</button><button type="button" id="resetFilters">Reset all</button></div></div>
+          <div class="filter-controls" id="collectionFilterOptions">
           <label class="browser-search">
             <span class="sr-only">Search collection</span>
             <input type="search" id="collectionSearch" placeholder="Title, author, subject, call no.…">
@@ -136,6 +143,7 @@
             <legend>Group by</legend>
             <label><span class="sr-only">Grouping</span><select id="groupFilter"><option value="lc">LC class</option><option value="decade">Decade</option><option value="material">Material</option></select></label>
           </fieldset>
+          </div>
         </section>
 
         <div class="results-region">
@@ -157,7 +165,7 @@
       <div><h2 id="aboutTitle">Catalog evidence,<br><em>spatial attention.</em></h2></div>
       <div>
         <p>ShelfSignals is a static research interface for the Allan Sekula Library. It uses collection metadata from the Clark Art Institute catalog, verified cover references where available, and clearly synthetic book forms everywhere else.</p>
-        <p><a href="https://github.com/gitbrainlab/ShelfSignals" rel="noopener noreferrer">Project source</a> · <a href="./interfaces.md">Interface guide</a> · <a href="./legacy/">Legacy interface</a> · <a href="./preview/exhibit/">Exhibit</a></p>
+        <p><a href="https://github.com/gitbrainlab/ShelfSignals" rel="noopener noreferrer">Project source</a> · <a href="./interfaces.md">Interface guide</a> · <a href="./physical-profiles.md">Physical profile methods</a> · <a href="./legacy/">Legacy interface</a> · <a href="./preview/exhibit/">Exhibit</a></p>
       </div>
     </section>
   </main>
@@ -173,7 +181,7 @@
   </dialog>
 
   <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
-  <aside class="detail-drawer" id="detailDrawer" aria-labelledby="detailTitle" aria-hidden="true" inert>
+  <aside class="detail-drawer" id="detailDrawer" role="dialog" aria-modal="true" aria-labelledby="detailTitle" aria-hidden="true" inert>
     <div class="drawer-toolbar">
       <span id="detailPosition">Record</span>
       <div><button id="previousBook" type="button" aria-label="Previous record">←</button><button id="nextBook" type="button" aria-label="Next record">→</button><button id="closeDetail" type="button" aria-label="Close details">✕</button></div>
@@ -185,12 +193,20 @@
       <p class="detail-byline" id="detailByline"></p>
       <div class="detail-actions"><button type="button" id="detailShelfButton">Add to My Shelf</button><a id="catalogLink" target="_blank" rel="noopener noreferrer">View in Clark catalog ↗</a></div>
       <dl class="metadata-list" id="detailMetadata"></dl>
+      <section class="detail-section" id="detailPhysical">
+        <h3>Physical profile</h3>
+        <div class="physical-profile">
+          <div class="physical-model-stage" aria-hidden="true"><div class="physical-book" id="physicalBook"><span class="physical-book-spine"></span><span class="physical-book-pages"></span><span class="physical-book-front"></span></div></div>
+          <dl class="physical-metrics" id="physicalMetrics"></dl>
+        </div>
+        <p class="physical-evidence" id="physicalEvidence"></p>
+      </section>
       <section class="detail-section" id="detailSubjects"><h3>Subjects</h3><div class="subject-list" id="subjectList"></div></section>
       <section class="detail-section" id="detailNotes"><h3>Notes & provenance</h3><div id="notesList"></div></section>
     </div>
   </aside>
 
-  <aside class="shelf-drawer" id="shelfDrawer" aria-labelledby="shelfTitle" aria-hidden="true" inert>
+  <aside class="shelf-drawer" id="shelfDrawer" role="dialog" aria-modal="true" aria-labelledby="shelfTitle" aria-hidden="true" inert>
     <div class="drawer-toolbar"><span>Saved locally</span><button id="closeShelf" type="button" aria-label="Close My Shelf">✕</button></div>
     <div class="shelf-content">
       <p class="section-index">My Shelf</p><h2 id="shelfTitle">A portable reading list</h2>

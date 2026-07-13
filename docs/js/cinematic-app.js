@@ -18,6 +18,7 @@ import {
   shortDisplayTitle,
   stableHash
 } from "./visuals.js";
+import { getRecordPhysicalProfile } from "./physical.js";
 import {
   loadShelfIds,
   resolveShelfRecords,
@@ -40,6 +41,7 @@ const $$ = selector => [...document.querySelectorAll(selector)];
 
 const dom = {
   loading: $("#loadingScreen"),
+  pageRegions: $$(".site-header, main, .site-footer"),
   heroStage: $("#heroStage"),
   heroFocusIndex: $("#heroFocusIndex"),
   heroFocusTitle: $("#heroFocusTitle"),
@@ -52,11 +54,14 @@ const dom = {
   classCount: $("#classCount"),
   yearSpan: $("#yearSpan"),
   resultSummary: $("#resultSummary"),
+  profileMethod: $("#profileMethod"),
   collectionGrid: $("#collectionGrid"),
   emptyState: $("#emptyState"),
   loadMoreWrap: $("#loadMoreWrap"),
   loadMore: $("#loadMore"),
   renderedCount: $("#renderedCount"),
+  filtersPanel: $(".filters-panel"),
+  toggleFilters: $("#toggleFilters"),
   activeFilters: $("#activeFilters"),
   signalFilters: $("#signalFilters"),
   lcFilter: $("#lcFilter"),
@@ -80,6 +85,10 @@ const dom = {
   detailShelfButton: $("#detailShelfButton"),
   catalogLink: $("#catalogLink"),
   detailMetadata: $("#detailMetadata"),
+  detailPhysical: $("#detailPhysical"),
+  physicalBook: $("#physicalBook"),
+  physicalMetrics: $("#physicalMetrics"),
+  physicalEvidence: $("#physicalEvidence"),
   subjectList: $("#subjectList"),
   detailSubjects: $("#detailSubjects"),
   notesList: $("#notesList"),
@@ -141,6 +150,11 @@ function compactMeta(record) {
   return [record.authors[0], record.yearPrimary, record.call_number].filter(Boolean).join(" · ");
 }
 
+function physicalRecord(record) {
+  if (!record.physicalProfile) record.physicalProfile = getRecordPhysicalProfile(record);
+  return record;
+}
+
 function yieldToBrowser() {
   return new Promise(resolve => {
     if ("requestIdleCallback" in window) window.requestIdleCallback(resolve, { timeout: 60 });
@@ -179,23 +193,29 @@ function appendCoverImage(container, record, visual, eager = false) {
   if (!visual) return;
   const image = document.createElement("img");
   image.className = "cover-image";
-  image.src = visual.thumbnail_url || visual.image_url;
   image.alt = "";
   image.loading = eager ? "eager" : "lazy";
   image.decoding = "async";
+  image.fetchPriority = eager ? "high" : "low";
+  image.addEventListener("load", async () => {
+    try { await image.decode(); } catch (_) { /* Loaded images are still safe to reveal. */ }
+    requestAnimationFrame(() => container.classList.add("cover-ready"));
+  }, { once: true });
   image.addEventListener("error", () => {
     image.remove();
     container.classList.remove("has-cover");
+    container.classList.remove("cover-ready");
     container.style.removeProperty("--cover-image");
   }, { once: true });
+  image.src = visual.thumbnail_url || visual.image_url;
   container.prepend(image);
 }
 
-function makeBookObject(record, { detail = false, eager = false } = {}) {
+function makeBookObject(record, { eager = false } = {}) {
   const visual = getRecordVisual(record, state.visuals);
   const object = document.createElement("div");
   object.className = "book-object";
-  applyBookStyle(object, record, visual);
+  applyBookStyle(object, physicalRecord(record), visual);
   appendCoverImage(object, record, visual, eager);
 
   object.append(
@@ -209,7 +229,7 @@ function makeBookObject(record, { detail = false, eager = false } = {}) {
       return meta;
     })()
   );
-  object.setAttribute("aria-hidden", detail ? "false" : "true");
+  object.setAttribute("aria-hidden", "true");
   return object;
 }
 
@@ -222,7 +242,7 @@ function renderHero() {
     button.type = "button";
     button.className = "hero-book";
     button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}`);
-    applyBookStyle(button, record, visual);
+    applyBookStyle(button, physicalRecord(record), visual);
     appendCoverImage(button, record, visual, index < 5);
     const spine = document.createElement("span");
     spine.className = "hero-book-spine";
@@ -365,6 +385,16 @@ function debounce(callback, delay = 220) {
   };
 }
 
+function setFiltersExpanded(expanded) {
+  dom.filtersPanel.classList.toggle("mobile-collapsed", !expanded);
+  dom.toggleFilters.setAttribute("aria-expanded", expanded ? "true" : "false");
+  dom.toggleFilters.textContent = expanded ? "Hide filters" : "Show filters";
+}
+
+function syncResponsiveFilters() {
+  setFiltersExpanded(!matchMedia("(max-width: 620px)").matches);
+}
+
 function resetFilters({ scroll = false } = {}) {
   state.filters = normalizeFilterState({ group: state.filters.group });
   state.renderLimit = PAGE_SIZE;
@@ -452,13 +482,14 @@ function createListBook(record, index) {
 }
 
 function createSpine(record) {
+  const visual = getRecordVisual(record, state.visuals);
   const button = document.createElement("button");
   button.type = "button";
   button.className = "spine-book";
   button.textContent = record.displayTitle;
   button.title = `${record.title}${compactMeta(record) ? ` — ${compactMeta(record)}` : ""}`;
   button.setAttribute("aria-label", `Open ${record.title}`);
-  applyBookStyle(button, record, null);
+  applyBookStyle(button, physicalRecord(record), visual);
   button.addEventListener("click", () => openDetail(record.id, true));
   return button;
 }
@@ -470,6 +501,7 @@ function renderCollection() {
   const rendered = Math.min(state.renderLimit, count);
   dom.resultSummary.textContent = `${formatNumber(count)} of ${formatNumber(total)} records${state.filters.path ? ` · dynamic path “${state.pathMap.get(state.filters.path)?.title || state.filters.path}”` : ""}`;
   dom.collectionGrid.className = `collection-grid ${state.view}-view`;
+  dom.profileMethod.hidden = state.view !== "spines";
   dom.emptyState.hidden = count !== 0;
   dom.collectionGrid.hidden = count === 0;
 
@@ -509,6 +541,59 @@ function metadataRow(label, value) {
   return wrapper;
 }
 
+function physicalMetricRow(label, value, status = "") {
+  const row = document.createElement("div");
+  const description = document.createElement("dd");
+  description.append(document.createTextNode(value || "Not recorded"));
+  if (status) description.append(textElement("span", "metric-status", status));
+  row.append(textElement("dt", "", label), description);
+  return row;
+}
+
+function formatCentimeters(value, minimum, maximum, approximate = false) {
+  if (!Number.isFinite(value)) return "Not recorded";
+  const range = Number.isFinite(minimum) && Number.isFinite(maximum) && minimum !== maximum
+    ? `${minimum}–${maximum} cm`
+    : `${value} cm`;
+  return `${approximate ? "≈ " : ""}${range}`;
+}
+
+function extentLabel(extent) {
+  if (!extent) return "Not recorded";
+  return [
+    [extent.pages, "pages"],
+    [extent.leaves, "leaves"],
+    [extent.sheets, "sheets"],
+    [extent.volumes, "volumes"]
+  ].filter(([value]) => Number.isFinite(value)).map(([value, unit]) => `${value} ${unit}`).join(" · ") || "Not recorded";
+}
+
+function bindingLabel(binding) {
+  return binding?.term ? titleCase(binding.term.replaceAll("-", " ")) : "Not recorded";
+}
+
+function renderPhysicalProfile(record) {
+  const profile = physicalRecord(record).physicalProfile;
+  const visual = getRecordVisual(record, state.visuals);
+  dom.physicalBook.removeAttribute("style");
+  dom.physicalBook.classList.remove("has-cover", "cover-ready");
+  applyBookStyle(dom.physicalBook, record, visual);
+
+  clear(dom.physicalMetrics);
+  const dimensions = profile.dimensions;
+  const thickness = profile.thickness;
+  dom.physicalMetrics.append(
+    physicalMetricRow("Height", formatCentimeters(dimensions?.height_cm, dimensions?.height_min_cm, dimensions?.height_max_cm), dimensions ? "Clark catalog" : "Unknown"),
+    physicalMetricRow("Width", formatCentimeters(dimensions?.width_cm, dimensions?.width_min_cm, dimensions?.width_max_cm), dimensions?.width_cm ? "Clark catalog" : "Unknown"),
+    physicalMetricRow("Depth", formatCentimeters(thickness?.value_cm, thickness?.min_cm, thickness?.max_cm, Boolean(thickness)), thickness ? "Estimated from extent" : "Not estimated"),
+    physicalMetricRow("Extent", extentLabel(profile.extent), profile.extent ? "Clark catalog" : "Unknown"),
+    physicalMetricRow("Binding / housing", bindingLabel(profile.binding), profile.binding ? "Clark catalog" : "Unknown")
+  );
+  dom.physicalEvidence.textContent = profile.source_format
+    ? `Catalog evidence: ${profile.source_format}. Measurements are transcribed from Clark; ${thickness ? "depth is an interface estimate, not a measured collection fact" : "no depth is inferred for this record"}.`
+    : "No parseable physical description is present in this catalog record. The interface uses a neutral form and does not invent measurements.";
+}
+
 function setDrawer(drawer, open) {
   if (open) {
     if (state.activeDrawer && state.activeDrawer !== drawer) setDrawer(state.activeDrawer, false);
@@ -519,7 +604,11 @@ function setDrawer(drawer, open) {
     drawer.setAttribute("aria-hidden", "false");
     dom.drawerBackdrop.hidden = false;
     document.body.classList.add("drawer-open");
-    requestAnimationFrame(() => drawer.querySelector("button, a")?.focus());
+    dom.pageRegions.forEach(region => { region.inert = true; });
+    requestAnimationFrame(() => {
+      const target = drawer.querySelector("#closeDetail, #closeShelf") || drawer.querySelector("button:not(:disabled), a[href]");
+      target?.focus();
+    });
   } else {
     drawer.classList.remove("open");
     drawer.setAttribute("aria-hidden", "true");
@@ -528,6 +617,7 @@ function setDrawer(drawer, open) {
     if (!state.activeDrawer) {
       dom.drawerBackdrop.hidden = true;
       document.body.classList.remove("drawer-open");
+      dom.pageRegions.forEach(region => { region.inert = false; });
       if (state.lastFocus?.isConnected) state.lastFocus.focus();
     }
   }
@@ -537,7 +627,7 @@ function renderDetail(record) {
   const position = state.filtered.findIndex(item => item.id === record.id);
   dom.detailPosition.textContent = position >= 0 ? `Record ${formatNumber(position + 1)} of ${formatNumber(state.filtered.length)}` : "Collection record";
   clear(dom.detailVisual);
-  dom.detailVisual.append(makeBookObject(record, { detail: true, eager: true }));
+  dom.detailVisual.append(makeBookObject(record, { eager: true }));
   dom.detailKicker.textContent = [record.material_type, record.call_number].filter(Boolean).join(" · ");
   dom.detailTitle.textContent = record.title;
   dom.detailByline.textContent = [record.authors.length ? `By ${record.authors.join(", ")}` : "", record.year].filter(Boolean).join(" · ");
@@ -567,6 +657,8 @@ function renderDetail(record) {
     metadataRow("Photo likelihood", photoValue),
     record.photo_insert_reasoning ? metadataRow("Estimate note", record.photo_insert_reasoning) : null
   ].filter(Boolean).forEach(row => dom.detailMetadata.append(row));
+
+  renderPhysicalProfile(record);
 
   clear(dom.subjectList);
   record.subjects.slice(0, 24).forEach(subject => dom.subjectList.append(textElement("span", "", subject)));
@@ -751,6 +843,11 @@ function renderSearchSuggestions(query) {
 }
 
 function bindEvents() {
+  syncResponsiveFilters();
+  const filterBreakpoint = matchMedia("(max-width: 620px)");
+  const handleFilterBreakpoint = event => setFiltersExpanded(!event.matches);
+  if (filterBreakpoint.addEventListener) filterBreakpoint.addEventListener("change", handleFilterBreakpoint);
+  else filterBreakpoint.addListener(handleFilterBreakpoint);
   const updateSearch = debounce(value => {
     state.filters = normalizeFilterState({ ...state.filters, query: value, path: "" });
     applyFilters();
@@ -769,6 +866,9 @@ function bindEvents() {
     });
   });
   dom.resetFilters.addEventListener("click", () => resetFilters());
+  dom.toggleFilters.addEventListener("click", () => {
+    setFiltersExpanded(dom.toggleFilters.getAttribute("aria-expanded") !== "true");
+  });
   dom.emptyReset.addEventListener("click", () => resetFilters());
   dom.loadMore.addEventListener("click", () => { state.renderLimit += PAGE_SIZE; renderCollection(); });
   $$(".view-button").forEach(button => button.addEventListener("click", () => {
@@ -809,7 +909,7 @@ function bindEvents() {
     showToast("My Shelf cleared");
   });
   document.addEventListener("keydown", event => {
-    if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
+    if (!state.activeDrawer && (event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "k") {
       event.preventDefault();
       openSearchDialog();
     }
@@ -823,7 +923,10 @@ function bindEvents() {
       if (focusable.length) {
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
+        if (!state.activeDrawer.contains(document.activeElement)) {
+          event.preventDefault();
+          (event.shiftKey ? last : first).focus();
+        } else if (event.shiftKey && document.activeElement === first) {
           event.preventDefault();
           last.focus();
         } else if (!event.shiftKey && document.activeElement === last) {
@@ -903,7 +1006,7 @@ async function init() {
       updateUrl({ selectedId: "" });
     }
     dom.loading.classList.add("ready");
-    setTimeout(() => dom.loading.remove(), 700);
+    setTimeout(() => dom.loading.remove(), 320);
   } catch (error) {
     console.error("ShelfSignals initialization failed:", error);
     const progress = dom.loading?.querySelector("p");

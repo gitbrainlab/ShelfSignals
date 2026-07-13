@@ -3,6 +3,8 @@
  * Generated colors and book forms are interface representations, never scans.
  */
 
+import { profileFromRecord } from "./physical.js";
+
 export const VISUAL_MANIFEST_SCHEMA = "shelfsignals-book-visuals@1";
 export const FEATURED_SCHEMA = "shelfsignals-featured-items@1";
 
@@ -68,24 +70,21 @@ export function deterministicBookColors(record = {}) {
   const hue = (hueFamilies[seed % hueFamilies.length] + ((seed >>> 8) % 13) - 6 + 360) % 360;
   const saturation = 18 + ((seed >>> 12) % 27);
   const baseLightness = 19 + ((seed >>> 18) % 17);
+  const color = hslToHex(hue, saturation, baseLightness);
+  const darkInk = "#000000";
+  const lightInk = "#ffffff";
   return {
-    color: hslToHex(hue, saturation, baseLightness),
+    color,
     light: hslToHex(hue, Math.max(12, saturation - 3), Math.min(52, baseLightness + 14)),
     dark: hslToHex(hue, Math.min(55, saturation + 7), Math.max(7, baseLightness - 10)),
-    ink: baseLightness > 29 ? "#f1eadc" : "#ded0b5"
+    ink: contrastRatio(color, darkInk) >= contrastRatio(color, lightInk) ? darkInk : lightInk
   };
 }
 
 export function parsePhysicalHeight(formats = []) {
-  const values = Array.isArray(formats) ? formats : [formats];
-  for (const value of values) {
-    const matches = [...String(value || "").matchAll(/(?:^|[;,:x×]\s*|\b)(\d{1,3}(?:\.\d+)?)\s*cm\b/gi)];
-    if (matches.length) {
-      const candidate = Number(matches[matches.length - 1][1]);
-      if (candidate >= 5 && candidate <= 100) return candidate;
-    }
-  }
-  return null;
+  const profile = profileFromRecord({ formats });
+  const height = Number(profile.dimensions?.height_cm);
+  return Number.isFinite(height) && height >= 5 && height <= 100 ? height : null;
 }
 
 export function physicalBookHeight(record = {}, min = 18, max = 34) {
@@ -135,6 +134,36 @@ export function getRecordVisual(record = {}, manifest = {}) {
   return visual && isAllowedCoverUrl(visual.image_url) ? visual : null;
 }
 
+function hexLuminance(value = "") {
+  const match = String(value).match(/^#([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!match) return 0;
+  const channels = match.slice(1).map(channel => Number.parseInt(channel, 16) / 255);
+  const linear = channels.map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
+  return .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
+}
+
+function contrastRatio(left, right) {
+  const first = hexLuminance(left);
+  const second = hexLuminance(right);
+  return (Math.max(first, second) + .05) / (Math.min(first, second) + .05);
+}
+
+function visualBookColors(record, visual) {
+  const fallback = deterministicBookColors(record);
+  const palette = visual?.image_analysis?.palette?.map(item => item?.hex).filter(value => /^#[a-f\d]{6}$/i.test(value || "")) || [];
+  if (!palette.length) return fallback;
+  const ranked = [...palette].sort((left, right) => hexLuminance(left) - hexLuminance(right));
+  const dominant = palette[0] || fallback.color;
+  const darkInk = "#000000";
+  const lightInk = "#ffffff";
+  return {
+    color: dominant,
+    light: ranked[ranked.length - 1] || fallback.light,
+    dark: ranked[0] || fallback.dark,
+    ink: contrastRatio(dominant, darkInk) >= contrastRatio(dominant, lightInk) ? darkInk : lightInk
+  };
+}
+
 export function resolveFeaturedItems(records = [], config = {}, manifest = {}, desired = 11) {
   const byId = new Map(records.map(record => [record.id, record]));
   const requested = Array.isArray(config.hero) ? config.hero : [];
@@ -161,9 +190,23 @@ export function resolveFeaturedItems(records = [], config = {}, manifest = {}, d
 }
 
 export function bookStyleProperties(record = {}, visual = null) {
-  const colors = deterministicBookColors(record);
-  const { ratio } = physicalBookHeight(record);
-  const aspect = Number(visual?.aspect_ratio);
+  const colors = visualBookColors(record, visual);
+  const profile = record.physicalProfile || profileFromRecord(record);
+  const heightCm = Number(profile.dimensions?.height_cm);
+  const widthCm = Number(profile.dimensions?.width_cm);
+  const depthCm = Number(profile.thickness?.value_cm);
+  const clampedHeight = Math.max(18, Math.min(34, heightCm || 23));
+  const ratio = (clampedHeight - 18) / 16;
+  const measuredAspect = Number.isFinite(heightCm) && Number.isFinite(widthCm) && heightCm > 0 ? widthCm / heightCm : NaN;
+  const analyzedAspect = Number(visual?.image_analysis?.aspect_ratio || visual?.aspect_ratio);
+  const aspect = Number.isFinite(measuredAspect) && measuredAspect > .25 && measuredAspect < 1.8
+    ? measuredAspect
+    : analyzedAspect;
+  const safeAspect = Number.isFinite(aspect) && aspect > .25 && aspect < 1.8 ? aspect : .68;
+  const safeDepth = Number.isFinite(depthCm) && depthCm > 0 ? Math.max(.35, Math.min(7.5, depthCm)) : null;
+  const optical = visual?.image_analysis?.optical_metrics || {};
+  const frequency = Number(optical.high_frequency_energy);
+  const textureOpacity = Number.isFinite(frequency) ? Math.max(.018, Math.min(.09, frequency * 2.4)) : .025;
   return {
     "--book-color": colors.color,
     "--book-light": colors.light,
@@ -172,8 +215,13 @@ export function bookStyleProperties(record = {}, visual = null) {
     "--book-height": `${330 + ratio * 160}px`,
     "--mobile-height": `${250 + ratio * 70}px`,
     "--spine-height": `${112 + ratio * 80}px`,
-    "--spine-width": `${24 + (stableHash(record.id) % 15)}px`,
-    "--book-ratio": Number.isFinite(aspect) && aspect > .35 && aspect < 1.2 ? String(aspect) : ".68",
+    "--hero-width": `${safeDepth ? Math.round(17 + safeDepth * 12) : 28}px`,
+    "--spine-width": `${safeDepth ? Math.round(8 + safeDepth * 9) : 22}px`,
+    "--book-ratio": String(safeAspect),
+    "--profile-front-height": "158px",
+    "--profile-front-width": `${Math.max(64, Math.min(188, Math.round(158 * safeAspect)))}px`,
+    "--profile-depth": `${safeDepth ? Math.round(7 + safeDepth * 7) : 14}px`,
+    "--cover-texture": String(textureOpacity.toFixed(3)),
     ...(visual ? { "--cover-image": `url("${visual.thumbnail_url || visual.image_url}")` } : {})
   };
 }

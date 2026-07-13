@@ -6,11 +6,14 @@ ShelfSignals resolves cover references before deployment. The browser reads a co
 
 - Canonical input: `docs/data/sekula_index.json`
 - Generator: `scripts/enrich_book_visuals.py`
+- Optical analyzer: `scripts/analyze_cover_visuals.py`
 - Versioned output: `docs/data/book_visuals.json`
 - Local metadata cache: `.cache/book_visuals-openlibrary.json` (ignored by Git)
 - Hero selection: `docs/data/featured_items.json`
 
 No third-party cover binary is written to the repository. The cache contains lookup metadata and outcomes, not images.
+
+The analyzer downloads only the already allowlisted, exact-ISBN sample into an ignored local cache. It records source pixels, actual aspect ratio, checksum, dominant colors, luminance, contrast, entropy, gradient energy, high-frequency energy, and border-to-inner optical variation. These are measurements of a cover image—not claims about a copy's paper, cloth, wear, binding, or tactile texture.
 
 ## Provider policy
 
@@ -100,6 +103,8 @@ Fallback books use:
 - a color hash derived from the stable record ID.
 
 They are interface objects, not simulated scans.
+
+Physical dimensions and side-profile treatment are documented separately in [Physical profiles](./physical-profiles.md). Cover aspect ratio is used only when the Clark catalog has no stated width; catalog measurements take precedence.
 
 ## Committed sample and hit rate
 

@@ -228,7 +228,7 @@ Built for discovery and insight, not end-user search:
 ### Web Interfaces (No Dependencies)
 - **Static HTML/CSS/JavaScript**: No server, database, or runtime required
 - **GitHub Pages**: Free hosting for public repositories
-- **Browser compatibility**: Chrome 90+, Firefox 88+, Safari 14+
+- **Browser compatibility**: Chrome 102+, Firefox 112+, Safari 15.5+
 
 ### Safe Defaults
 - **Mock API mode**: Test pipelines without external API costs

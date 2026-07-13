@@ -21,7 +21,7 @@ ShelfSignals has **two operational modes**:
 **No installation required**—pure static HTML/CSS/JavaScript.
 
 **Requirements**:
-- Modern web browser (Chrome 90+, Firefox 88+, Safari 14+)
+- Modern web browser (Chrome 102+, Firefox 112+, Safari 15.5+)
 - Local web server (for CORS-compliant data loading)
 
 #### For Data Pipeline
