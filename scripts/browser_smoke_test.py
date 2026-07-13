@@ -582,6 +582,7 @@ def run_mobile_flow(browser: Any, base_url: str, timeout_ms: int) -> None:
 def run_compatibility_routes(browser: Any, base_url: str, timeout_ms: int) -> None:
     routes = [
         ("legacy/", "ShelfSignals Legacy", "#loadingOverlay", "#shelfRows > *"),
+        ("preview/", "ShelfSignals Preview", "#loadingOverlay", "#shelfRows > *"),
         ("preview/exhibit/", "ShelfSignals Exhibit", "#loadingOverlay", "#pathsGrid > *"),
     ]
     for route, expected_title, loader, content in routes:
