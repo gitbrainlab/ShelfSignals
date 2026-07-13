@@ -101,7 +101,7 @@
 
       <p class="profile-method" id="profileMethod" hidden>
         <span>Physical view</span>
-        When recorded, dimensions follow Clark. Otherwise front width uses a verified cover proportion or a neutral form; depth is explicitly labeled when modeled from extent.
+        When recorded, dimensions follow Clark. A gold point marks provider-edition evidence that may refine a modeled profile, but is never presented as evidence of the Clark copy.
       </p>
 
       <div class="browser-shell">
@@ -164,14 +164,14 @@
       <p class="section-index">04 / About</p>
       <div><h2 id="aboutTitle">Catalog evidence,<br><em>spatial attention.</em></h2></div>
       <div>
-        <p>ShelfSignals is a static research interface for the Allan Sekula Library. It uses collection metadata from the Clark Art Institute catalog, verified cover references where available, and clearly synthetic book forms everywhere else.</p>
-        <p><a href="https://github.com/gitbrainlab/ShelfSignals" rel="noopener noreferrer">Project source</a> · <a href="./interfaces.md">Interface guide</a> · <a href="./physical-profiles.md">Physical profile methods</a> · <a href="./legacy/">Legacy interface</a> · <a href="./preview/exhibit/">Exhibit</a></p>
+        <p>ShelfSignals is a static research interface for the Allan Sekula Library. It uses collection metadata from the Clark Art Institute catalog, verified cover references where available, and clearly labeled provider-edition evidence when an identifier match can enrich a synthetic book form.</p>
+        <p><a href="https://github.com/gitbrainlab/ShelfSignals" rel="noopener noreferrer">Project source</a> · <a href="./interfaces.md">Interface guide</a> · <a href="./physical-profiles.md">Physical profile methods</a> · <a href="./edition-enrichment.md">Edition evidence</a> · <a href="./legacy/">Legacy interface</a> · <a href="./preview/exhibit/">Exhibit</a></p>
       </div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <span>ShelfSignals 2.0.0</span><span>All visible catalog metadata is drawn from the ShelfSignals dataset.</span><a href="#top">Return to top ↑</a>
+    <span>ShelfSignals 2.0.0</span><span>Clark catalog facts and external provider-edition evidence are kept visibly distinct.</span><a href="#top">Return to top ↑</a>
   </footer>
 
   <dialog class="search-dialog" id="searchDialog" aria-labelledby="searchDialogTitle">
@@ -200,6 +200,12 @@
           <dl class="physical-metrics" id="physicalMetrics"></dl>
         </div>
         <p class="physical-evidence" id="physicalEvidence"></p>
+      </section>
+      <section class="detail-section edition-evidence" id="detailEdition" aria-labelledby="detailEditionTitle" hidden>
+        <h3 id="detailEditionTitle">External edition evidence</h3>
+        <dl class="edition-metadata" id="editionMetadata"></dl>
+        <p class="edition-evidence-note" id="editionEvidenceNote"></p>
+        <a class="edition-evidence-link" id="editionEvidenceLink" target="_blank" rel="noopener noreferrer"></a>
       </section>
       <section class="detail-section" id="detailSubjects"><h3>Subjects</h3><div class="subject-list" id="subjectList"></div></section>
       <section class="detail-section" id="detailNotes"><h3>Notes & provenance</h3><div id="notesList"></div></section>

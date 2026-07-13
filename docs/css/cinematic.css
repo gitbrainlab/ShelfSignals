@@ -636,7 +636,18 @@ kbd {
 .spine-group { min-width: 0; }
 .spine-group-header { display: flex; justify-content: space-between; padding-bottom: 9px; border-bottom: 1px solid var(--line); color: var(--ink-faint); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
 .spine-shelf { min-height: 195px; display: flex; align-items: end; gap: 3px; padding: 28px 0 0; overflow-x: auto; border-bottom: 8px solid #211c16; box-shadow: 0 3px rgba(118, 84, 49, .28), 0 18px 22px rgba(0,0,0,.35); }
-.spine-book { flex: 0 0 var(--spine-width, 22px); height: var(--spine-height, 145px); min-width: 11px; max-width: 72px; display: flex; align-items: center; padding: 5px 4px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 2px 2px 0 0; background: linear-gradient(90deg, var(--book-light), var(--book-color) 18%, var(--book-dark)); color: var(--book-ink, #ece1c9); cursor: pointer; writing-mode: vertical-rl; font: 9px/1.1 var(--serif); transition: transform .2s ease; }
+.spine-book { position: relative; flex: 0 0 var(--spine-width, 22px); height: var(--spine-height, 145px); min-width: 11px; max-width: 72px; display: flex; align-items: center; gap: 7px; padding: 7px 4px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); border-bottom: 0; border-radius: 2px 2px 0 0; background: linear-gradient(90deg, var(--book-light), var(--book-color) 18%, var(--book-dark)); color: var(--book-ink, #ece1c9); cursor: pointer; writing-mode: vertical-rl; text-orientation: mixed; font: 9px/1.1 var(--serif); transition: transform .2s ease, filter .2s ease; }
+.spine-book.has-edition-evidence { padding-bottom: 13px; }
+.spine-title { min-height: 0; flex: 1 1 auto; overflow: hidden; letter-spacing: .01em; text-overflow: ellipsis; white-space: nowrap; }
+.spine-meta { max-height: 38%; flex: 0 1 auto; overflow: hidden; color: color-mix(in srgb, var(--book-ink, #ece1c9), transparent 24%); font: 6px/1.15 var(--sans); letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.spine-evidence { position: absolute; left: 50%; bottom: 4px; width: 4px; height: 4px; border-radius: 50%; background: var(--warm-pale); box-shadow: 0 0 0 1px rgba(0,0,0,.28), 0 0 7px color-mix(in srgb, var(--warm-pale), transparent 42%); transform: translateX(-50%); }
+.spine-book[data-binding="hardcover"],
+.spine-book[data-binding="casebound"],
+.spine-book[data-binding="boards"],
+.spine-book[data-binding="cloth"] { border-radius: 4px 4px 1px 1px; box-shadow: inset 2px 0 rgba(255,255,255,.07), inset -2px 0 rgba(0,0,0,.22); }
+.spine-book[data-binding="cloth"] { background: repeating-linear-gradient(92deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px), linear-gradient(90deg, var(--book-light), var(--book-color) 18%, var(--book-dark)); }
+.spine-book[data-binding="paperback"],
+.spine-book[data-binding="wrappers"] { border-radius: 1px 1px 0 0; box-shadow: inset 1px 0 rgba(255,255,255,.04); }
 .spine-book:hover, .spine-book:focus-visible { transform: translateY(-8px); }
 
 .collection-grid.list-view { display: grid; grid-template-columns: 1fr; gap: 0; border-top: 1px solid var(--line); }
@@ -769,6 +780,16 @@ kbd {
   opacity: .55;
   transform: translateX(calc(var(--profile-depth, 18px) / 2)) rotateY(90deg);
 }
+.physical-book[data-binding="hardcover"] .physical-book-front,
+.physical-book[data-binding="casebound"] .physical-book-front,
+.physical-book[data-binding="boards"] .physical-book-front,
+.physical-book[data-binding="cloth"] .physical-book-front { border-width: 2px; box-shadow: inset 3px 0 rgba(255,255,255,.05), inset -3px 0 rgba(0,0,0,.2); }
+.physical-book[data-binding="hardcover"] .physical-book-spine,
+.physical-book[data-binding="casebound"] .physical-book-spine,
+.physical-book[data-binding="boards"] .physical-book-spine,
+.physical-book[data-binding="cloth"] .physical-book-spine { border-left-width: 2px; border-right-width: 2px; }
+.physical-book[data-binding="paperback"] .physical-book-front,
+.physical-book[data-binding="wrappers"] .physical-book-front { border-radius: 1px; box-shadow: none; }
 .physical-book.has-cover .physical-book-front {
   background-image:
     linear-gradient(112deg, rgba(255,255,255,.07), transparent 20% 79%, rgba(0,0,0,.28)),
@@ -790,6 +811,14 @@ kbd {
 .physical-metrics dd { margin: 0; color: var(--ink-soft); font: 13px/1.25 var(--serif); text-align: right; }
 .physical-metrics .metric-status { display: block; margin-top: 3px; color: var(--warm); font: 7px var(--sans); letter-spacing: .11em; text-transform: uppercase; }
 .physical-evidence { margin: 10px 0 0; color: var(--ink-faint); font: 10px/1.55 var(--sans); }
+.edition-evidence { padding: 17px 18px 18px; border: 1px solid color-mix(in srgb, var(--warm), transparent 67%); border-radius: 3px; background: linear-gradient(145deg, rgba(197,168,117,.06), rgba(255,255,255,.012)); }
+.edition-evidence h3 { color: var(--warm); }
+.edition-metadata { margin: 0; border-top: 1px solid var(--line); }
+.edition-metadata > div { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.edition-metadata dt { color: var(--ink-faint); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.edition-metadata dd { margin: 0; color: var(--ink-soft); font: 12px/1.4 var(--serif); overflow-wrap: anywhere; }
+.edition-evidence-note { margin: 13px 0 12px; color: var(--ink-faint); font: 10px/1.55 var(--sans); }
+.edition-evidence-link { display: inline-flex; min-height: 32px; align-items: center; color: var(--warm-pale); font-size: 9px; letter-spacing: .07em; text-underline-offset: 4px; text-transform: uppercase; }
 .subject-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .subject-list span { padding: 5px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-soft); font-size: 10px; }
 #notesList { display: grid; gap: 10px; color: var(--ink-soft); font: 14px/1.5 var(--serif); }
@@ -899,6 +928,7 @@ kbd {
   .physical-profile { grid-template-columns: 1fr; }
   .physical-model-stage { min-height: 184px; }
   .metadata-list > div { grid-template-columns: 85px 1fr; }
+  .edition-metadata > div { grid-template-columns: 82px minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

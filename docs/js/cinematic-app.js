@@ -18,7 +18,13 @@ import {
   shortDisplayTitle,
   stableHash
 } from "./visuals.js";
-import { getRecordPhysicalProfile } from "./physical.js";
+import {
+  externalEditionLabel,
+  getRecordEditionEnrichment,
+  mergeEditionPhysicalProfile,
+  parseEditionEnrichmentManifest,
+  parseEditionEnrichmentManifestAsync
+} from "./enrichment.js";
 import {
   loadShelfIds,
   resolveShelfRecords,
@@ -32,6 +38,7 @@ const DATA_URL = new URL("../data/sekula_index.json", import.meta.url);
 const VISUALS_URL = new URL("../data/book_visuals.json", import.meta.url);
 const FEATURED_URL = new URL("../data/featured_items.json", import.meta.url);
 const PATHS_URL = new URL("../preview/exhibit/curated-paths.json", import.meta.url);
+const EDITIONS_URL = new URL("../data/book_editions.json", import.meta.url);
 const PAGE_SIZE = 72;
 const SEARCH_SUGGESTION_LIMIT = 8;
 const APP_VERSION = "2.0.0";
@@ -89,6 +96,10 @@ const dom = {
   physicalBook: $("#physicalBook"),
   physicalMetrics: $("#physicalMetrics"),
   physicalEvidence: $("#physicalEvidence"),
+  detailEdition: $("#detailEdition"),
+  editionMetadata: $("#editionMetadata"),
+  editionEvidenceLink: $("#editionEvidenceLink"),
+  editionEvidenceNote: $("#editionEvidenceNote"),
   subjectList: $("#subjectList"),
   detailSubjects: $("#detailSubjects"),
   notesList: $("#notesList"),
@@ -116,6 +127,7 @@ const state = {
   paths: [],
   pathMap: new Map(),
   visuals: parseVisualManifest({}),
+  editions: parseEditionEnrichmentManifest({}),
   featuredConfig: {},
   filters: normalizeFilterState(initialUrl),
   view: ["covers", "spines", "list"].includes(initialUrl.view) ? initialUrl.view : "covers",
@@ -142,6 +154,12 @@ function formatNumber(value) {
   return new Intl.NumberFormat().format(value || 0);
 }
 
+function naturalList(values) {
+  if (values.length < 2) return values[0] || "";
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
+}
+
 function authorLabel(record) {
   return record.authors.length ? record.authors.join(", ") : "Creator not recorded";
 }
@@ -150,8 +168,12 @@ function compactMeta(record) {
   return [record.authors[0], record.yearPrimary, record.call_number].filter(Boolean).join(" · ");
 }
 
+function editionForRecord(record) {
+  return getRecordEditionEnrichment(record, state.editions);
+}
+
 function physicalRecord(record) {
-  if (!record.physicalProfile) record.physicalProfile = getRecordPhysicalProfile(record);
+  if (!record.physicalProfile) record.physicalProfile = mergeEditionPhysicalProfile(record, editionForRecord(record));
   return record;
 }
 
@@ -241,6 +263,7 @@ function renderHero() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "hero-book";
+    button.dataset.recordId = record.id;
     button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}`);
     applyBookStyle(button, physicalRecord(record), visual);
     appendCoverImage(button, record, visual, index < 5);
@@ -483,13 +506,29 @@ function createListBook(record, index) {
 
 function createSpine(record) {
   const visual = getRecordVisual(record, state.visuals);
+  const enrichment = editionForRecord(record);
+  const profile = physicalRecord(record).physicalProfile;
   const button = document.createElement("button");
   button.type = "button";
   button.className = "spine-book";
-  button.textContent = record.displayTitle;
-  button.title = `${record.title}${compactMeta(record) ? ` — ${compactMeta(record)}` : ""}`;
-  button.setAttribute("aria-label", `Open ${record.title}`);
-  applyBookStyle(button, physicalRecord(record), visual);
+  button.classList.toggle("has-edition-evidence", Boolean(enrichment));
+  button.dataset.recordId = record.id;
+  button.dataset.binding = profile.binding?.term || "";
+  const metadata = [record.authors[0], record.yearPrimary || record.year, record.call_number].filter(Boolean).join(" · ");
+  const editionLabel = externalEditionLabel(enrichment);
+  const evidenceDescription = enrichment
+    ? ` Open Library provider-edition evidence is available${editionLabel ? `: ${editionLabel}` : ` (${enrichment.preferred.source_id})`}; it does not describe the Clark copy.`
+    : "";
+  button.title = `${record.title}${metadata ? ` — ${metadata}` : ""}.${evidenceDescription}`.trim();
+  button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}${record.call_number ? `, call number ${record.call_number}` : ""}.${evidenceDescription}`);
+  button.append(textElement("span", "spine-title", record.displayTitle));
+  if (metadata) button.append(textElement("span", "spine-meta", metadata));
+  if (enrichment) {
+    const evidence = textElement("span", "spine-evidence", "");
+    evidence.setAttribute("aria-hidden", "true");
+    button.append(evidence);
+  }
+  applyBookStyle(button, record, visual);
   button.addEventListener("click", () => openDetail(record.id, true));
   return button;
 }
@@ -572,26 +611,122 @@ function bindingLabel(binding) {
   return binding?.term ? titleCase(binding.term.replaceAll("-", " ")) : "Not recorded";
 }
 
+function statedEvidenceStatus(value) {
+  if (!value) return "Unknown";
+  return value.status === "external_edition_stated" ? "Open Library edition" : "Clark catalog";
+}
+
+function dimensionAxisEvidenceStatus(dimensions, axis) {
+  if (!Number.isFinite(dimensions?.[`${axis}_cm`])) return "Unknown";
+  const provenance = dimensions.provenance?.[`${axis}_cm`];
+  return provenance?.status === "external_edition_stated" ? "Open Library edition" : "Clark catalog";
+}
+
+function thicknessEvidenceStatus(thickness) {
+  if (!thickness) return "Not modeled";
+  if (thickness.status === "external_edition_stated") return "Open Library edition · stated";
+  if (thickness.method === "catalog-extent-external-binding-model-v1") return "Estimated from extent · Clark + edition binding";
+  if (thickness.method === "external-edition-extent-model-v1" || thickness.status === "estimated_external") return "Estimated from extent · Open Library edition";
+  return "Estimated from extent · Clark catalog";
+}
+
+function thicknessIsModeled(thickness) {
+  return Boolean(thickness) && (String(thickness.status || "").startsWith("estimated") || String(thickness.method || "").includes("model"));
+}
+
+function externalPhysicalInputs(profile) {
+  const inputs = [];
+  if (profile.dimensions?.provenance?.height_cm?.status === "external_edition_stated") inputs.push("height");
+  if (profile.dimensions?.provenance?.width_cm?.status === "external_edition_stated") inputs.push("width");
+  if (profile.thickness?.status === "external_edition_stated") inputs.push("stated depth");
+  if (profile.binding?.status === "external_edition_stated") inputs.push("binding");
+  if (profile.extent?.status === "external_edition_stated") inputs.push("page extent");
+  return inputs;
+}
+
 function renderPhysicalProfile(record) {
   const profile = physicalRecord(record).physicalProfile;
   const visual = getRecordVisual(record, state.visuals);
   dom.physicalBook.removeAttribute("style");
   dom.physicalBook.classList.remove("has-cover", "cover-ready");
+  dom.physicalBook.dataset.binding = profile.binding?.term || "";
   applyBookStyle(dom.physicalBook, record, visual);
 
   clear(dom.physicalMetrics);
   const dimensions = profile.dimensions;
   const thickness = profile.thickness;
   dom.physicalMetrics.append(
-    physicalMetricRow("Height", formatCentimeters(dimensions?.height_cm, dimensions?.height_min_cm, dimensions?.height_max_cm), dimensions ? "Clark catalog" : "Unknown"),
-    physicalMetricRow("Width", formatCentimeters(dimensions?.width_cm, dimensions?.width_min_cm, dimensions?.width_max_cm), dimensions?.width_cm ? "Clark catalog" : "Unknown"),
-    physicalMetricRow("Depth", formatCentimeters(thickness?.value_cm, thickness?.min_cm, thickness?.max_cm, Boolean(thickness)), thickness ? "Estimated from extent" : "Not estimated"),
-    physicalMetricRow("Extent", extentLabel(profile.extent), profile.extent ? "Clark catalog" : "Unknown"),
-    physicalMetricRow("Binding / housing", bindingLabel(profile.binding), profile.binding ? "Clark catalog" : "Unknown")
+    physicalMetricRow("Height", formatCentimeters(dimensions?.height_cm, dimensions?.height_min_cm, dimensions?.height_max_cm), dimensionAxisEvidenceStatus(dimensions, "height")),
+    physicalMetricRow("Width", formatCentimeters(dimensions?.width_cm, dimensions?.width_min_cm, dimensions?.width_max_cm), dimensionAxisEvidenceStatus(dimensions, "width")),
+    physicalMetricRow("Depth", formatCentimeters(thickness?.value_cm, thickness?.min_cm, thickness?.max_cm, thicknessIsModeled(thickness)), thicknessEvidenceStatus(thickness)),
+    physicalMetricRow("Extent", extentLabel(profile.extent), statedEvidenceStatus(profile.extent)),
+    physicalMetricRow("Binding / housing", bindingLabel(profile.binding), statedEvidenceStatus(profile.binding))
   );
-  dom.physicalEvidence.textContent = profile.source_format
-    ? `Catalog evidence: ${profile.source_format}. Measurements are transcribed from Clark; ${thickness ? "depth is an interface estimate, not a measured collection fact" : "no depth is inferred for this record"}.`
-    : "No parseable physical description is present in this catalog record. The interface uses a neutral form and does not invent measurements.";
+  const externalInputs = externalPhysicalInputs(profile);
+  if (profile.external_evidence) {
+    const externalSummary = externalInputs.length ? naturalList(externalInputs) : "physical metadata";
+    const depthSummary = !thickness
+      ? "No depth is inferred for this record."
+      : thicknessIsModeled(thickness)
+        ? "Depth remains an interface model, not a measured collection fact."
+        : thickness.status === "external_edition_stated"
+          ? "The stated depth is provider-edition evidence, not a measurement of the Clark copy."
+          : "Depth is not presented as a Clark-copy measurement.";
+    dom.physicalEvidence.textContent = profile.source_format
+      ? `Clark catalog evidence: ${profile.source_format}. Clark-stated values remain catalog facts. Exact-ISBN Open Library evidence supplies ${externalSummary} for a provider edition, not the Clark copy. ${depthSummary}`
+      : `No parseable physical description is present in the Clark catalog record. Exact-ISBN Open Library evidence supplies ${externalSummary} for a provider edition, not the Clark copy. ${depthSummary}`;
+  } else {
+    dom.physicalEvidence.textContent = profile.source_format
+      ? `Catalog evidence: ${profile.source_format}. Measurements are transcribed from Clark; ${thickness ? "depth is an interface model, not a measured collection fact" : "no depth is inferred for this record"}.`
+      : "No parseable physical description is present in this catalog record. The interface uses a neutral form and does not invent measurements.";
+  }
+}
+
+function editionMatchLabel(candidate) {
+  const types = [...new Set(candidate.match.identifiers.map(identifier => identifier.type.toUpperCase()))];
+  const identifiers = candidate.match.identifiers.map(identifier => `${identifier.type.toUpperCase()} ${identifier.value}`).join(" · ");
+  return `${candidate.match.method === "isbn_exact" ? "Exact ISBN" : `Exact ${types.join(" / ")}`} match${identifiers ? ` · ${identifiers}` : ""}`;
+}
+
+function renderEditionEvidence(record) {
+  const enrichment = editionForRecord(record);
+  clear(dom.editionMetadata);
+  dom.editionEvidenceLink.removeAttribute("href");
+  if (!enrichment) {
+    dom.detailEdition.hidden = true;
+    dom.editionEvidenceNote.textContent = "";
+    return;
+  }
+
+  const profile = physicalRecord(record).physicalProfile;
+  const appliedSourceId = profile.external_evidence?.source_id;
+  const candidate = enrichment.candidates.find(item => item.source_id === appliedSourceId) || enrichment.preferred;
+  const edition = candidate.edition;
+  const snapshot = /^\d{4}-\d{2}-\d{2}$/.test(state.editions.source?.provider_snapshot || "")
+    ? state.editions.source.provider_snapshot
+    : "";
+  const extent = [
+    edition.number_of_pages ? `${formatNumber(edition.number_of_pages)} pages` : "",
+    edition.pagination
+  ].filter(Boolean).join(" · ");
+  [
+    metadataRow("Open Library ID", candidate.source_id),
+    metadataRow("Match", editionMatchLabel(candidate)),
+    metadataRow("Source snapshot", snapshot),
+    metadataRow("Record modified", candidate.record_modified),
+    metadataRow("Edition", externalEditionLabel({ preferred: candidate })),
+    metadataRow("Publisher", edition.publishers?.join(" · ")),
+    metadataRow("Physical format", edition.physical_format),
+    metadataRow("Dimensions", edition.physical_dimensions),
+    metadataRow("Weight", edition.weight),
+    metadataRow("Extent", extent),
+    metadataRow("Series", edition.series?.join(" · ")),
+    metadataRow("Languages", edition.languages?.join(" · "))
+  ].filter(Boolean).forEach(row => dom.editionMetadata.append(row));
+  dom.editionEvidenceNote.textContent = "This is metadata for a matched Open Library provider edition, not evidence about the Clark copy. It does not establish the Clark copy’s dimensions, texture, wear, or side profile.";
+  dom.editionEvidenceLink.href = candidate.source_url;
+  dom.editionEvidenceLink.textContent = `View ${candidate.source_id} in Open Library ↗`;
+  dom.detailEdition.hidden = false;
 }
 
 function setDrawer(drawer, open) {
@@ -659,6 +794,7 @@ function renderDetail(record) {
   ].filter(Boolean).forEach(row => dom.detailMetadata.append(row));
 
   renderPhysicalProfile(record);
+  renderEditionEvidence(record);
 
   clear(dom.subjectList);
   record.subjects.slice(0, 24).forEach(subject => dom.subjectList.append(textElement("span", "", subject)));
@@ -959,6 +1095,50 @@ function bindEvents() {
   });
 }
 
+async function loadEditionEnrichment() {
+  try {
+    const response = await fetch(EDITIONS_URL);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    const manifest = await parseEditionEnrichmentManifestAsync(await response.json(), {
+      batchSize: 400,
+      yieldControl: yieldToBrowser
+    });
+    if (manifest.rejected) throw new Error("the manifest failed provenance or schema validation");
+    if (manifest.source.record_count !== state.records.length) throw new Error("the manifest does not match the active catalog record count");
+
+    state.editions = manifest;
+    state.records.forEach(record => { delete record.physicalProfile; });
+    await yieldToBrowser();
+
+    $$(".hero-book[data-record-id]").forEach(button => {
+      const record = state.recordMap.get(button.dataset.recordId);
+      if (record) applyBookStyle(button, physicalRecord(record), getRecordVisual(record, state.visuals));
+    });
+    if (state.view === "spines") {
+      renderCollection();
+    } else if (state.view === "covers") {
+      $$(".book-card[data-record-id]").forEach(card => {
+        const record = state.recordMap.get(card.dataset.recordId);
+        const object = card.querySelector(".book-object");
+        if (record && object) applyBookStyle(object, physicalRecord(record), getRecordVisual(record, state.visuals));
+      });
+    }
+    const selected = state.recordMap.get(state.selectedId);
+    if (selected) {
+      renderPhysicalProfile(selected);
+      renderEditionEvidence(selected);
+    }
+  } catch (error) {
+    console.warn(`ShelfSignals could not apply ${EDITIONS_URL}:`, error);
+  }
+}
+
+function scheduleEditionEnrichment() {
+  const load = () => { void loadEditionEnrichment(); };
+  if ("requestIdleCallback" in window) window.requestIdleCallback(load, { timeout: 1400 });
+  else setTimeout(load, 0);
+}
+
 async function init() {
   try {
     const [rawData, rawVisuals, featuredConfig, pathConfig] = await Promise.all([
@@ -1007,6 +1187,7 @@ async function init() {
     }
     dom.loading.classList.add("ready");
     setTimeout(() => dom.loading.remove(), 320);
+    scheduleEditionEnrichment();
   } catch (error) {
     console.error("ShelfSignals initialization failed:", error);
     const progress = dom.loading?.querySelector("p");
