@@ -11,7 +11,7 @@ ShelfSignals `2.0.0` makes the GitHub Pages root the canonical Allan Sekula Libr
 | `/ShelfSignals/preview/` | `docs/preview/index.html` | Compatibility | Earlier research UI and spatial experiments |
 | `/ShelfSignals/preview/exhibit/` | `docs/preview/exhibit/index.html` | Compatibility | Exhibit cycles, paths, kiosk, and receipt experiments |
 
-The independent HTTPS mirror uses the same document-root layout at `https://evcatalyst.github.io/ShelfSignals-live/`. Its separate repository syncs `gitbrainlab/ShelfSignals@main`; the first journey will appear at `/?journey=aerospace-folktales` after this branch merges and the next mirror sync. Locally, the route is `http://localhost:8000/?journey=aerospace-folktales`.
+The independent HTTPS mirror uses the same document-root layout at `https://evcatalyst.github.io/ShelfSignals-live/`. Its separate repository syncs `gitbrainlab/ShelfSignals@main`; the first journey is live at `/?journey=aerospace-folktales`. Locally, the same route is `http://localhost:8000/?journey=aerospace-folktales`.
 
 The root no longer needs the redirect proposed in PR #20. Its intent—preventing users from landing on the broken v1 selection flow—is addressed by placing v1 at `/legacy/` and serving the new application directly from `/`.
 
