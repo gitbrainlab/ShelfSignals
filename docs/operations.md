@@ -445,7 +445,10 @@ python scripts\verify_photo_identifiers.py
 │   │   ├── year.js                 # Year normalization
 │   │   └── receipt.js              # Digital Receipt system
 │   ├── data/                       # Collection data
-│   │   ├── sekula_index.json       # Primary data (JSON-native)
+│   │   ├── sekula_index.json       # Canonical research data (JSON-native)
+│   │   ├── catalog-core.json       # Compact primary-browser projection
+│   │   ├── catalog-search.json     # Lazy full-field search projection
+│   │   ├── catalog-details/        # Lazy deterministic detail shards
 │   │   ├── sekula_inventory.json   # Legacy data (CSV-compatible)
 │   │   ├── sekula_index.csv        # CSV export
 │   │   ├── photo_feature_packets.jsonl  # AI scoring input (generated)
@@ -478,15 +481,22 @@ python scripts\verify_photo_identifiers.py
 #### Primary Data
 | File | Size | Format | Purpose | Committed to Git |
 |------|------|--------|---------|------------------|
-| `sekula_index.json` | ~8 MB | JSON array | Primary web interface data | ✅ Yes |
-| `sekula_inventory.json` | ~5 MB | JSON (CSV-compat) | Legacy production interface | ✅ Yes |
-| `sekula_index.csv` | ~12 MB | CSV | Spreadsheet analysis | ✅ Yes |
+| `sekula_index.json` | ~39.35 MB uncompressed; ~4.45 MB with normal HTTP compression | JSON array | Canonical 11,176-record primary/Preview/Exhibit catalog | ✅ Yes |
+| `catalog-core.json` | ~3.9 MB uncompressed; ~0.91 MB with gzip | Compact JSON contract | Initial all-record primary-browser fields | ✅ Yes |
+| `catalog-search.json` | ~11.3 MB uncompressed; ~2.7 MB with gzip | Compact JSON contract | Full-field search, fetched on demand | ✅ Yes |
+| `catalog-details/` | ~13.2 MB total; each shard is small | 128 compact JSON shards | Drawer metadata, fetched one shard at a time | ✅ Yes |
+| `sekula_inventory.json` | ~39.35 MB | JSON (CSV-compat) | Legacy compatibility interface | ✅ Yes |
+| `spine_index.json` | ~793 KB | Compact JSON contract | Lazy Clark-derived Physical shelf geometry | ✅ Yes |
+| `book_editions.json` | ~17.15 MB | JSON evidence manifest | Explicit-click provider-edition evidence; never required by Physical view | ✅ Yes |
+| `book_profiles.json` | ~6.78 MB | JSON evidence manifest | Regeneration/audit source for compact spine profiles | ✅ Yes |
+| `sekula_index.csv` | ~24.78 MB | CSV | Spreadsheet analysis | ✅ Yes |
+| `sekula_index_enriched.csv` | ~26.12 MB | CSV | Legacy scored spreadsheet export | ✅ Yes |
 
 #### Generated/Intermediate
 | File | Size | Format | Purpose | Committed to Git |
 |------|------|--------|---------|------------------|
-| `photo_feature_packets.jsonl` | ~2 MB | JSONL | AI scoring input | ❌ No (regenerated) |
-| `photo_scored.jsonl` | ~3 MB | JSONL | AI scoring output | ❌ No (regenerated) |
+| `photo_feature_packets.jsonl` | ~6.30 MB | JSONL | Legacy AI-scoring input | ✅ Yes (regenerable) |
+| `photo_scored.jsonl` | ~9.66 MB | JSONL | Legacy AI-scoring output | ✅ Yes (regenerable) |
 | `.checkpoint.json` | ~1 KB | JSON | Harvester checkpoint | ❌ No (temp) |
 
 #### Configuration
@@ -496,21 +506,15 @@ python scripts\verify_photo_identifiers.py
 
 ### Disk Space Requirements
 
-**Minimal deployment** (interfaces only):
-- Web interfaces: ~500 KB (HTML + CSS + JS)
-- Data files: ~25 MB (all formats)
-- **Total**: ~26 MB
+**Current public tree** (the GitHub Pages `docs/` directory):
+- Entire `docs/` tree: approximately 193 MiB on disk.
+- `docs/data/`: approximately 190 MiB on disk.
+- No visitor downloads that footprint as one payload. The primary route starts with the ~3.9 MB decoded compact core (about 0.91 MB with gzip); search, one detail shard, spine evidence, and the 17.15 MB external-edition manifest load only when the relevant interaction requests them.
+- Legacy, Preview, research-regeneration, CSV, and canonical files remain public for compatibility and audit, which explains the difference between transfer size and repository footprint.
 
-**Full pipeline** (including generated files):
-- Web interfaces: ~500 KB
-- Data files: ~25 MB
-- Generated files: ~5 MB
-- Python scripts: ~100 KB
-- **Total**: ~31 MB
-
-**With logs and checkpoints** (active development):
-- Add ~10 MB per harvest run
-- Add ~50 MB for verbose logging (optional)
+**Active development state**:
+- Ignored `.cache/` cover queues, provider state, browsers, screenshots, dumps, and review exports are additional and workload-dependent.
+- Open Library monthly dumps and local browser runtimes can be much larger than the deployed tree; keep them on a volume with explicit retention and backup policy.
 
 ### Backup Strategy
 

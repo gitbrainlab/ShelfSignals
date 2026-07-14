@@ -1,0 +1,67 @@
+name: Interface and evidence quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts-and-projections:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bounded image-test dependency
+        run: python3 -m pip install --disable-pip-version-check Pillow==12.3.0
+
+      - name: Verify generated browser catalog
+        run: |
+          node scripts/build_browser_catalog.mjs --self-test
+          node scripts/build_browser_catalog.mjs --check
+
+      - name: Verify JavaScript contracts
+        run: >-
+          node --test
+          scripts/browser_catalog_unit_tests.mjs
+          scripts/cinematic_unit_tests.mjs
+          scripts/phase_one_unit_tests.mjs
+          scripts/review_unit_tests.mjs
+          scripts/spine_index_unit_tests.mjs
+          scripts/aerospace_review_queue_tests.mjs
+          scripts/association_promotion_tests.mjs
+
+      - name: Verify Python evidence pipelines
+        run: |
+          python3 scripts/build_cover_index.py --self-test
+          python3 scripts/build_cover_index.py --check
+          python3 scripts/build_spine_index.py --self-test
+          python3 scripts/cover_source_pipeline.py self-test
+          python3 scripts/cover_source_pipeline_unit_tests.py
+          python3 scripts/ingest_cleared_covers.py self-test
+          python3 scripts/ingest_cleared_covers.py encoder-self-test
+          python3 scripts/cleared_cover_ingest_unit_tests.py
+          python3 scripts/google_books_cover_source.py self-test
+          python3 scripts/google_books_cover_source_unit_tests.py
+
+      - name: Verify static compatibility contracts
+        run: node scripts/preview_acceptance_tests.mjs

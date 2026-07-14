@@ -4,6 +4,8 @@
  * Pure functions only: deterministic, testable, and safe for static hosting.
  */
 
+import { parsePhysicalIdentifiers } from "./placement.js";
+
 export const DEFAULT_SPATIAL_CONFIG = {
   walls: [
     {
@@ -56,19 +58,7 @@ export function parseSNumber(callNumber = "") {
 }
 
 export function parsePhysicalIdentifier(record = {}) {
-  const notes = [
-    ...(Array.isArray(record.provenance_notes) ? record.provenance_notes : []),
-    ...(Array.isArray(record.sekula_notes) ? record.sekula_notes : [])
-  ];
-
-  for (const note of notes) {
-    const match = String(note).match(/Sekula Library Identifier:\s*([^;]+)/i);
-    if (match) {
-      return match[1].trim();
-    }
-  }
-
-  return "";
+  return parsePhysicalIdentifiers(record)[0]?.label || "";
 }
 
 function inRange(value, range) {

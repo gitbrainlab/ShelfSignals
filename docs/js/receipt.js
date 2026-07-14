@@ -114,14 +114,18 @@ export async function createReceipt(options = {}) {
     filters = {},
     annotations = {},
     datasetName = 'Allan Sekula Library',
+    datasetHash = null,
     datasetUrl = null,
     appVersion = '2.0.0',
     appChannel = 'primary'
   } = options;
   
-  // Compute dataset hash if URL provided
-  let indexHash = 'not-computed';
-  if (datasetUrl) {
+  // Prefer a source hash already validated by the application. Fetching the
+  // canonical research file solely to re-hash it can be a very large and
+  // surprising transfer during an otherwise local receipt export.
+  const suppliedHash = String(datasetHash || '').replace(/^sha256:/i, '').toLowerCase();
+  let indexHash = /^[a-f0-9]{64}$/.test(suppliedHash) ? suppliedHash : 'not-computed';
+  if (indexHash === 'not-computed' && datasetUrl) {
     indexHash = await computeDatasetHash(datasetUrl);
   }
   

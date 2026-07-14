@@ -20,7 +20,7 @@ The manifest is produced by `scripts/build_book_profiles.py`. The browser-side p
 
 Clark's records rarely state book-block thickness. When a book record gives pages or leaves, ShelfSignals calculates a bounded interface estimate from page-equivalent count plus a modest cover allowance. Folded sheets, portfolios, folders, housings, loose-leaf objects, and multi-volume sets are excluded. The result is labeled `Estimated from extent` everywhere it appears. It is not written back to the catalog and must not be described as a measured collection fact.
 
-If extent is missing, multi-volume, or structurally unsuitable, the depth remains unknown and the interface uses a neutral fallback width. No record receives a random physical width. A conflict-free, exact-ISBN three-axis edition specification may replace the generic model, but it remains visibly labeled external provider-edition evidence rather than a measurement of the Clark copy.
+If extent is missing, multi-volume, or structurally unsuitable, the depth remains unknown and the interface uses a neutral fallback width. No record receives a random physical width. Provider-edition dimensions remain in the separate edition-evidence drawer and never shape the Physical shelf; they are not measurements of the Clark copy.
 
 ## Cover-image optical analysis
 
@@ -39,7 +39,7 @@ For future exact-edition enrichment, use identifiers rather than title similarit
 
 Store source, identifier, match method, confidence, unit, and raw evidence with every enriched value. A title-only or similar-edition match must never become factual geometry.
 
-Open Library explicitly directs collection-scale work to its monthly dumps. ShelfSignals therefore builds edition metadata locally without per-book API traffic. The matching, conflict, provenance, Common Crawl, and runtime rules are documented in [Edition metadata enrichment](./edition-enrichment.md). The cover analyzer remains limited to the 13 already verified exact-ISBN image references and keeps a local cache.
+Open Library explicitly directs collection-scale work to its monthly dumps. ShelfSignals therefore builds edition metadata locally without per-book API traffic. The matching, conflict, provenance, Common Crawl, and runtime rules are documented in [Edition metadata enrichment](./edition-enrichment.md). The legacy cover analyzer is limited to 13 exact-ISBN provider references; none has a structured named visual approval yet.
 
 ## What would provide a true side profile
 
@@ -55,4 +55,4 @@ python3 scripts/build_book_profiles.py
 node --test scripts/cinematic_unit_tests.mjs
 ```
 
-The generated manifest includes a schema version, source dataset checksum, record count, summary totals, and the original catalog physical description used for each profile. The production browser reparses only the records it renders instead of loading the full manifest at startup; generator/browser parity is covered by the test suite.
+The generated manifest includes a schema version, source dataset checksum, record count, summary totals, and the original catalog physical description used for each profile. The production Physical shelf lazily loads the separate compact `spine_index.json`, verifies it against the active catalog checksum, and decodes only rendered records. The drawer exposes per-axis precedence, object form, separate binding/housing, rights, provenance, and warnings; generator/runtime parity is covered by the test suite.

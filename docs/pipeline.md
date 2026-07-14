@@ -554,7 +554,9 @@ Each pipeline run can log:
 ### Web Interfaces
 - **Static files**: `docs/index.html`, `docs/preview/index.html`, `docs/preview/exhibit/index.html`
 - **JavaScript modules**: `docs/js/*.js` (loaded by interfaces)
-- **Data loaded by UI**: `docs/data/sekula_index.json` (for Preview/Exhibit), `docs/data/sekula_inventory.json` (for Production)
+- **Canonical catalog and Preview/Exhibit input**: `docs/data/sekula_index.json`
+- **Primary-browser input**: `docs/data/catalog-core.json`, with `catalog-search.json` and `catalog-details/` loaded only when needed. Every projection is SHA-bound to the canonical catalog; see `docs/browser-catalog.md`.
+- **Legacy compatibility input**: `docs/data/sekula_inventory.json`; it is not the primary cinematic catalog
 
 ### Exported/User-Generated
 - **Digital Receipts**: Client-side only (browser localStorage or downloads)

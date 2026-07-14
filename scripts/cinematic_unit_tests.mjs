@@ -12,6 +12,13 @@ import {
   serializeUrlState
 } from "../docs/js/catalog.js";
 import {
+  groupPlacementsByRoom,
+  normalizePlacementKey,
+  parsePhysicalIdentifiers,
+  recordMatchesPlacement,
+  roomForPlacement
+} from "../docs/js/placement.js";
+import {
   loadShelfIds,
   resolveShelfRecords,
   restoreShelfFromReceipt,
@@ -19,6 +26,7 @@ import {
   toggleShelfId
 } from "../docs/js/shelf.js";
 import { parseSNumber } from "../docs/js/spatial.js";
+import { createReceipt } from "../docs/js/receipt.js";
 import {
   PHYSICAL_MANIFEST_SCHEMA,
   estimateBookThickness,
@@ -263,6 +271,46 @@ test("generated book colors are deterministic and record-specific", () => {
   }
 });
 
+test("placement parsing preserves source labels, finds every explicit placement, and groups rooms", () => {
+  const placements = parsePhysicalIdentifiers({
+    provenance_notes: [
+      "Gift; Sekula Library Identifier: STUDY G",
+      "Copy two; Sekula Library identifier: Study G; copy three; Sekula Library Identifier: Allan Studio Book Room Shelf D4, Front Bedroom F"
+    ],
+    sekula_notes: "Sekula Library Identifier: Garden Shed Drawer A, C, H, J"
+  });
+
+  assert.deepEqual(placements.map(placement => placement.label), [
+    "STUDY G",
+    "Allan Studio Book Room Shelf D4",
+    "Front Bedroom F",
+    "Garden Shed Drawer A, C, H, J"
+  ]);
+  assert.equal(placements[0].sources.length, 2, "case variants should dedupe without losing their source references");
+  assert.equal(placements[0].key, "study g");
+  assert.deepEqual(roomForPlacement(placements[1]), { key: "allan studio book room", label: "Allan Studio Book Room" });
+  assert.deepEqual(groupPlacementsByRoom(placements).map(group => group.label), [
+    "Study",
+    "Allan Studio Book Room",
+    "Front Bedroom",
+    "Garden Shed"
+  ]);
+  assert.equal(normalizePlacementKey("  Front   Bedroom AB. "), "front bedroom ab");
+  assert.equal(recordMatchesPlacement({ placements }, "study g"), true);
+  assert.equal(recordMatchesPlacement({ placements }, "Study H"), false);
+});
+
+test("placement parsing applies only explicit audited catalog-tail corrections", () => {
+  const ragged = parsePhysicalIdentifiers(realRecord("alma991002003019708431"));
+  assert.deepEqual(ragged.map(placement => placement.label), ["Allan Studio Book Room Box A6"]);
+  assert.equal(ragged[0].sources[0].sourceLabel, "Allan Studio Book Room Box A6 7102 Sterling and Francine Clark Art Institute. Library");
+  assert.deepEqual(ragged[0].sources[0].warnings, ["audited_trailing_catalog_text_removed"]);
+
+  const animation = parsePhysicalIdentifiers(realRecord("alma991002009929708431"));
+  assert.deepEqual(animation.map(placement => placement.label), ["Allan Studio Book Room Box C5", "Bottom Front Column F"]);
+  assert.equal(animation[0].sources[0].sourceLabel, "Allan Studio Book Room Box C5 5411 CAI copy 2");
+});
+
 test("enrichment tolerates malformed and scalar metadata", () => {
   const malformed = enrichRecord({
     id: 42,
@@ -292,12 +340,14 @@ test("enrichment tolerates malformed and scalar metadata", () => {
   assert.equal(malformed.lcClass, null);
   assert.equal(malformed.yearPrimary, null);
   assert.equal(malformed.catalogLink, "");
+  assert.deepEqual(malformed.placements, []);
   assert.ok(malformed.searchText.includes("9780520270947"));
 });
 
 test("catalog search covers identifiers, call numbers, and collection notes", () => {
   const camera = enrichRecord(realRecord("alma991002311449708431"));
   assert.equal(camera.title, "U.S. Camera");
+  assert.deepEqual(camera.placements.map(placement => placement.label), ["Front Bedroom AB", "Front Bedroom E"]);
 
   for (const query of [
     "alma991002311449708431",
@@ -309,6 +359,8 @@ test("catalog search covers identifiers, call numbers, and collection notes", ()
     assert.deepEqual(filterRecords([camera], { query }).map(record => record.title), ["U.S. Camera"], `expected search match for ${query}`);
   }
   assert.deepEqual(filterRecords([camera], { query: "identifier that is absent" }), []);
+  assert.deepEqual(filterRecords([camera], { placement: "front bedroom ab" }).map(record => record.title), ["U.S. Camera"]);
+  assert.deepEqual(filterRecords([camera], { placement: "Garden Shed Shelf A1" }), []);
 });
 
 test("signal filters preserve strict any/all semantics", () => {
@@ -395,6 +447,27 @@ test("shelf persistence normalizes IDs and receipt restore reports missing recor
   assert.deepEqual(loadShelfIds(storage), []);
 });
 
+test("receipt export reuses the already-validated canonical hash without refetching 39 MB", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    throw new Error("dataset fetch should not occur");
+  };
+  try {
+    const datasetHash = "a".repeat(64);
+    const receipt = await createReceipt({
+      items: [{ id: "alma1", title: "Real catalog title" }],
+      datasetHash: `sha256:${datasetHash}`,
+      datasetUrl: "https://example.invalid/large-catalog.json"
+    });
+    assert.equal(receipt.dataset.indexHash, datasetHash);
+    assert.equal(fetchCount, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("URL state round-trips record deep links and browsing controls", () => {
   const serialized = serializeUrlState({
     record: "alma991002293459708431",
@@ -405,8 +478,11 @@ test("URL state round-trips record deep links and browsing controls", () => {
     material: "book",
     decade: 1970,
     photo: "Strongly Likely",
+    placement: "Front Bedroom AB",
     group: "material",
     path: "labor-images",
+    journey: "aerospace-folktales",
+    cluster: "domestic-interior",
     view: "spines"
   }, "https://example.test/ShelfSignals/?record=old&unrelated=kept#archive");
 
@@ -422,10 +498,16 @@ test("URL state round-trips record deep links and browsing controls", () => {
     material: "book",
     decade: "1970",
     photo: "Strongly Likely",
+    placement: "front bedroom ab",
     group: "material",
     path: "labor-images",
+    journey: "aerospace-folktales",
+    cluster: "domestic-interior",
     view: "spines"
   });
+  assert.equal(parseUrlState("https://example.test/ShelfSignals/?path=labor-images").path, "labor-images", "legacy path links must remain unchanged");
+  assert.equal(parseUrlState("https://example.test/ShelfSignals/?journey=aerospace-folktales").journey, "aerospace-folktales");
+  assert.equal(serializeUrlState({ cluster: "orphan" }, "https://example.test/ShelfSignals/").includes("cluster="), false, "cluster state is valid only inside a journey");
 });
 
 test("physical height parsing follows catalog height-first dimensions", () => {
