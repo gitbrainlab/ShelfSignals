@@ -1,0 +1,269 @@
+{
+  "schema": "shelfsignals-journey@1",
+  "id": "aerospace-folktales",
+  "publication_status": "published",
+  "title": "Aerospace Folktales",
+  "subtitle": "Family, engineering, unemployment, and the ordered interior",
+  "introduction": "A rights-aware research preview following five source-described movements within Allan Sekula’s 1973 photo-text work. The work photographs remain metadata-only until reuse permission is documented. The shelf below publishes no inferred influence: only the Clark record for the work itself is shown while candidate relations await named librarian review.",
+  "target_works": [
+    {
+      "id": "alma991002293459708431",
+      "title": "Aerospace folktales / Allan Sekula",
+      "date": "1973",
+      "type": "Clark catalog identity anchor"
+    }
+  ],
+  "citations": [
+    {
+      "id": "clark-aerospace-record",
+      "kind": "catalog",
+      "title": "Aerospace folktales / Allan Sekula",
+      "creator": "Clark Art Institute Library",
+      "publisher": "Clark Library Catalog",
+      "date": "1973",
+      "locator": "Alma MMS 991002293459708431; call number NE2698 .S4637L 14922",
+      "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002293459708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog"
+    },
+    {
+      "id": "smithsonian-oral-history",
+      "kind": "oral_history",
+      "title": "Oral history interview with Allan Sekula, 2011 August 20–2012 February 14",
+      "creator": "Mary Panzer and Allan Sekula",
+      "publisher": "Archives of American Art, Smithsonian Institution",
+      "date": "2011–2012",
+      "locator": "Transcript lines 544–550 and 876–883",
+      "url": "https://www.aaa.si.edu/collections/interviews/oral-history-interview-allan-sekula-16239"
+    },
+    {
+      "id": "nonsite-analysis",
+      "kind": "scholarly_article",
+      "title": "White-Collar Blues: Allan Sekula Casts an Eye Over the Professional-Managerial Class",
+      "creator": "Steve Edwards",
+      "publisher": "Nonsite.org, issue 37",
+      "date": "2021-12-08",
+      "locator": "Section ‘Close to home: Aerospace Folktales,’ paragraphs 121–175",
+      "url": "https://nonsite.org/white-collar-blues-allan-sekula-casts-an-eye-over-the-professional-managerial-class/"
+    },
+    {
+      "id": "generali-work-record",
+      "kind": "collection_record",
+      "title": "Aerospace Folktales, 1973",
+      "creator": "Allan Sekula",
+      "publisher": "Generali Foundation Collection",
+      "date": "1973",
+      "locator": "GF0030028.00.0-2003; artwork text paragraphs 95–100",
+      "url": "https://foundation.generali.at/en/collection/artworks/gf0030028000-2003-geschichten-von-der-luftfahrt"
+    },
+    {
+      "id": "getty-finding-aid",
+      "kind": "finding_aid",
+      "title": "Finding aid for the Allan Sekula papers, circa 1800–2020",
+      "creator": "Getty Research Institute",
+      "publisher": "Getty Research Institute",
+      "date": "2025",
+      "locator": "PDF pp. 477, 645–646, and 725; Boxes 116–117, 365 R48/R49, and 202 F15–F16",
+      "url": "https://www.getty.edu/research/collections/static/pdf/2016.M.22.pdf"
+    },
+    {
+      "id": "getty-reproduction-policy",
+      "kind": "rights_policy",
+      "title": "Reproductions and Permissions",
+      "creator": "Getty Research Institute",
+      "publisher": "Getty",
+      "date": "",
+      "locator": "Access and permission policy for Special Collections materials",
+      "url": "https://www.getty.edu/research-conservation/library/reproductions-permissions/"
+    },
+    {
+      "id": "generali-image-request",
+      "kind": "rights_policy",
+      "title": "Image request",
+      "creator": "Generali Foundation",
+      "publisher": "Generali Foundation",
+      "date": "",
+      "locator": "Permission request form and image-use terms",
+      "url": "https://foundation.generali.at/en/image-request/"
+    },
+    {
+      "id": "wikimedia-family-volumes",
+      "kind": "open_image",
+      "title": "Sekula family volumes",
+      "creator": "Mrstrimming",
+      "publisher": "Wikimedia Commons",
+      "date": "2016-09-27",
+      "locator": "File page; original 4486 × 3147 pixels; SHA-1 055a8d5a384058658efb205cd0740348a247d7cc",
+      "url": "https://commons.wikimedia.org/wiki/File:Sekula_family_volumes.jpg"
+    }
+  ],
+  "photographs": [
+    {
+      "id": "library-context-family-volumes",
+      "title": "Aerospace Folktales family volumes — library context",
+      "date": "2016",
+      "caption": "A contextual photograph of volumes in the Allan Sekula Library. It is not an Allan Sekula artwork, not a photograph from Aerospace Folktales, and not evidence that any visible volume influenced the work.",
+      "alt": "Books and archival volumes arranged on shelves in the Allan Sekula Library.",
+      "source_citation_id": "wikimedia-family-volumes",
+      "image": {
+        "url": "./images/journeys/aerospace-folktales/sekula-family-volumes-1920.jpg",
+        "thumbnail_url": "./images/journeys/aerospace-folktales/sekula-family-volumes-960.jpg",
+        "width": 1920,
+        "height": 1347,
+        "sha256": "sha256:f1d85ec0f89f367457ea1aff964ba1be7f5b2f8713bcd191d26a4d8ba77a4aec",
+        "thumbnail_sha256": "sha256:5572e9f42832441e2c1386df9e5d8188035fa5417f568e922826b4ebbb6eb12e",
+        "retrieved_at": "2026-07-13",
+        "derivative": {
+          "source_dimensions": [4486, 3147],
+          "transform": "Proportional long-edge resize to 1920 px and 960 px; no crop; JPEG output.",
+          "tooling": "The exact encoder and quality flag from the initial research pass were not retained.",
+          "reproducibility_status": "committed derivative bytes checksum-verified; resize geometry recorded; encoder settings unresolved"
+        }
+      },
+      "rights": {
+        "public_display": true,
+        "basis": "open_license",
+        "credit_line": "Mrstrimming, ‘Sekula family volumes,’ 2016, CC BY-SA 4.0, via Wikimedia Commons. ShelfSignals resized derivative.",
+        "rights_holder": "Mrstrimming",
+        "derivatives_allowed": true,
+        "license_url": "https://creativecommons.org/licenses/by-sa/4.0/"
+      }
+    },
+    {
+      "id": "corporate-story-metadata",
+      "title": "The company’s story",
+      "date": "1973",
+      "caption": "Editorial navigation label for the source-described opening cluster: corporate text and re-photographed Lockheed material. No work image is reproduced.",
+      "alt": "No image is reproduced; this frame describes a corporate-material sequence in Aerospace Folktales.",
+      "source_citation_id": "nonsite-analysis",
+      "image": null,
+      "rights": {
+        "public_display": false,
+        "basis": "pending",
+        "credit_line": "",
+        "rights_holder": "Rights holder not resolved; permission required; third-party source material may carry separate rights",
+        "derivatives_allowed": false
+      }
+    },
+    {
+      "id": "outside-work-metadata",
+      "title": "Outside the plant",
+      "date": "1973",
+      "caption": "Editorial navigation label for the source-described movement from an empty Lockheed plant toward the family apartment. No work image is reproduced.",
+      "alt": "No image is reproduced; this frame describes the plant-exterior sequence in Aerospace Folktales.",
+      "source_citation_id": "nonsite-analysis",
+      "image": null,
+      "rights": {
+        "public_display": false,
+        "basis": "pending",
+        "credit_line": "",
+        "rights_holder": "Rights holder not resolved; permission required",
+        "derivatives_allowed": false
+      }
+    },
+    {
+      "id": "domestic-interior-metadata",
+      "title": "Work returns home",
+      "date": "1973",
+      "caption": "Editorial navigation label for source-described domestic labor, unemployment, and family space. No work image is reproduced.",
+      "alt": "No image is reproduced; this frame describes the domestic-interior sequence in Aerospace Folktales.",
+      "source_citation_id": "nonsite-analysis",
+      "image": null,
+      "rights": {
+        "public_display": false,
+        "basis": "pending",
+        "credit_line": "",
+        "rights_holder": "Rights holder not resolved; permission required",
+        "derivatives_allowed": false
+      }
+    },
+    {
+      "id": "ordered-world-metadata",
+      "title": "Everything in its place",
+      "date": "1973",
+      "caption": "Editorial navigation label for source-described ordered interiors, model aircraft, and page spreads from a nuclear-effects manual. No work image is reproduced.",
+      "alt": "No image is reproduced; this frame describes ordered interior details in Aerospace Folktales.",
+      "source_citation_id": "nonsite-analysis",
+      "image": null,
+      "rights": {
+        "public_display": false,
+        "basis": "pending",
+        "credit_line": "",
+        "rights_holder": "Rights holder not resolved; permission required; reproduced book pages may carry separate rights",
+        "derivatives_allowed": false
+      }
+    },
+    {
+      "id": "voices-commentary-metadata",
+      "title": "Four voices, one unsettled account",
+      "date": "1973–1984",
+      "caption": "Editorial navigation label for the photographs, conversations, and commentary described in the Generali work record and Getty finding aid. No work image or audio is reproduced.",
+      "alt": "No image is reproduced; this frame describes the image, sound, and written elements of Aerospace Folktales.",
+      "source_citation_id": "generali-work-record",
+      "image": null,
+      "rights": {
+        "public_display": false,
+        "basis": "pending",
+        "credit_line": "",
+        "rights_holder": "Rights holder not resolved; permission required",
+        "derivatives_allowed": false
+      }
+    }
+  ],
+  "clusters": [
+    {
+      "id": "corporate-story",
+      "order": 1,
+      "title": "The company’s story",
+      "period_label": "Opening movement · editorial label",
+      "narrative": "Steve Edwards describes an opening group built from a Lockheed chairman’s words and corporate newsletter imagery. This reader names that movement without reproducing the photographs or treating the corporate material as a library-book association.",
+      "shelf_label": "Preliminary context",
+      "photograph_ids": ["corporate-story-metadata"],
+      "association_ids": []
+    },
+    {
+      "id": "outside-work",
+      "order": 2,
+      "title": "Outside the plant",
+      "period_label": "Industrial exterior · editorial label",
+      "narrative": "The published analysis follows Sekula’s father and a friend at the empty Lockheed plant, then moves by detail, portrait, and apartment façade toward the domestic interior. The rights-pending frame preserves that sequence as metadata rather than substituting unrelated imagery.",
+      "shelf_label": "Early research",
+      "photograph_ids": ["outside-work-metadata"],
+      "association_ids": []
+    },
+    {
+      "id": "domestic-interior",
+      "order": 3,
+      "title": "Work returns home",
+      "period_label": "Family interior · editorial label",
+      "narrative": "Sekula’s oral history connects the project to his father’s unemployment and his return to the family milieu. Edwards’s analysis attends to domestic labor and to engineering order displaced into the home. These are source-grounded descriptions of the work, not claims about nearby books.",
+      "shelf_label": "Direct alignment",
+      "photograph_ids": ["domestic-interior-metadata"],
+      "association_ids": []
+    },
+    {
+      "id": "ordered-world",
+      "order": 4,
+      "title": "Everything in its place",
+      "period_label": "Interior details · editorial label",
+      "narrative": "The analysis describes carefully ordered rooms, models of aircraft, and three page spreads from a nuclear-effects manual. A promising Clark shelf record exists, but it remains excluded here until a librarian reviews whether the photographed physical copy can be identified.",
+      "shelf_label": "Direct alignment",
+      "photograph_ids": ["ordered-world-metadata"],
+      "association_ids": []
+    },
+    {
+      "id": "voices-commentary",
+      "order": 5,
+      "title": "Four voices, one unsettled account",
+      "period_label": "Image, sound, and commentary · editorial label",
+      "narrative": "Generali describes the original version as a disassembled movie of 142 prints and titles, four conversations, and written commentary; Getty identifies surviving print, audio, and research components. The interface links outward while permission for reproductions is pending.",
+      "shelf_label": "Post-project reflection",
+      "photograph_ids": ["voices-commentary-metadata"],
+      "association_ids": []
+    }
+  ],
+  "associations": [],
+  "editorial": {
+    "editor": "ShelfSignals Phase One source audit (not librarian-reviewed)",
+    "reviewed_at": "2026-07-14T02:13:39Z",
+    "version": "1.0.0-research-preview"
+  }
+}

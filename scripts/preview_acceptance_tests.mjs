@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { SIGNALS } from "../docs/js/signals.js";
+import { groupPlacementsByRoom, parsePhysicalIdentifiers } from "../docs/js/placement.js";
 import {
   buildReceiptAnnotations,
   computeSignalEvidence,
@@ -35,6 +36,24 @@ const sample = {
 assert.equal(parseSNumber(sample.call_number), 2895, "S-number should parse from Clark call number suffix");
 assert.equal(parseSNumber("S-10422"), 10422, "S-number should parse from explicit S-form");
 assert.equal(parsePhysicalIdentifier(sample), "Front Bedroom A", "physical identifier should parse from provenance note");
+
+const multiplePlacements = parsePhysicalIdentifiers({
+  provenance_notes: [
+    "Gift; Sekula Library Identifier: Front Bedroom A",
+    "Copy two; Sekula Library Identifier: front bedroom a; Copy three; Sekula Library Identifier: Garden Shed Shelf C1, STUDY G"
+  ]
+});
+assert.deepEqual(
+  multiplePlacements.map(placement => placement.label),
+  ["Front Bedroom A", "Garden Shed Shelf C1", "STUDY G"],
+  "all explicit placements should parse while source-order display labels are preserved"
+);
+assert.equal(multiplePlacements[0].sources.length, 2, "normalized placement keys should deduplicate source variants");
+assert.deepEqual(
+  groupPlacementsByRoom(multiplePlacements).map(group => group.label),
+  ["Front Bedroom", "Garden Shed", "Study"],
+  "placement room groups should derive only from recorded room prefixes"
+);
 
 const position = resolveSpatialPosition(sample);
 assert.equal(position.wallLabel, "East Wall", "S02895 should map to East Wall");

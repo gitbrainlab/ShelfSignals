@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Local evidence review · ShelfSignals</title>
+  <meta name="description" content="A local-only handoff surface for human review of unpublished ShelfSignals journey associations and ambiguous cover candidates.">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./css/review.css">
+</head>
+<body>
+  <a class="skip-link" href="#reviewMain">Skip to review</a>
+
+  <header class="site-header">
+    <a class="wordmark" href="./">Shelf<span>Signals</span></a>
+    <span>Local evidence review</span>
+    <a href="./journey-method.md">Journey methodology</a>
+  </header>
+
+  <main id="reviewMain">
+    <section class="introduction" aria-labelledby="reviewTitle">
+      <p class="eyebrow">Research handoff / local file only</p>
+      <h1 id="reviewTitle">Review without<br><em>publishing.</em></h1>
+      <p class="lede">Inspect a private queue of proposed book-to-project associations or ambiguous exact-edition cover candidates, record a human decision, and export a handoff file for later editorial work.</p>
+    </section>
+
+    <aside class="privacy-notice" aria-labelledby="privacyTitle">
+      <div aria-hidden="true">01</div>
+      <div>
+        <h2 id="privacyTitle">Nothing is uploaded or published</h2>
+        <p>This page never fetches candidate data. The selected JSON file stays in this browser tab. It is not stored, sent, or added to ShelfSignals.</p>
+        <p>An exported “approve” decision is only evidence for a separate publication gate. Association exports remain <code>unpublished</code>; cover exports remain a private review ledger.</p>
+      </div>
+    </aside>
+
+    <section class="import-panel" aria-labelledby="importTitle">
+      <div>
+        <p class="section-index">01 / Import</p>
+        <h2 id="importTitle">Open a private queue</h2>
+        <p>Accepts <code>shelfsignals-association-review-queue@1</code> or the cover pipeline’s <code>shelfsignals-cover-review-queue@1</code>. Association candidates must begin unpublished with null review fields. Cover candidates are validated against their exact-edition queue evidence; after that queue opens, compatible prior cover ledgers can be resumed or merged.</p>
+      </div>
+      <label class="file-picker" for="candidateFile">
+        <span>Select local JSON</span>
+        <input id="candidateFile" type="file" accept="application/json,.json">
+      </label>
+      <button class="quiet-button" id="clearQueue" type="button" disabled>Clear local queue</button>
+    </section>
+
+    <div class="status" id="reviewStatus" role="status" aria-live="polite">No candidate file is open.</div>
+
+    <section class="reviewer-panel" id="reviewerPanel" aria-labelledby="reviewerTitle" hidden>
+      <div>
+        <p class="section-index">02 / Reviewer</p>
+        <h2 id="reviewerTitle">Record responsibility</h2>
+        <p id="reviewerHelp">The same reviewer and ISO date are written to each association decision in this export.</p>
+      </div>
+      <label>
+        <span>Reviewer name</span>
+        <input id="reviewerName" type="text" maxlength="200" autocomplete="name" required>
+      </label>
+      <label class="review-date" id="reviewDateWrap">
+        <span>Review date</span>
+        <input id="reviewDate" type="date" required>
+      </label>
+      <label class="file-picker resume-picker" id="resumeReviewWrap" for="resumeReviewFile" hidden>
+        <span>Resume / merge cover reviews</span>
+        <input id="resumeReviewFile" type="file" accept="application/json,.json">
+      </label>
+    </section>
+
+    <section class="queue-section" aria-labelledby="queueTitle">
+      <header>
+        <div>
+          <p class="section-index">03 / Decisions</p>
+          <h2 id="queueTitle">Private review queue</h2>
+        </div>
+        <div class="queue-tools">
+          <label class="queue-search" id="queueSearchWrap" for="queueSearch" hidden>
+            <span>Filter cover queue</span>
+            <input id="queueSearch" type="search" placeholder="Clark title, catalog ID, ISBN, edition…" autocomplete="off">
+          </label>
+          <p id="reviewProgress" role="status" aria-live="polite" aria-atomic="true">Import a local queue to begin.</p>
+        </div>
+      </header>
+      <div class="queue" id="reviewQueue">
+        <p class="empty-state">No candidate records are bundled with this page.</p>
+      </div>
+    </section>
+
+    <section class="export-panel" aria-labelledby="exportTitle">
+      <div>
+        <p class="section-index">04 / Handoff</p>
+        <h2 id="exportTitle">Export reviewed JSON</h2>
+        <p>The export records decisions for a future editor or the offline cover pipeline. It does not probe a URL, change the source file, public data, repository, or live site.</p>
+      </div>
+      <button id="exportReviewed" type="button" aria-describedby="reviewProgress" disabled>Export reviewed JSON</button>
+    </section>
+  </main>
+
+  <footer>
+    <span>ShelfSignals research utility</span>
+    <span>Candidate data remains local to this tab.</span>
+  </footer>
+
+  <noscript><p class="noscript">JavaScript is required to inspect a local review file. No candidate data is included in this page.</p></noscript>
+  <script type="module" src="./js/review.js"></script>
+</body>
+</html>

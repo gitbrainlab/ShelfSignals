@@ -10,18 +10,20 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23070808'/%3E%3Cpath d='M14 14h9v36h-9zm13 6h10v30H27zm14-9h9v39h-9z' fill='%23c5a875'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./css/cinematic.css">
 </head>
-<body>
+<body data-app-state="loading">
   <a class="skip-link" href="#collection">Skip to the collection</a>
 
-  <div class="loading-screen" id="loadingScreen" role="status" aria-live="polite">
+  <div class="loading-screen" id="loadingScreen" role="status" aria-live="polite" aria-atomic="true" aria-busy="true" tabindex="-1">
     <div class="loading-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
     <p>Opening the Allan Sekula Library</p>
+    <button type="button" id="retryApp" hidden>Try again</button>
   </div>
 
   <header class="site-header" id="top">
     <a class="wordmark" href="#top" aria-label="ShelfSignals home">Shelf<span>Signals</span></a>
     <nav class="primary-nav" aria-label="Primary navigation">
       <a href="#collection">Explore</a>
+      <a href="#journeys">Journey</a>
       <a href="#signals">Signals</a>
       <a href="#paths">Paths</a>
     </nav>
@@ -77,9 +79,50 @@
       </div>
     </section>
 
+    <section class="journeys-section" id="journeys" aria-labelledby="journeysTitle">
+      <header class="section-header">
+        <div><p class="section-index">02 / Photograph-record journey</p><h2 id="journeysTitle">Enter a body of work</h2></div>
+        <p>Photographs, archive evidence, and books are kept distinct. Every published relation carries its source and review state.</p>
+      </header>
+      <div class="journey-feature" id="journeyFeature" aria-live="polite">
+        <div class="journey-feature-loading"><span></span><p>Preparing the first evidence-led journey…</p></div>
+      </div>
+    </section>
+
+    <section class="journey-reader" id="journeyReader" aria-labelledby="journeyReaderTitle" hidden>
+      <div class="journey-reader-toolbar">
+        <button type="button" id="closeJourney">← All journeys</button>
+        <p id="journeyProgress">Aerospace Folktales · research preview</p>
+        <a id="journeyEvidenceLink" href="#journeyEvidence">Evidence &amp; rights</a>
+      </div>
+      <nav class="journey-timeline" id="journeyTimeline" aria-label="Journey movements"></nav>
+      <header class="journey-hero" id="journeyHero">
+        <div class="journey-hero-copy">
+          <p class="section-index" id="journeyKicker">Photo-sequence research · images rights-pending</p>
+          <h2 id="journeyReaderTitle">Aerospace Folktales</h2>
+          <p class="journey-deck" id="journeyDeck"></p>
+          <dl class="journey-facts" id="journeyFacts"></dl>
+        </div>
+        <figure class="journey-hero-image" id="journeyHeroImage"></figure>
+      </header>
+      <section class="journey-mosaic" id="journeyMosaic" aria-label="Photograph movement overview"></section>
+      <div class="journey-clusters" id="journeyClusters"></div>
+      <section class="journey-shelves" aria-labelledby="journeyShelvesTitle">
+        <header>
+          <div><p class="section-index">Books around the work</p><h3 id="journeyShelvesTitle">A shelf of documented relations</h3></div>
+          <p>Empty positions are deliberate: candidate associations stay out of the public journey until a named reviewer approves the evidence.</p>
+        </header>
+        <div class="journey-phase-shelves" id="journeyPhaseShelves"></div>
+      </section>
+      <section class="journey-evidence" id="journeyEvidence" aria-labelledby="journeyEvidenceTitle">
+        <div><p class="section-index">Evidence ledger</p><h3 id="journeyEvidenceTitle">What is known, pending, and withheld</h3></div>
+        <div id="journeyEvidenceBody"></div>
+      </section>
+    </section>
+
     <section class="paths-section" id="paths" aria-labelledby="pathsTitle">
       <header class="section-header">
-        <div><p class="section-index">02 / Curated paths</p><h2 id="pathsTitle">Follow a line of inquiry</h2></div>
+        <div><p class="section-index">03 / Curated paths</p><h2 id="pathsTitle">Follow a line of inquiry</h2></div>
         <p>Dynamic routes through catalog metadata. Counts reflect the current signal and classification rules, not fixed reading lists.</p>
       </header>
       <div class="path-grid" id="pathGrid"></div>
@@ -88,7 +131,7 @@
     <section class="collection-section" id="collection" aria-labelledby="collectionTitle">
       <header class="collection-header">
         <div>
-          <p class="section-index">03 / Complete collection</p>
+          <p class="section-index">04 / Complete collection</p>
           <h2 id="collectionTitle">Browse the shelves</h2>
           <p class="result-summary" id="resultSummary" aria-live="polite">Preparing the collection…</p>
         </div>
@@ -101,7 +144,7 @@
 
       <p class="profile-method" id="profileMethod" hidden>
         <span>Physical view</span>
-        When recorded, dimensions follow Clark. A gold point marks provider-edition evidence that may refine a modeled profile, but is never presented as evidence of the Clark copy.
+        Geometry uses Clark catalog metadata only; depth is explicitly modeled from stated extent, never measured. A gold point marks optional provider-edition detail in the drawer—it never shapes this shelf or describes the Clark copy. Placement markers open the Clark shelf context.
       </p>
 
       <div class="browser-shell">
@@ -148,24 +191,24 @@
 
         <div class="results-region">
           <div class="active-filters" id="activeFilters" role="group" aria-label="Active filters"></div>
-          <div class="collection-grid covers-view" id="collectionGrid" role="group" aria-label="Collection results"></div>
+          <div class="collection-grid covers-view" id="collectionGrid" role="group" aria-label="Collection results" aria-busy="false"></div>
           <div class="empty-state" id="emptyState" hidden>
             <span aria-hidden="true">∅</span><h3>No records meet this view</h3><p>Try removing a filter or searching for a broader term.</p><button type="button" id="emptyReset">Reset filters</button>
           </div>
           <div class="load-more-wrap" id="loadMoreWrap">
-            <button class="load-more" id="loadMore" type="button">Reveal more records</button>
-            <span id="renderedCount"></span>
+            <button class="load-more" id="loadMore" type="button" aria-controls="collectionGrid" aria-describedby="renderedCount">Reveal more records</button>
+            <span id="renderedCount" role="status" aria-live="polite" aria-atomic="true"></span>
           </div>
         </div>
       </div>
     </section>
 
     <section class="about-section" id="about" aria-labelledby="aboutTitle">
-      <p class="section-index">04 / About</p>
+      <p class="section-index">05 / About</p>
       <div><h2 id="aboutTitle">Catalog evidence,<br><em>spatial attention.</em></h2></div>
       <div>
         <p>ShelfSignals is a static research interface for the Allan Sekula Library. It uses collection metadata from the Clark Art Institute catalog, verified cover references where available, and clearly labeled provider-edition evidence when an identifier match can enrich a synthetic book form.</p>
-        <p><a href="https://github.com/gitbrainlab/ShelfSignals" rel="noopener noreferrer">Project source</a> · <a href="./interfaces.md">Interface guide</a> · <a href="./physical-profiles.md">Physical profile methods</a> · <a href="./edition-enrichment.md">Edition evidence</a> · <a href="./legacy/">Legacy interface</a> · <a href="./preview/exhibit/">Exhibit</a></p>
+        <p><a href="https://github.com/gitbrainlab/ShelfSignals" rel="noopener noreferrer">Project source</a> · <a href="./interfaces.md">Interface guide</a> · <a href="./journey-method.md">Journey evidence</a> · <a href="./review.html">Local evidence review</a> · <a href="./physical-profiles.md">Physical profile methods</a> · <a href="./edition-enrichment.md">Edition evidence</a> · <a href="./legacy/">Legacy interface</a> · <a href="./preview/exhibit/">Exhibit</a></p>
       </div>
     </section>
   </main>
@@ -187,22 +230,37 @@
       <div><button id="previousBook" type="button" aria-label="Previous record">←</button><button id="nextBook" type="button" aria-label="Next record">→</button><button id="closeDetail" type="button" aria-label="Close details">✕</button></div>
     </div>
     <div class="detail-content">
+      <div class="detail-loading" id="detailLoading" role="status" aria-live="polite" aria-atomic="true" hidden></div>
       <div class="detail-visual" id="detailVisual"></div>
       <p class="detail-kicker" id="detailKicker"></p>
       <h2 id="detailTitle">Book details</h2>
       <p class="detail-byline" id="detailByline"></p>
       <div class="detail-actions"><button type="button" id="detailShelfButton">Add to My Shelf</button><a id="catalogLink" target="_blank" rel="noopener noreferrer">View in Clark catalog ↗</a></div>
       <dl class="metadata-list" id="detailMetadata"></dl>
+      <section class="detail-section detail-placement" id="detailPlacement">
+        <h3>Original shelf placement</h3>
+        <div class="placement-list" id="detailPlacementList"></div>
+        <p class="evidence-scope">Placement labels are transcribed from Clark provenance notes. Select one to browse the same recorded shelf or room.</p>
+      </section>
+      <section class="detail-section cover-evidence" id="detailCoverEvidence">
+        <h3>Front-face evidence</h3>
+        <div id="detailCoverEvidenceBody"></div>
+      </section>
       <section class="detail-section" id="detailPhysical">
         <h3>Physical profile</h3>
         <div class="physical-profile">
           <div class="physical-model-stage" aria-hidden="true"><div class="physical-book" id="physicalBook"><span class="physical-book-spine"></span><span class="physical-book-pages"></span><span class="physical-book-front"></span></div></div>
           <dl class="physical-metrics" id="physicalMetrics"></dl>
         </div>
-        <p class="physical-evidence" id="physicalEvidence"></p>
+        <div class="physical-evidence" id="physicalEvidence"></div>
+      </section>
+      <section class="detail-section edition-loader" id="detailEditionLoader" aria-labelledby="detailEditionLoaderTitle" aria-busy="false">
+        <h3 id="detailEditionLoaderTitle">Optional external edition evidence</h3>
+        <p id="editionLoaderStatus">Load the external provider snapshot only if you want to check for an exact-identifier edition reference. This is optional provider evidence, not evidence about the Clark copy.</p>
+        <button type="button" id="loadEditionEvidence" aria-describedby="editionLoaderStatus">Load external edition evidence · 17 MB</button>
       </section>
       <section class="detail-section edition-evidence" id="detailEdition" aria-labelledby="detailEditionTitle" hidden>
-        <h3 id="detailEditionTitle">External edition evidence</h3>
+        <h3 id="detailEditionTitle" tabindex="-1">External edition evidence</h3>
         <dl class="edition-metadata" id="editionMetadata"></dl>
         <p class="edition-evidence-note" id="editionEvidenceNote"></p>
         <a class="edition-evidence-link" id="editionEvidenceLink" target="_blank" rel="noopener noreferrer"></a>

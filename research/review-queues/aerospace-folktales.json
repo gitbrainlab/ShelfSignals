@@ -1,0 +1,452 @@
+{
+  "schema": "shelfsignals-association-review-queue@1",
+  "version": "1.0.0",
+  "publication_status": "unpublished",
+  "publication_effect": "none",
+  "generated_at": "2026-07-14T03:30:18Z",
+  "purpose": "Private editorial review candidates for a source-grounded Aerospace Folktales journey. This file is not a public association manifest.",
+  "methodology_path": "./aerospace-folktales-methodology.md",
+  "source_dataset": "../../docs/data/sekula_index.json",
+  "public_journey_path": "../../docs/data/journeys/aerospace-folktales.json",
+  "journey_id": "aerospace-folktales",
+  "target_work": {
+    "catalog_id": "alma991002293459708431",
+    "title": "Aerospace folktales / Allan Sekula",
+    "date": "1973",
+    "catalog_url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002293459708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog"
+  },
+  "summary": {
+    "candidate_count": 6,
+    "phase_counts": {
+      "preliminary_context": 2,
+      "early_research": 1,
+      "direct_alignment": 1,
+      "post_reflection": 2
+    },
+    "evidence_grade_counts": {
+      "primary": 0,
+      "archival": 2,
+      "scholarly": 1,
+      "contextual": 3
+    }
+  },
+  "research_limits": [
+    "A named reading, ownership, date, subject similarity, or shelf placement does not by itself establish influence on Aerospace Folktales.",
+    "The oral-history matches for One-dimensional man, Galileo, and Suburbia are title-level; the sources do not identify the surviving Clark physical copies.",
+    "The Effects of Nuclear Weapons is proposed as a documented object in the work, not as an inspirational book. A Clark librarian must confirm the copy-identity claim before publication.",
+    "No Allan Sekula artwork image is included. The cited Generali, Getty, and Clark sources do not provide an open license for the work photographs.",
+    "Approval in the local review utility would still have publication_effect none; a separate editorial commit is required to publish any association."
+  ],
+  "candidates": [
+    {
+      "candidate_id": "aerospace-folktales--one-dimensional-man--preliminary-context",
+      "catalog_id": "alma991002074899708431",
+      "journey_id": "aerospace-folktales",
+      "cluster_id": "corporate-story",
+      "phase": "preliminary_context",
+      "phase_label": "Preliminary context (not documented inspiration)",
+      "target_work": "alma991002293459708431",
+      "evidence_grade": "contextual",
+      "relation_type": "documented_pre_project_reading_context",
+      "temporal_basis": "Sekula dates the reading to summer 1969 while he worked near Lockheed; the target work is dated 1973 and the Getty finding aid dates initial notes to 1972.",
+      "object_identity_scope": "title_level_only_clark_copy_unconfirmed",
+      "proposed_reasoning": "Sekula states in oral history that he read One Dimensional Man at a picnic table during his 1969 Burbank chemical-plant job, in a passage about industrial corruption and his disillusionment with science. This documents a relevant pre-project reading context, but it does not establish that the surviving Clark copy was the copy read or that the book influenced Aerospace Folktales.",
+      "inference_limit": "Contextual only: the source names the reading and industrial setting but never connects this title to the conception or production of Aerospace Folktales.",
+      "catalog_snapshot": {
+        "title": "One-dimensional man : studies in the ideology of advanced industrial society / by Herbert Marcuse",
+        "authors": [
+          "Marcuse, Herbert, 1898-1979."
+        ],
+        "year": "1966, ©1964",
+        "material_type": "book",
+        "formats": [
+          "xvii, 260 pages ; 21 cm"
+        ],
+        "publishers": [
+          "Boston : Beacon Press"
+        ],
+        "call_number": "NE2698 .S4637L 09685",
+        "catalog_url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002074899708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog"
+      },
+      "placement": "Garden Shed Shelf C3",
+      "placement_source": "Gift; Sally Stein, in memory of her husband; 2015; Sekula Library identifier: Garden Shed Shelf C3",
+      "candidate_source": "manual_authoritative_source_audit: exact-title join between the Smithsonian oral-history transcript and the ShelfSignals Clark catalog snapshot",
+      "citations": [
+        {
+          "kind": "catalog",
+          "title": "One-dimensional man : studies in the ideology of advanced industrial society",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002074899708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991002074899708431; call number NE2698 .S4637L 09685; provenance note supplies Garden Shed Shelf C3",
+          "scope": "Clark catalog record and placement"
+        },
+        {
+          "kind": "oral_history",
+          "title": "Oral history interview with Allan Sekula, 2011 August 20–2012 February 14",
+          "creator": "Allan Sekula and Mary Panzer; Archives of American Art, Smithsonian Institution",
+          "url": "https://www.aaa.si.edu/download_pdf_transcript/ajax?record_id=edanmdm-AAADCD_oh_370420",
+          "locator": "Transcript PDF p. 14, lines 684–705; especially lines 696–705",
+          "scope": "Title-level reading, date, and industrial-work context"
+        },
+        {
+          "kind": "catalog",
+          "title": "Aerospace folktales / Allan Sekula",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002293459708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991002293459708431; record date 1973; call number NE2698 .S4637L 14922",
+          "scope": "Target-work identity and date"
+        }
+      ],
+      "publication_status": "unpublished",
+      "reviewer": null,
+      "reviewed_at": null,
+      "review_decision": null,
+      "review_reason": null
+    },
+    {
+      "candidate_id": "aerospace-folktales--galileo--preliminary-context",
+      "catalog_id": "alma991002055009708431",
+      "journey_id": "aerospace-folktales",
+      "cluster_id": "corporate-story",
+      "phase": "preliminary_context",
+      "phase_label": "Preliminary context (not documented inspiration)",
+      "target_work": "alma991002293459708431",
+      "evidence_grade": "contextual",
+      "relation_type": "documented_formative_course_reading_context",
+      "temporal_basis": "Sekula places Brecht's Galileo on Marcuse's 1968 undergraduate reading list; the target work is dated 1973.",
+      "object_identity_scope": "title_level_only_clark_copy_unconfirmed",
+      "proposed_reasoning": "Sekula identifies Brecht's Galileo on Herbert Marcuse's reading list and connects the lesson to scientific responsibility, moral choice, and his disillusionment with becoming complicit in a war machine. The statement supplies strong formative context before Aerospace Folktales, but Sekula also calls the mapping indirect and does not connect the title to the work itself.",
+      "inference_limit": "Contextual only: neither a direct influence on Aerospace Folktales nor use of the surviving Clark copy is established.",
+      "catalog_snapshot": {
+        "title": "Galileo / Bertoldt Brecht ; English version by Charles Laughton ; edited and with an introd. by Eric Bentley",
+        "authors": [
+          "Brecht, Bertolt, 1898-1956."
+        ],
+        "year": "1966",
+        "material_type": "book",
+        "formats": [
+          "155 pages ; 18 cm"
+        ],
+        "publishers": [
+          "New York : Grove Press"
+        ],
+        "call_number": "NE2698 .S4637L 09017",
+        "catalog_url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002055009708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog"
+      },
+      "placement": "Garden Shed Shelf A3",
+      "placement_source": "Gift; Sally Stein, in memory of her husband; 2015; Sekula Library identifier: Garden Shed Shelf A3",
+      "candidate_source": "manual_authoritative_source_audit: exact-title join between the Smithsonian oral-history transcript and the ShelfSignals Clark catalog snapshot",
+      "citations": [
+        {
+          "kind": "catalog",
+          "title": "Galileo / Bertoldt Brecht",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002055009708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991002055009708431; call number NE2698 .S4637L 09017; provenance note supplies Garden Shed Shelf A3",
+          "scope": "Clark catalog record and placement"
+        },
+        {
+          "kind": "oral_history",
+          "title": "Oral history interview with Allan Sekula, 2011 August 20–2012 February 14",
+          "creator": "Allan Sekula and Mary Panzer; Archives of American Art, Smithsonian Institution",
+          "url": "https://www.aaa.si.edu/download_pdf_transcript/ajax?record_id=edanmdm-AAADCD_oh_370420",
+          "locator": "Transcript PDF pp. 10–11, lines 518–541; especially lines 534–541",
+          "scope": "Named assigned reading and Sekula's explanation of its indirect lesson"
+        },
+        {
+          "kind": "catalog",
+          "title": "Aerospace folktales / Allan Sekula",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002293459708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991002293459708431; record date 1973; call number NE2698 .S4637L 14922",
+          "scope": "Target-work identity and date"
+        }
+      ],
+      "publication_status": "unpublished",
+      "reviewer": null,
+      "reviewed_at": null,
+      "review_decision": null,
+      "review_reason": null
+    },
+    {
+      "candidate_id": "aerospace-folktales--suburbia--early-research",
+      "catalog_id": "alma991001074729708431",
+      "journey_id": "aerospace-folktales",
+      "cluster_id": "domestic-interior",
+      "phase": "early_research",
+      "phase_label": "Early research candidate (not documented inspiration)",
+      "target_work": "alma991002293459708431",
+      "evidence_grade": "contextual",
+      "relation_type": "documented_contemporaneous_photography_discussion",
+      "temporal_basis": "Sekula dates the discussion to his last undergraduate year and the start of graduate study, overlapping the 1972–1973 development period documented for Aerospace Folktales; the catalog edition is dated 1973.",
+      "object_identity_scope": "title_level_only_clark_copy_unconfirmed",
+      "proposed_reasoning": "Sekula recalls discussing Bill Owens' Suburbia with Fred Lonidier and Phel Steinmetz while their photography circle considered how to address suburban life, and says they found it interesting but flawed. This is a documented contemporary photographic discussion, but no source ties the book to the domestic imagery or production of Aerospace Folktales.",
+      "inference_limit": "Contextual only: overlapping chronology and subject matter do not establish project research, inspiration, or use of the surviving Clark copy.",
+      "catalog_snapshot": {
+        "title": "Suburbia / Bill Owens",
+        "authors": [
+          "Owens, Bill."
+        ],
+        "year": "1973, ©1973",
+        "material_type": "book",
+        "formats": [
+          "104 unnumbered pages : chiefly illustrations ; 26 cm"
+        ],
+        "publishers": [
+          "San Francisco, Calif. : Straight Arrow Books ; New York, N.Y. : Distributed by Quick Fox"
+        ],
+        "call_number": "NE2698 .O97s",
+        "catalog_url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991001074729708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog"
+      },
+      "placement": "Studio Xxiii",
+      "placement_source": "CAI copy 2; Gift; Sally Stein, in memory of her husband; 2015; Sekula Library Identifier: Studio Xxiii",
+      "candidate_source": "manual_authoritative_source_audit: exact-title join between the Smithsonian oral-history transcript and the ShelfSignals Clark catalog snapshot",
+      "citations": [
+        {
+          "kind": "catalog",
+          "title": "Suburbia / Bill Owens",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991001074729708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991001074729708431; call number NE2698 .O97s; provenance note supplies Studio Xxiii",
+          "scope": "Clark catalog record and placement"
+        },
+        {
+          "kind": "oral_history",
+          "title": "Oral history interview with Allan Sekula, 2011 August 20–2012 February 14",
+          "creator": "Allan Sekula and Mary Panzer; Archives of American Art, Smithsonian Institution",
+          "url": "https://www.aaa.si.edu/download_pdf_transcript/ajax?record_id=edanmdm-AAADCD_oh_370420",
+          "locator": "Transcript PDF p. 22, lines 1085–1091; especially lines 1087–1091",
+          "scope": "Named discussion, participants, and contemporaneous photography context"
+        },
+        {
+          "kind": "finding_aid",
+          "title": "Finding aid for the Allan Sekula papers, circa 1800–2020",
+          "creator": "Getty Research Institute",
+          "url": "https://www.getty.edu/research/collections/static/pdf/2016.M.22.pdf",
+          "locator": "PDF p. 12; Series I, Box 1, Folder 3, ‘AF: initial notes,’ July–October 1972",
+          "scope": "Target-work development-period boundary only; does not name Suburbia"
+        }
+      ],
+      "publication_status": "unpublished",
+      "reviewer": null,
+      "reviewed_at": null,
+      "review_decision": null,
+      "review_reason": null
+    },
+    {
+      "candidate_id": "aerospace-folktales--effects-of-nuclear-weapons--direct-alignment",
+      "catalog_id": "alma991002077699708431",
+      "journey_id": "aerospace-folktales",
+      "cluster_id": "ordered-world",
+      "phase": "direct_alignment",
+      "phase_label": "Production and collaboration",
+      "target_work": "alma991002293459708431",
+      "evidence_grade": "archival",
+      "relation_type": "documented_object_in_work",
+      "temporal_basis": "The manual is dated 1957; Clark and Edwards identify it as a photographed subject in the 1973 work.",
+      "object_identity_scope": "copy_specific_institutional_claim_pending_librarian_confirmation",
+      "proposed_reasoning": "Clark librarian Susan Roeper identifies Ignace Sekula's annotated 1957 copy of The Effects of Nuclear Weapons and states that it was featured as a subject in Aerospace Folktales. Steve Edwards independently describes three page spreads from the title within the work. This supports a direct object-in-work relation; it does not show that the manual inspired the project, and the surviving Clark-copy identity must be confirmed by a librarian before publication.",
+      "inference_limit": "Documented object in the work, not documented inspiration. OSTI supplies an exact-year digital edition surrogate only and cannot establish the Clark copy's cover, dimensions, annotations, texture, or side profile.",
+      "catalog_snapshot": {
+        "title": "The effects of nuclear weapons / Samuel Glasstone, editor",
+        "authors": [
+          "Armed Forces Special Weapons Project (U.S.)"
+        ],
+        "year": "1957",
+        "material_type": "book",
+        "formats": [
+          "xii, 579 pages : illustrations"
+        ],
+        "publishers": [
+          "Washington, D. C. : U. S. Atomic Energy Commission"
+        ],
+        "call_number": "NE2698 .S4637L 09898",
+        "catalog_url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002077699708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog"
+      },
+      "placement": "Garden Shed Shelf D1",
+      "placement_source": "Gift; Sally Stein, in memory of her husband; 2015; Sekula Library identifier: Garden Shed Shelf D1",
+      "candidate_source": "manual_authoritative_source_audit: exact-title join across Clark institutional copy history, scholarly work analysis, and the ShelfSignals catalog snapshot",
+      "citations": [
+        {
+          "kind": "catalog",
+          "title": "The effects of nuclear weapons / Samuel Glasstone, editor",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002077699708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991002077699708431; 1957; call number NE2698 .S4637L 09898; provenance note supplies Garden Shed Shelf D1",
+          "scope": "Clark catalog record, date, former-owner chain, and placement"
+        },
+        {
+          "kind": "institutional_article",
+          "title": "Totems of High Culture: The Allan Sekula Library at the Clark",
+          "creator": "Susan Roeper; Journal of the Clark, volume 19",
+          "url": "https://www.clarkart.edu/getmedia/6c32050a-2c9a-4fe7-af22-a793c7ba7a37/journal19_final.pdf",
+          "locator": "Printed p. 32, paragraph beginning ‘This submarine of books’",
+          "scope": "Copy-specific institutional statement and direct work relation"
+        },
+        {
+          "kind": "scholarly_article",
+          "title": "White-Collar Blues: Allan Sekula Casts an Eye Over the Professional-Managerial Class",
+          "creator": "Steve Edwards; Nonsite.org, issue 37",
+          "url": "https://nonsite.org/white-collar-blues-allan-sekula-casts-an-eye-over-the-professional-managerial-class/",
+          "locator": "Section ‘Close to home: Aerospace Folktales,’ paragraph beginning ‘Then there is the small pamphlet’ (web lines 504–505)",
+          "scope": "Independent description of three displayed page spreads"
+        },
+        {
+          "kind": "government_report_surrogate",
+          "title": "The Effects of Nuclear Weapons",
+          "creator": "U.S. Atomic Energy Commission; OSTI record 972900",
+          "url": "https://www.osti.gov/biblio/972900",
+          "locator": "Report metadata; publication date June 1957; DOI 10.2172/972900; OSTI full-text link",
+          "scope": "Open, scrape-friendly edition surrogate; not the Clark/Sekula copy"
+        }
+      ],
+      "publication_status": "unpublished",
+      "reviewer": null,
+      "reviewed_at": null,
+      "review_decision": null,
+      "review_reason": null
+    },
+    {
+      "candidate_id": "aerospace-folktales--between-labor-and-capital--post-reflection",
+      "catalog_id": "alma991002078839708431",
+      "journey_id": "aerospace-folktales",
+      "cluster_id": "voices-commentary",
+      "phase": "post_reflection",
+      "phase_label": "Post-project reflection",
+      "target_work": "alma991002293459708431",
+      "evidence_grade": "scholarly",
+      "relation_type": "post_project_conceptual_dialogue",
+      "temporal_basis": "Aerospace Folktales is dated 1973; the Ehrenreich essays appeared in 1977 and were reprinted in this 1979 collection; Edwards says the original work predates them and that a later version was revised after their appearance.",
+      "object_identity_scope": "catalog_title_and_ownership_supported_use_in_revision_unconfirmed",
+      "proposed_reasoning": "Steve Edwards documents Sekula's ownership of Between Labor and Capital, identifies its reprinted essays as part of the later professional-managerial-class debate, and argues that the final version of Aerospace Folktales was revised after those essays appeared. The source supports a post-project conceptual dialogue candidate, not a claim about the work's original conception or proof that this physical copy was used in a revision.",
+      "inference_limit": "Scholarly post-project interpretation only: the 1979 book cannot be preliminary inspiration for a 1973 work, and the source does not document the Clark copy inside a specific revision file.",
+      "catalog_snapshot": {
+        "title": "Between labor and capital / edited by Pat Walker",
+        "authors": [],
+        "year": "1979, ©1979",
+        "material_type": "book",
+        "formats": [
+          "xxx, 337 pages ; 21 cm"
+        ],
+        "publishers": [
+          "Boston : South End Press"
+        ],
+        "call_number": "NE2698 .S4637L 05940",
+        "catalog_url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002078839708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog"
+      },
+      "placement": "Front Bedroom O",
+      "placement_source": "Gift; Sally Stein, in memory of her husband; 2015; Sekula Library identifier: Front Bedroom O",
+      "candidate_source": "manual_scholarly_source_audit: exact-title ownership statement joined to the ShelfSignals Clark catalog snapshot",
+      "citations": [
+        {
+          "kind": "catalog",
+          "title": "Between labor and capital / edited by Pat Walker",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002078839708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991002078839708431; call number NE2698 .S4637L 05940; provenance note supplies Front Bedroom O",
+          "scope": "Clark catalog record and placement"
+        },
+        {
+          "kind": "scholarly_article",
+          "title": "White-Collar Blues: Allan Sekula Casts an Eye Over the Professional-Managerial Class",
+          "creator": "Steve Edwards; Nonsite.org, issue 37",
+          "url": "https://nonsite.org/white-collar-blues-allan-sekula-casts-an-eye-over-the-professional-managerial-class/",
+          "locator": "Opening paragraphs, web lines 50–53; note 6, lines 192–193; note 9, lines 197–201",
+          "scope": "Ownership, chronology, revision context, and attributed scholarly interpretation"
+        },
+        {
+          "kind": "catalog",
+          "title": "Aerospace folktales / Allan Sekula",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991002293459708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991002293459708431; record date 1973; call number NE2698 .S4637L 14922",
+          "scope": "Target-work identity and original date"
+        }
+      ],
+      "publication_status": "unpublished",
+      "reviewer": null,
+      "reviewed_at": null,
+      "review_decision": null,
+      "review_reason": null
+    },
+    {
+      "candidate_id": "aerospace-folktales--american-photography--post-reflection",
+      "catalog_id": "alma991000039609708431",
+      "journey_id": "aerospace-folktales",
+      "cluster_id": "voices-commentary",
+      "phase": "post_reflection",
+      "phase_label": "Post-project reflection",
+      "target_work": "alma991002293459708431",
+      "evidence_grade": "archival",
+      "relation_type": "documented_post_project_excerpt_and_circulation",
+      "temporal_basis": "The target work is dated 1973; Jonathan Green's book is dated 1984; the Getty finding aid identifies an Aerospace Folktales excerpt on page 213.",
+      "object_identity_scope": "title_and_page_level_publication_relation_clark_copy_use_unconfirmed",
+      "proposed_reasoning": "The Getty finding aid records that Aerospace Folktales was excerpted with two photographs and text on page 213 of Jonathan Green's American Photography. This is a direct, page-level record of later circulation and critical-historical placement. It is not evidence that the book influenced the 1973 work or that Sekula's surviving Clark copy was used in that publication event.",
+      "inference_limit": "Documented later circulation only: the relation applies to the publication title and page, not to preliminary influence or use of the surviving Clark physical copy.",
+      "catalog_snapshot": {
+        "title": "American photography : a critical history 1945 to the present / by Jonathan Green ; pictures selected and sequenced by Jonathan Green and James Friedmann",
+        "authors": [
+          "Green, Jonathan, 1939-"
+        ],
+        "year": "1984",
+        "material_type": "book",
+        "formats": [
+          "247 pages : illustrations (some color) ; 31 cm"
+        ],
+        "publishers": [
+          "New York : H.N. Abrams"
+        ],
+        "call_number": "NE2612 .G74",
+        "catalog_url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991000039609708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog"
+      },
+      "placement": "Front Bedroom X",
+      "placement_source": "CAI copy 2; Gift; Sally Stein, in memory of her husband; 2015; Sekula Library Identifier: Front Bedroom X",
+      "candidate_source": "manual_archival_source_audit: exact-title and page-level join between the Getty finding aid and the ShelfSignals Clark catalog snapshot",
+      "citations": [
+        {
+          "kind": "catalog",
+          "title": "American photography : a critical history 1945 to the present",
+          "creator": "Clark Art Institute Library",
+          "url": "https://library.clarkart.edu/discovery/fulldisplay?docid=alma991000039609708431&context=L&vid=01CLARKART_INST%3A01CLARKART_INST_FRANCINE&lang=en&tab=LibraryCatalog",
+          "locator": "Alma MMS 991000039609708431; call number NE2612 .G74; provenance note supplies Front Bedroom X",
+          "scope": "Clark catalog record and placement"
+        },
+        {
+          "kind": "finding_aid",
+          "title": "Finding aid for the Allan Sekula papers, circa 1800–2020",
+          "creator": "Getty Research Institute",
+          "url": "https://www.getty.edu/research/collections/static/pdf/2016.M.22.pdf",
+          "locator": "PDF p. 535; Series VI, Box 202, Folder 15; finding-aid lines 24988–24998; entry identifies Jonathan Green, American Photography, p. 213",
+          "scope": "Archival page-level publication/circulation relation"
+        }
+      ],
+      "publication_status": "unpublished",
+      "reviewer": null,
+      "reviewed_at": null,
+      "review_decision": null,
+      "review_reason": null
+    }
+  ],
+  "excluded_leads": [
+    {
+      "catalog_id": "alma991002113089708431",
+      "title": "Labor and monopoly capital : the degradation of work in the twentieth century",
+      "reason": "Edwards documents later use in Sekula's labor-process thinking, but the current source does not connect this specific title to Aerospace Folktales or one of its revisions. Ownership and broad thematic relevance are insufficient."
+    },
+    {
+      "catalog_id": "alma991002006139708431",
+      "title": "The complete Brothers Grimm fairy tales",
+      "reason": "The collection copy is dated 1996. It cannot support a title- or copy-level claim about the 1973 work, and the word ‘folktales’ is only lexical similarity."
+    },
+    {
+      "catalog_id": null,
+      "title": "Photography Against the Grain: Essays and Photo Works 1973–1983",
+      "reason": "The Getty finding aid documents this as a major later Aerospace Folktales publication context, but no matching record was found in the current 11,176-record ShelfSignals snapshot, so it cannot be a dataset-backed shelf card."
+    },
+    {
+      "catalog_id": null,
+      "title": "Plausible catalog matches for literary names in the work commentary",
+      "reason": "References to authors or works such as Kipling, Stendhal, Balzac, or Quo Vadis do not identify a specific surviving catalog copy. Plausible edition matching would overstate object identity."
+    }
+  ]
+}

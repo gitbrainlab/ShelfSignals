@@ -320,6 +320,19 @@ def wait_for_primary_app(page: Any, base_url: str, timeout_ms: int) -> None:
     page.locator("#loadingScreen").wait_for(state="hidden", timeout=timeout_ms)
 
 
+def wait_for_exact_record_filter(page: Any, record_id: str, timeout_ms: int) -> None:
+    page.wait_for_function(
+        """recordId => {
+          const match = document.querySelector('#resultSummary')?.textContent.match(/^([\\d,]+) of/);
+          return match
+            && Number(match[1].replaceAll(',', '')) === 1
+            && new URL(location.href).searchParams.get('q') === recordId;
+        }""",
+        arg=record_id,
+        timeout=timeout_ms,
+    )
+
+
 def run_primary_flow(
     browser: Any,
     base_url: str,
@@ -333,6 +346,34 @@ def run_primary_flow(
     errors = BrowserErrors(page)
     try:
         wait_for_primary_app(page, base_url, timeout_ms)
+        check(
+            page.locator("body").get_attribute("data-app-state") == "ready",
+            "Primary route did not leave its explicit application-loading state.",
+        )
+        check(
+            not page.locator("main").evaluate("element => element.inert"),
+            "Primary content remained inert after initialization completed.",
+        )
+        deferred_resources = page.evaluate(
+            "performance.getEntriesByType('resource').map(entry => entry.name).filter(name => "
+            "name.includes('/data/journeys/aerospace-folktales.json') || "
+            "name.includes('/data/spine_index.json') || name.includes('/data/book_editions.json') || "
+            "name.includes('/data/sekula_index.json') || name.includes('/data/catalog-search.json') || "
+            "name.includes('/data/catalog-details/'))"
+        )
+        check(
+            deferred_resources == [],
+            f"First paint fetched below-fold or evidence-only data: {deferred_resources}",
+        )
+        core_requests = page.evaluate(
+            "performance.getEntriesByType('resource').filter(entry => entry.name.includes('/data/catalog-core.json')).length"
+        )
+        check(core_requests == 1, f"First paint loaded the compact core catalog {core_requests} times instead of once.")
+        check(
+            page.locator("#collectionGrid .book-card").count() == min(72, len(records)),
+            "Initial collection render exceeded or missed its bounded 72-record page.",
+        )
+        report("first paint keeps below-fold journey and physical/provider evidence deferred")
         check("ShelfSignals" in page.title(), "Primary route title does not identify ShelfSignals.")
         check(
             page.locator('button[role="listitem"]').count() == 0,
@@ -366,9 +407,10 @@ def run_primary_flow(
         authors = string_values(hero_record.get("authors"))
         expected_aria = f"Open {title}" + (f" by {authors[0]}" if authors else "")
         first_hero = page.locator("#heroStage .hero-book").first
+        hero_aria = first_hero.get_attribute("aria-label") or ""
         check(
-            first_hero.get_attribute("aria-label") == expected_aria,
-            "First hero book does not expose the configured dataset title and author.",
+            hero_aria.startswith(expected_aria) and "cover" in hero_aria.casefold(),
+            "First hero book does not expose the configured dataset title, author, and cover scope.",
         )
         check(
             page.locator("#heroFocusTitle").inner_text().strip()
@@ -414,8 +456,37 @@ def run_primary_flow(
             timeout=timeout_ms,
         )
 
+        first_card = page.locator("#collectionGrid .book-card").first
+        first_card.evaluate("element => { element.dataset.paginationSentinel = 'preserved'; }")
+        page.locator("#loadMore").click()
+        expected_rendered = min(144, displayed_total)
+        page.wait_for_function(
+            "expected => document.querySelectorAll('#collectionGrid .book-card').length === expected",
+            arg=expected_rendered,
+            timeout=timeout_ms,
+        )
+        check(
+            page.locator('#collectionGrid .book-card[data-pagination-sentinel="preserved"]').count() == 1,
+            "Reveal more rebuilt the existing page instead of appending the next bounded records.",
+        )
+        check(
+            page.locator("#collectionGrid").get_attribute("aria-busy") == "false",
+            "Collection did not clear its accessible busy state after appending records.",
+        )
+        report(f"pagination appended records 73–{expected_rendered} without rebuilding the first page")
+
+        initial_heavy_resources = page.evaluate(
+            "performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:spine_index|book_editions)\\.json/.test(name))"
+        )
+        check(
+            initial_heavy_resources == [],
+            f"Default cover view eagerly loaded physical/edition data: {initial_heavy_resources}",
+        )
         page.locator('.view-button[data-view="spines"]').click()
         page.locator("#collectionGrid .spine-book").first.wait_for(
+            state="visible", timeout=timeout_ms
+        )
+        page.locator('#collectionGrid .spine-entry[data-spine-status="indexed"]').first.wait_for(
             state="visible", timeout=timeout_ms
         )
         check(
@@ -433,14 +504,28 @@ def run_primary_flow(
             bool(re.fullmatch(r"\d+px", first_spine_width)),
             "Physical shelf did not receive a bounded profile width.",
         )
+        check(
+            not page.evaluate(
+                "performance.getEntriesByType('resource').some(entry => entry.name.includes('/data/book_editions.json'))"
+            ),
+            "Physical view fetched the 17 MB provider-edition manifest before a detail request.",
+        )
+        placement_box = page.locator("#collectionGrid .spine-placement").first.bounding_box()
+        check(
+            placement_box is not None
+            and placement_box["width"] >= 24
+            and placement_box["height"] >= 24,
+            f"Physical placement target is below 24×24 CSS px: {placement_box}",
+        )
         page.locator('.view-button[data-view="covers"]').click()
         page.locator("#collectionGrid .book-card").first.wait_for(
             state="visible", timeout=timeout_ms
         )
-        report("Physical view discloses provenance and renders profile-based shelf geometry")
+        report("Physical view lazily loads strict Clark geometry with accessible placement targets")
 
         record_id = str(hero_record["id"])
         page.locator("#collectionSearch").fill(record_id)
+        wait_for_exact_record_filter(page, record_id, timeout_ms)
         result_card = page.locator(
             f'#collectionGrid .book-card[data-record-id="{record_id}"]'
         )
@@ -454,11 +539,16 @@ def run_primary_flow(
             page.locator("#collectionSearch").input_value() == record_id,
             "Collection search did not retain the real catalog identifier query.",
         )
+        search_requests = page.evaluate(
+            "performance.getEntriesByType('resource').filter(entry => entry.name.includes('/data/catalog-search.json')).length"
+        )
+        check(search_requests == 1, f"Full-field search projection loaded {search_requests} times instead of once.")
         report(f"search located dataset record {record_id}")
 
         result_card.click()
         drawer = page.locator("#detailDrawer")
         drawer.wait_for(state="visible", timeout=timeout_ms)
+        page.locator("#detailLoading").wait_for(state="hidden", timeout=timeout_ms)
         check(
             drawer.get_attribute("aria-hidden") == "false",
             "Record detail drawer did not expose its open state.",
@@ -503,6 +593,22 @@ def run_primary_flow(
             f"  rendered: {rendered_catalog_url}\n  dataset:  {record_url}",
         )
         report("detail drawer exposes exact dataset metadata and Clark record_url")
+
+        detail_requests = page.evaluate(
+            "performance.getEntriesByType('resource').filter(entry => entry.name.includes('/data/catalog-details/')).length"
+        )
+        check(detail_requests == 1, f"Opening one record loaded {detail_requests} detail shards instead of one.")
+        page.locator("#closeDetail").click()
+        result_card.click()
+        page.locator("#detailLoading").wait_for(state="hidden", timeout=timeout_ms)
+        reused_detail_requests = page.evaluate(
+            "performance.getEntriesByType('resource').filter(entry => entry.name.includes('/data/catalog-details/')).length"
+        )
+        check(
+            reused_detail_requests == detail_requests,
+            "Reopening a hydrated record refetched its catalog detail shard.",
+        )
+        report("detail hydration loads one deterministic shard and reuses it without refetching")
 
         physical_formats = string_values(hero_record.get("formats"))
         check(
@@ -567,8 +673,190 @@ def run_primary_flow(
             == short_display_title(title),
             "Reloaded My Shelf entry does not match the saved dataset title.",
         )
+        shelf_open = page.locator("#shelfList .shelf-item-open")
+        check(shelf_open.count() == 1, "My Shelf entry has no native open-record control.")
+        shelf_open.focus()
+        page.keyboard.press("Enter")
+        page.locator("#detailDrawer").wait_for(state="visible", timeout=timeout_ms)
+        check(
+            page.locator("#detailTitle").inner_text().strip() == title,
+            "Keyboard activation of My Shelf did not open the saved record.",
+        )
         report("My Shelf persists the selected real record across reload")
         errors.assert_clean("primary browsing flow")
+    finally:
+        context.close()
+
+
+def run_journey_flow(
+    browser: Any,
+    base_url: str,
+    records: Sequence[Dict[str, Any]],
+    timeout_ms: int,
+) -> None:
+    context = browser.new_context(viewport={"width": 1440, "height": 1000})
+    page = context.new_page()
+    page.set_default_timeout(timeout_ms)
+    errors = BrowserErrors(page)
+    try:
+        response = page.goto(
+            route_url(base_url, "?journey=aerospace-folktales&cluster=domestic-interior"),
+            wait_until="domcontentloaded",
+            timeout=timeout_ms,
+        )
+        assert_response(response, "Aerospace Folktales journey route")
+        page.locator("#journeyReader").wait_for(state="visible", timeout=timeout_ms)
+        page.locator("#loadingScreen").wait_for(state="hidden", timeout=timeout_ms)
+        check(
+            page.locator("#journeyReaderTitle").inner_text().strip()
+            == "Aerospace Folktales",
+            "Direct journey URL did not resolve the expected real work title.",
+        )
+        check(
+            page.locator("#journeyClusters .journey-cluster").count() == 5,
+            "Aerospace Folktales did not render all five cited photo movements.",
+        )
+        check(
+            page.locator("#journeyTimeline button[data-cluster-id]").count() == 5
+            and page.locator("#journeyTimeline").evaluate(
+                "element => getComputedStyle(element).position"
+            ) == "sticky",
+            "Journey does not expose its sticky five-movement timeline.",
+        )
+        check(
+            page.locator("#journeyMosaic .journey-mosaic-card").count() == 5,
+            "Journey does not expose its five-movement photo mosaic.",
+        )
+        check(
+            page.locator("#journeyClusters .journey-cluster-media.is-withheld").count()
+            == 5,
+            "Rights-pending work images were not kept as metadata-only frames.",
+        )
+        check(
+            page.locator("#journeyClusters img").count() == 0,
+            "The photo sequence exposed an image without public-display permission.",
+        )
+        check(
+            page.locator("#journeyHeroImage img").count() == 1
+            and "Library context only"
+            in page.locator("#journeyHeroImage figcaption").inner_text(),
+            "The open-license library photograph is not scoped as contextual imagery.",
+        )
+        check(
+            page.locator("#journeyPhaseShelves .journey-phase").count() == 4,
+            "Journey shelf does not expose the four editorial phases.",
+        )
+        check(
+            page.locator("#journeyPhaseShelves .journey-book-card").count() == 1,
+            "The journey should publish only its catalog identity anchor before review.",
+        )
+        by_id = {str(record["id"]): record for record in records}
+        anchor = by_id.get("alma991002293459708431")
+        check(anchor is not None, "Aerospace Folktales anchor is absent from the catalog.")
+        check(
+            short_display_title(anchor["title"])
+            in page.locator("#journeyPhaseShelves .journey-book-card").inner_text(),
+            "The direct-alignment shelf does not use the real Clark title.",
+        )
+        check(
+            "original sekula placement not supplied in this record"
+            in page.locator("#journeyPhaseShelves .journey-book-card").inner_text().casefold(),
+            "The identity anchor invents an original shelf placement.",
+        )
+        check(
+            page.locator('#journeyEvidenceBody a[href="./review.html"]').count() == 1,
+            "The journey evidence ledger does not link to the local-only review handoff.",
+        )
+        check(
+            page.locator('#journeyEvidenceBody a[href="https://creativecommons.org/licenses/by-sa/4.0/"]').count() == 1,
+            "The displayed context image does not expose its direct license link.",
+        )
+        page.locator("#openSearch").click()
+        page.locator("#searchDialog").wait_for(state="visible", timeout=timeout_ms)
+        page.keyboard.press("Escape")
+        page.locator("#searchDialog").wait_for(state="hidden", timeout=timeout_ms)
+        check(
+            page.locator("#journeyReader").is_visible()
+            and "journey=aerospace-folktales" in page.url,
+            "Closing the search dialog also closed the active journey.",
+        )
+        report(
+            "direct journey + cluster URL renders a sticky timeline, rights-gated mosaic, and four evidence-safe shelves"
+        )
+
+        page.wait_for_function(
+            "new URL(location.href).searchParams.get('cluster') === 'domestic-interior'",
+            timeout=timeout_ms,
+        )
+        domestic = page.locator("#journey-cluster-domestic-interior")
+        check(domestic.is_visible(), "Direct cluster URL did not resolve its cited movement.")
+        page.reload(wait_until="domcontentloaded", timeout=timeout_ms)
+        page.locator("#journeyReader").wait_for(state="visible", timeout=timeout_ms)
+        page.locator("#loadingScreen").wait_for(state="hidden", timeout=timeout_ms)
+        page.wait_for_function(
+            "new URL(location.href).searchParams.get('cluster') === 'domestic-interior' && scrollY > 0",
+            timeout=timeout_ms,
+        )
+        check(
+            page.locator('#journeyTimeline button[data-cluster-id="domestic-interior"]').get_attribute("aria-current") == "step",
+            "Reload did not restore the active cluster timeline state.",
+        )
+
+        page.locator('#journeyTimeline button[data-cluster-id="ordered-world"]').click()
+        page.wait_for_function(
+            "new URL(location.href).searchParams.get('cluster') === 'ordered-world'",
+            timeout=timeout_ms,
+        )
+        page.wait_for_timeout(750)
+        ordered_scroll = page.evaluate("scrollY")
+        check(ordered_scroll > 0, "Timeline navigation did not scroll to the selected movement.")
+        page.go_back(wait_until="domcontentloaded", timeout=timeout_ms)
+        page.wait_for_function(
+            "new URL(location.href).searchParams.get('cluster') === 'domestic-interior'",
+            timeout=timeout_ms,
+        )
+        page.go_forward(wait_until="domcontentloaded", timeout=timeout_ms)
+        page.wait_for_function(
+            "new URL(location.href).searchParams.get('cluster') === 'ordered-world'",
+            timeout=timeout_ms,
+        )
+        check(
+            abs(page.evaluate("scrollY") - ordered_scroll) < 180,
+            "Browser Forward did not restore the selected cluster scroll position.",
+        )
+
+        page.locator("#closeJourney").click()
+        page.wait_for_function(
+            "!new URL(location.href).searchParams.has('journey')",
+            timeout=timeout_ms,
+        )
+        check(page.locator("#journeyReader").is_hidden(), "Journey close did not restore the collection view.")
+        page.wait_for_function(
+            "document.activeElement?.classList.contains('journey-open')",
+            timeout=timeout_ms,
+        )
+        page.go_back(wait_until="domcontentloaded", timeout=timeout_ms)
+        page.locator("#journeyReader").wait_for(state="visible", timeout=timeout_ms)
+        check(
+            "journey=aerospace-folktales" in page.url
+            and "cluster=ordered-world" in page.url,
+            "Browser Back did not restore the journey + cluster deep link.",
+        )
+        restored_scroll = page.evaluate("scrollY")
+        restored_history = page.evaluate("history.state")
+        check(
+            abs(restored_scroll - ordered_scroll) < 180,
+            "Browser Back did not restore the journey cluster scroll position "
+            f"(expected about {ordered_scroll}, got {restored_scroll}; state={restored_history!r}).",
+        )
+        page.go_forward(wait_until="domcontentloaded", timeout=timeout_ms)
+        page.wait_for_function(
+            "!new URL(location.href).searchParams.has('journey')",
+            timeout=timeout_ms,
+        )
+        check(page.locator("#journeyReader").is_hidden(), "Browser Forward did not restore the closed journey state.")
+        report("journey reload, close, Back/Forward, focus, and cluster scroll state restore correctly")
+        errors.assert_clean("journey flow")
     finally:
         context.close()
 
@@ -615,12 +903,19 @@ def run_cover_failure_flow(
     context = browser.new_context(viewport={"width": 1280, "height": 900})
     page = context.new_page()
     page.set_default_timeout(timeout_ms)
-    page.route("https://covers.openlibrary.org/**", lambda route: route.abort())
+    aborted_cover_requests: List[str] = []
+
+    def abort_cover(route: Any) -> None:
+        aborted_cover_requests.append(route.request.url)
+        route.abort()
+
+    page.route("https://covers.openlibrary.org/**", abort_cover)
     errors = BrowserErrors(page)
     try:
         wait_for_primary_app(page, base_url, timeout_ms)
         record_id = str(hero_record["id"])
         page.locator("#collectionSearch").fill(record_id)
+        wait_for_exact_record_filter(page, record_id, timeout_ms)
         card = page.locator(f'#collectionGrid .book-card[data-record-id="{record_id}"]')
         card.wait_for(state="visible", timeout=timeout_ms)
         book = card.locator(".book-object")
@@ -634,6 +929,33 @@ def run_cover_failure_flow(
             == short_display_title(hero_record["title"]),
             "Failed remote cover did not preserve the metadata-derived fallback title.",
         )
+        object_cover_label = book.locator(".cover-state-label").inner_text().strip()
+        card_cover_label = card.locator(".book-card-cover-scope").inner_text().strip()
+        check(
+            object_cover_label == "Cover not yet verified for this edition"
+            and card_cover_label == "Cover not yet verified for this edition",
+            "Failed remote cover retained a reviewed/provider-reference label on its surrogate "
+            f"(object={object_cover_label!r}; card={card_cover_label!r}).",
+        )
+        failed_request_count = len(aborted_cover_requests)
+        check(failed_request_count > 0, "Cover failure test did not intercept a provider request.")
+        page.locator('.view-button[data-view="list"]').click()
+        page.locator('.view-button[data-view="covers"]').click()
+        card.wait_for(state="visible", timeout=timeout_ms)
+        page.wait_for_timeout(150)
+        check(
+            len(aborted_cover_requests) == failed_request_count,
+            "A known failed provider cover was requested again after the collection rerendered.",
+        )
+        card.click()
+        page.locator("#detailDrawer").wait_for(state="visible", timeout=timeout_ms)
+        page.locator("#detailLoading").wait_for(state="hidden", timeout=timeout_ms)
+        cover_evidence = page.locator("#detailCoverEvidenceBody").inner_text().casefold()
+        check(
+            "cover not yet verified for this edition" in cover_evidence
+            and "compact cover is available" not in cover_evidence,
+            "A failed provider image left contradictory available-cover evidence in the drawer.",
+        )
         report("remote cover failure falls back to the real metadata-derived book object")
         unexpected = [
             error for error in errors.errors if "net::ERR_FAILED" not in error
@@ -643,6 +965,42 @@ def run_cover_failure_flow(
             f"Cover failure flow emitted errors unrelated to the intentionally aborted images: {unexpected}",
         )
         report("cover failure flow emitted only the intentionally aborted image requests")
+    finally:
+        context.close()
+
+
+def run_search_failure_flow(browser: Any, base_url: str, timeout_ms: int) -> None:
+    context = browser.new_context(viewport={"width": 1280, "height": 900})
+    page = context.new_page()
+    page.set_default_timeout(timeout_ms)
+    failed_requests: List[str] = []
+
+    def abort_search(route: Any) -> None:
+        failed_requests.append(route.request.url)
+        route.abort()
+
+    page.route(route_url(base_url, "data/catalog-search.json"), abort_search)
+    errors = BrowserErrors(page)
+    try:
+        wait_for_primary_app(page, base_url, timeout_ms)
+        page.locator("#collectionSearch").fill("harbor")
+        page.wait_for_function(
+            "!document.querySelector('#resultSummary')?.textContent.includes('Preparing')",
+            timeout=timeout_ms,
+        )
+        page.locator("#collectionSearch").fill("capital")
+        page.wait_for_timeout(350)
+        check(
+            len(failed_requests) == 1,
+            f"A failed full-field search was retried on later keystrokes ({len(failed_requests)} requests).",
+        )
+        check(
+            page.locator("#collectionGrid .book-card").count() > 0,
+            "Search-projection failure removed the core catalog fallback.",
+        )
+        report("failed full-field search falls back once without repeated 11 MB requests")
+        unexpected = [error for error in errors.errors if "net::ERR_FAILED" not in error]
+        check(not unexpected, f"Search failure flow emitted unrelated errors: {unexpected}")
     finally:
         context.close()
 
@@ -662,15 +1020,20 @@ def run_edition_enrichment_flow(
         wait_for_primary_app(page, base_url, timeout_ms)
         record_id = str(record["id"])
         page.locator("#collectionSearch").fill(record_id)
+        wait_for_exact_record_filter(page, record_id, timeout_ms)
         page.locator('.view-button[data-view="spines"]').click()
         spine = page.locator(
             f'#collectionGrid .spine-book[data-record-id="{record_id}"]'
         )
         spine.wait_for(state="visible", timeout=timeout_ms)
-        page.wait_for_function(
-            "element => element.classList.contains('has-edition-evidence')",
-            arg=spine.element_handle(),
-            timeout=timeout_ms,
+        page.locator(f'#collectionGrid .spine-entry[data-record-id="{record_id}"][data-spine-status="indexed"]').wait_for(
+            state="visible", timeout=timeout_ms
+        )
+        check(
+            not page.evaluate(
+                "performance.getEntriesByType('resource').some(entry => entry.name.includes('/data/book_editions.json'))"
+            ),
+            "Provider-edition manifest loaded before the reader requested record detail.",
         )
         check(
             spine.locator(".spine-title").inner_text().strip()
@@ -678,15 +1041,23 @@ def run_edition_enrichment_flow(
             "Enriched spine title does not match the served catalog record.",
         )
         check(
-            spine.locator(".spine-evidence").count() == 1,
-            "Exact-edition spine does not expose its evidence marker.",
-        )
-        check(
             spine.locator(".spine-meta").count() == 1,
-            "Enriched spine does not expose real compact catalog metadata.",
+            "Strict spine does not expose real compact catalog metadata.",
         )
         spine.click()
         page.locator("#detailDrawer").wait_for(state="visible", timeout=timeout_ms)
+        page.locator("#detailLoading").wait_for(state="hidden", timeout=timeout_ms)
+        check(
+            not page.evaluate(
+                "performance.getEntriesByType('resource').some(entry => entry.name.includes('/data/book_editions.json'))"
+            ),
+            "Opening detail automatically fetched the optional 17 MB provider snapshot.",
+        )
+        check(
+            "17 mb" in page.locator("#loadEditionEvidence").inner_text().casefold(),
+            "Optional provider-evidence control does not disclose its transfer size.",
+        )
+        page.locator("#loadEditionEvidence").click()
         page.locator("#detailEdition").wait_for(state="visible", timeout=timeout_ms)
         note = page.locator("#editionEvidenceNote").inner_text().casefold()
         check(
@@ -713,11 +1084,12 @@ def run_edition_enrichment_flow(
         )
         if dimensions_fill_a_gap:
             check(
-                "open library edition" in page.locator("#physicalMetrics").inner_text().casefold(),
-                "A gap-filling exact-edition dimension is not labeled Open Library edition.",
+                "open library edition" not in page.locator("#physicalMetrics").inner_text().casefold()
+                and "clark" in page.locator("#physicalMetrics").inner_text().casefold(),
+                "Provider-edition geometry leaked into the Clark-only physical contract.",
             )
         report(
-            "exact-edition metadata enriches the real spine and detail with copy-scope disclosure"
+            "exact-edition metadata loads only on explicit request and remains separate from Clark spine geometry"
         )
         errors.assert_clean("edition enrichment flow")
     finally:
@@ -734,10 +1106,20 @@ def run_edition_failure_flow(
     errors = BrowserErrors(page)
     try:
         wait_for_primary_app(page, base_url, timeout_ms)
-        page.wait_for_timeout(1800)
         page.locator('.view-button[data-view="spines"]').click()
         page.locator("#collectionGrid .spine-book").first.wait_for(
             state="visible", timeout=timeout_ms
+        )
+        page.locator('#collectionGrid .spine-entry[data-spine-status="indexed"]').first.wait_for(
+            state="visible", timeout=timeout_ms
+        )
+        page.locator("#collectionGrid .spine-book").first.click()
+        page.locator("#detailDrawer").wait_for(state="visible", timeout=timeout_ms)
+        page.locator("#detailLoading").wait_for(state="hidden", timeout=timeout_ms)
+        page.locator("#loadEditionEvidence").click()
+        page.wait_for_function(
+            "document.querySelector('#editionLoaderStatus')?.textContent.toLowerCase().includes('could not be loaded')",
+            timeout=timeout_ms,
         )
         check(
             page.locator("#collectionGrid .spine-book").count() > 0,
@@ -755,6 +1137,71 @@ def run_edition_failure_flow(
             f"{unexpected}",
         )
         report("edition failure flow emitted only the intentionally aborted manifest request")
+    finally:
+        context.close()
+
+
+def run_spine_failure_flow(
+    browser: Any, base_url: str, timeout_ms: int
+) -> None:
+    context = browser.new_context(viewport={"width": 1280, "height": 900})
+    page = context.new_page()
+    page.set_default_timeout(timeout_ms)
+    page.route(route_url(base_url, "data/spine_index.json"), lambda route: route.abort())
+    errors = BrowserErrors(page)
+    try:
+        wait_for_primary_app(page, base_url, timeout_ms)
+        page.locator('.view-button[data-view="spines"]').click()
+        unavailable = page.locator(
+            '#collectionGrid .spine-entry[data-spine-status="unavailable"]'
+        )
+        unavailable.first.wait_for(state="visible", timeout=timeout_ms)
+        check(
+            unavailable.count() == page.locator("#collectionGrid .spine-entry").count() > 0,
+            "A rejected spine index left ordinary indexed-looking shelf entries.",
+        )
+        first = unavailable.first
+        marker = first.locator(".spine-status-marker")
+        marker_text = " ".join((marker.text_content() or "").split()).casefold()
+        check(
+            marker.is_visible() and "evidence unavailable" in marker_text,
+            "Fail-closed spine has no visible unavailable-evidence marker.",
+        )
+        check(
+            marker.evaluate(
+                "element => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1"
+            ),
+            "Fail-closed spine unavailable-evidence marker is clipped.",
+        )
+        background = first.locator(".spine-book").evaluate(
+            "element => getComputedStyle(element).backgroundImage"
+        )
+        check(
+            "repeating-linear-gradient" in background,
+            f"Fail-closed spine still looks like ordinary validated geometry: {background!r}",
+        )
+        check(
+            not first.locator(".spine-book").evaluate(
+                "element => element.classList.contains('has-cover') || Boolean(element.style.getPropertyValue('--cover-image'))"
+            ),
+            "Fail-closed physical placeholder consumed cover evidence.",
+        )
+        first.locator(".spine-book").click()
+        page.locator("#detailDrawer").wait_for(state="visible", timeout=timeout_ms)
+        page.wait_for_function(
+            "document.querySelector('#physicalEvidence')?.textContent.toLowerCase().includes('failed')",
+            timeout=timeout_ms,
+        )
+        check(
+            "neutral placeholder" in page.locator("#physicalMetrics").inner_text().casefold(),
+            "Physical drawer asserted geometry after spine source validation failed.",
+        )
+        report("spine-index failure is visibly neutral, cover-independent, and fail-closed")
+        unexpected = [error for error in errors.errors if "net::ERR_FAILED" not in error]
+        check(
+            not unexpected,
+            f"Spine failure flow emitted unrelated errors: {unexpected}",
+        )
     finally:
         context.close()
 
@@ -910,6 +1357,7 @@ def capture_qa_screenshots(
             device_scale_factor=1,
             is_mobile=mobile,
             has_touch=mobile,
+            reduced_motion="reduce",
         )
         page = context.new_page()
         page.set_default_timeout(timeout_ms)
@@ -920,9 +1368,52 @@ def capture_qa_screenshots(
                 full_page=False,
                 animations="disabled",
             )
+            page.locator("#collectionTitle").evaluate(
+                "element => { document.documentElement.style.scrollBehavior = 'auto'; "
+                "window.scrollTo(0, element.getBoundingClientRect().top + scrollY - 84); }"
+            )
+            page.wait_for_timeout(80)
+            page.screenshot(
+                path=str(directory / f"covers-{label}.png"),
+                full_page=False,
+                animations="disabled",
+            )
+            response = page.goto(
+                route_url(
+                    base_url,
+                    "?journey=aerospace-folktales",
+                ),
+                wait_until="domcontentloaded",
+                timeout=timeout_ms,
+            )
+            assert_response(response, "Journey screenshot route")
+            page.locator("#journeyReader").wait_for(
+                state="visible", timeout=timeout_ms
+            )
+            page.locator("#loadingScreen").wait_for(
+                state="hidden", timeout=timeout_ms
+            )
+            page.locator("#journeyReader").evaluate(
+                "element => { document.documentElement.style.scrollBehavior = 'auto'; "
+                "window.scrollTo(0, element.offsetTop); }"
+            )
+            page.screenshot(
+                path=str(directory / f"journey-{label}.png"),
+                full_page=False,
+                animations="disabled",
+            )
+            if label == "desktop":
+                page.locator("#journeyPhaseShelves").scroll_into_view_if_needed()
+                page.screenshot(
+                    path=str(directory / "journey-shelves-desktop.png"),
+                    full_page=False,
+                    animations="disabled",
+                )
+            wait_for_primary_app(page, base_url, timeout_ms)
             page.locator('.view-button[data-view="spines"]').click()
             page.locator("#collectionTitle").evaluate(
-                "element => window.scrollTo(0, element.getBoundingClientRect().top + scrollY - 84)"
+                "element => { document.documentElement.style.scrollBehavior = 'auto'; "
+                "window.scrollTo(0, element.getBoundingClientRect().top + scrollY - 84); }"
             )
             page.wait_for_timeout(80)
             page.locator("#collectionGrid .spine-book").first.wait_for(
@@ -944,6 +1435,45 @@ def capture_qa_screenshots(
                 )
         finally:
             context.close()
+    association_queue = (
+        DOCS_DIR.parent
+        / "research"
+        / "review-queues"
+        / "aerospace-folktales.json"
+    )
+    if association_queue.is_file():
+        review_context = browser.new_context(viewport={"width": 1440, "height": 900})
+        review_page = review_context.new_page()
+        review_page.set_default_timeout(timeout_ms)
+        try:
+            response = review_page.goto(
+                route_url(base_url, "review.html"),
+                wait_until="domcontentloaded",
+                timeout=timeout_ms,
+            )
+            assert_response(response, "Local review screenshot route")
+            review_page.locator("#candidateFile").set_input_files(
+                str(association_queue)
+            )
+            review_page.locator(".review-card").first.wait_for(
+                state="visible", timeout=timeout_ms
+            )
+            review_page.screenshot(
+                path=str(directory / "association-review-desktop.png"),
+                full_page=False,
+                animations="disabled",
+            )
+            review_page.locator(".review-card").first.evaluate(
+                "element => { document.documentElement.style.scrollBehavior = 'auto'; "
+                "window.scrollTo(0, element.getBoundingClientRect().top + scrollY - 84); }"
+            )
+            review_page.screenshot(
+                path=str(directory / "association-review-queue-desktop.png"),
+                full_page=False,
+                animations="disabled",
+            )
+        finally:
+            review_context.close()
     legacy_context = browser.new_context(viewport={"width": 1440, "height": 900})
     legacy_page = legacy_context.new_page()
     legacy_page.set_default_timeout(timeout_ms)
@@ -1059,8 +1589,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
             try:
                 run_primary_flow(browser, base_url, records, hero_record, args.timeout_ms)
+                run_journey_flow(browser, base_url, records, args.timeout_ms)
                 run_reduced_motion_flow(browser, base_url, args.timeout_ms)
                 run_cover_failure_flow(browser, base_url, cover_record, args.timeout_ms)
+                run_search_failure_flow(browser, base_url, args.timeout_ms)
                 run_edition_enrichment_flow(
                     browser,
                     base_url,
@@ -1069,6 +1601,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     args.timeout_ms,
                 )
                 run_edition_failure_flow(browser, base_url, args.timeout_ms)
+                run_spine_failure_flow(browser, base_url, args.timeout_ms)
                 run_mobile_flow(browser, base_url, args.timeout_ms)
                 run_compatibility_routes(browser, base_url, args.timeout_ms)
                 if args.screenshot_dir:

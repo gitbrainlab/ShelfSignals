@@ -1,5 +1,6 @@
 import { deriveSignals } from "./signals.js";
 import { parseLcCallNumber } from "./lc.js";
+import { normalizePlacementKey, parsePhysicalIdentifiers, recordMatchesPlacement } from "./placement.js";
 import { normalizeYear } from "./year.js";
 import { shortDisplayTitle } from "./visuals.js";
 
@@ -14,6 +15,9 @@ export function enrichRecord(record = {}) {
   const notes = arrayValue(record.notes);
   const provenance = arrayValue(record.provenance_notes);
   const sekulaNotes = arrayValue(record.sekula_notes);
+  const placements = Array.isArray(record.placements)
+    ? record.placements.filter(placement => placement?.key && placement?.label).map(placement => ({ ...placement }))
+    : parsePhysicalIdentifiers({ provenance_notes: provenance, sekula_notes: sekulaNotes });
   const identifiers = [
     ...arrayValue(record.isbns),
     ...arrayValue(record.issns),
@@ -24,8 +28,10 @@ export function enrichRecord(record = {}) {
   ].filter(Boolean);
   const { lcClass, lcNumber, lcKey } = parseLcCallNumber(record.call_number);
   const yearPrimary = normalizeYear(record.year);
-  const signals = deriveSignals(subjects, [...notes, ...provenance, ...sekulaNotes, record.title, record.description]);
-  const searchText = [
+  const signals = Array.isArray(record.signals)
+    ? [...new Set(record.signals.filter(Boolean).map(String))]
+    : deriveSignals(subjects, [...notes, ...provenance, ...sekulaNotes, record.title, record.description]);
+  const derivedSearchText = [
     record.title,
     record.uniform_title,
     ...arrayValue(record.alternative_titles),
@@ -36,12 +42,14 @@ export function enrichRecord(record = {}) {
     ...notes,
     ...provenance,
     ...sekulaNotes,
+    ...placements.map(placement => placement.label),
     record.description,
     ...arrayValue(record.publishers),
     ...arrayValue(record.formats),
     ...arrayValue(record.table_of_contents),
     ...identifiers
   ].filter(Boolean).join(" \u241f ").toLocaleLowerCase();
+  const searchText = typeof record.searchText === "string" ? record.searchText : derivedSearchText;
 
   return {
     ...record,
@@ -54,6 +62,7 @@ export function enrichRecord(record = {}) {
     notes,
     provenance_notes: provenance,
     sekula_notes: sekulaNotes,
+    placements,
     publishers: arrayValue(record.publishers),
     formats: arrayValue(record.formats),
     isbns: arrayValue(record.isbns),
@@ -84,6 +93,7 @@ export function normalizeFilterState(state = {}) {
     material: String(state.material || ""),
     decade: state.decade === "" || state.decade == null ? "" : String(state.decade),
     photo: String(state.photo || ""),
+    placement: normalizePlacementKey(state.placement),
     group: ["lc", "decade", "material"].includes(state.group) ? state.group : "lc",
     path: String(state.path || "")
   };
@@ -105,6 +115,7 @@ export function filterRecords(records = [], rawState = {}) {
     if (state.material && record.materialKey !== state.material) return false;
     if (state.decade && String(record.decade || "") !== state.decade) return false;
     if (state.photo && record.photo_insert_bucket !== state.photo) return false;
+    if (state.placement && !recordMatchesPlacement(record, state.placement)) return false;
     return true;
   });
 }
@@ -163,8 +174,11 @@ export function parseUrlState(url = globalThis.location?.href || "https://exampl
     material: params.get("material") || "",
     decade: params.get("decade") || "",
     photo: params.get("photo") || "",
+    placement: params.get("placement") || "",
     group: params.get("group") || "lc",
     path: params.get("path") || "",
+    journey: params.get("journey") || "",
+    cluster: params.get("cluster") || "",
     view: params.get("view") || "covers"
   };
 }
@@ -172,7 +186,7 @@ export function parseUrlState(url = globalThis.location?.href || "https://exampl
 export function serializeUrlState(rawState = {}, base = globalThis.location?.href || "https://example.invalid/") {
   const state = normalizeFilterState(rawState);
   const url = new URL(base, "https://example.invalid/");
-  for (const key of ["record", "q", "signals", "signalMode", "lc", "material", "decade", "photo", "group", "path", "view"]) {
+  for (const key of ["record", "q", "signals", "signalMode", "lc", "material", "decade", "photo", "placement", "group", "path", "journey", "cluster", "view"]) {
     url.searchParams.delete(key);
   }
   const values = {
@@ -184,8 +198,11 @@ export function serializeUrlState(rawState = {}, base = globalThis.location?.hre
     material: state.material,
     decade: state.decade,
     photo: state.photo,
+    placement: state.placement,
     group: state.group !== "lc" ? state.group : "",
     path: state.path,
+    journey: rawState.journey,
+    cluster: rawState.journey ? rawState.cluster : "",
     view: rawState.view && rawState.view !== "covers" ? rawState.view : ""
   };
   for (const [key, value] of Object.entries(values)) {

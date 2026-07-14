@@ -170,9 +170,15 @@ For scholars and digital humanities researchers:
 ### Deep Dive
 - **[docs/pipeline.md](pipeline.md)**: Data model, normalization, enrichment, and reproducibility practices
 - **[docs/interfaces.md](interfaces.md)**: Primary, Legacy, Preview, and Exhibit route documentation
+- **[docs/browser-catalog.md](browser-catalog.md)**: Compact first-load catalog, lazy full-field search/details, source binding, and regeneration
 - **[docs/cover-enrichment.md](cover-enrichment.md)**: Visual-manifest generation, provider policy, and attribution
+- **[docs/cover-source-pipeline.md](cover-source-pipeline.md)**: Exact-edition cover discovery, private review, public manifest boundaries, and cache policy
+- **[docs/cleared-cover-ingest.md](cleared-cover-ingest.md)**: Clark-copy and rights-cleared local images, derivative bounds, evidence schema, and publication gate
+- **[docs/google-books-cover-source.md](google-books-cover-source.md)**: Temporary exact-ISBN research leads, cache retention, branding, rights limits, and provider-only physical evidence
 - **[docs/edition-enrichment.md](edition-enrichment.md)**: Exact-edition joins, physical evidence, provenance, and Common Crawl assessment
 - **[docs/physical-profiles.md](physical-profiles.md)**: Catalog dimensions, bounded depth modeling, and copy-specific evidence limits
+- **[docs/journey-method.md](journey-method.md)**: Journey citations, relationship phases, evidence grades, rights, placement scope, and human publication review
+- **[docs/association-promotion.md](association-promotion.md)**: Dry-run-first association promotion with evidence preservation and preview-digest confirmation
 - **[docs/receipts.md](receipts.md)**: Digital Receipt system for portable, verifiable exports
 - **[docs/operations.md](operations.md)**: Running locally, scheduling, storage layout, and export formats
 
@@ -240,7 +246,7 @@ Built for discovery and insight, not end-user search:
 
 ## Next Steps
 
-1. **Explore a live deployment**: [ShelfSignals 2.0.0](https://gitbrainlab.github.io/ShelfSignals/) or the [Exhibit compatibility route](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/)
+1. **Explore the current mirror**: use the [independent HTTPS mirror](https://evcatalyst.github.io/ShelfSignals-live/) or compare the [Exhibit compatibility route](https://evcatalyst.github.io/ShelfSignals-live/preview/exhibit/). The Aerospace Folktales route activates only after this branch merges to `gitbrainlab/ShelfSignals@main` and the mirror completes its next sync; until then, test it locally at `/?journey=aerospace-folktales`.
 2. **Understand the data pipeline**: Read [docs/pipeline.md](pipeline.md)
 3. **Learn about interfaces**: See [docs/interfaces.md](interfaces.md)
 4. **Run locally**: Follow [docs/operations.md](operations.md)

@@ -11,13 +11,42 @@ import {
   titleCase
 } from "./catalog.js";
 import {
+  detailShardName,
+  hydrateCatalogRecord,
+  parseBrowserCatalog,
+  parseCatalogDetailShard,
+  parseCatalogSearchIndex
+} from "./catalog-data.js";
+import {
   applyBookStyle,
-  getRecordVisual,
   parseVisualManifest,
   resolveFeaturedItems,
   shortDisplayTitle,
   stableHash
 } from "./visuals.js";
+import {
+  PROVIDER_REFERENCE_LABEL,
+  REVIEWED_COVER_LABEL,
+  UNRESOLVED_COVER_LABEL,
+  canDisplayCover,
+  getRecordCoverProvenance,
+  getRecordCoverState,
+  parseCoverIndex,
+  parseCoverProvenance
+} from "./covers.js";
+import {
+  JOURNEY_PHASES,
+  associationClaimLabel,
+  getPublicAssociations,
+  journeyById,
+  parseJourneyIndex,
+  parseJourneyManifest
+} from "./journeys.js";
+import {
+  canDisplaySpine,
+  getRecordSpineProfile,
+  loadSpineIndex
+} from "./spines.js";
 import {
   externalEditionLabel,
   getRecordEditionEnrichment,
@@ -25,6 +54,7 @@ import {
   parseEditionEnrichmentManifest,
   parseEditionEnrichmentManifestAsync
 } from "./enrichment.js";
+import { profileFromRecord } from "./physical.js";
 import {
   loadShelfIds,
   resolveShelfRecords,
@@ -34,10 +64,16 @@ import {
 } from "./shelf.js";
 import { createReceipt, downloadReceipt, verifyReceipt } from "./receipt.js";
 
-const DATA_URL = new URL("../data/sekula_index.json", import.meta.url);
-const VISUALS_URL = new URL("../data/book_visuals.json", import.meta.url);
+// The browser reads only deterministic catalog projections during normal use.
+// Their validated source checksum binds exports back to the canonical dataset.
+const CORE_CATALOG_URL = new URL("../data/catalog-core.json", import.meta.url);
+const CATALOG_SEARCH_URL = new URL("../data/catalog-search.json", import.meta.url);
+const CATALOG_DETAIL_BASE_URL = new URL("../data/catalog-details/", import.meta.url);
+const COVER_INDEX_URL = new URL("../data/cover_index.json", import.meta.url);
 const FEATURED_URL = new URL("../data/featured_items.json", import.meta.url);
 const PATHS_URL = new URL("../preview/exhibit/curated-paths.json", import.meta.url);
+const JOURNEY_INDEX_URL = new URL("../data/journeys/index.json", import.meta.url);
+const SPINE_INDEX_URL = new URL("../data/spine_index.json", import.meta.url);
 const EDITIONS_URL = new URL("../data/book_editions.json", import.meta.url);
 const PAGE_SIZE = 72;
 const SEARCH_SUGGESTION_LIMIT = 8;
@@ -48,6 +84,7 @@ const $$ = selector => [...document.querySelectorAll(selector)];
 
 const dom = {
   loading: $("#loadingScreen"),
+  retryApp: $("#retryApp"),
   pageRegions: $$(".site-header, main, .site-footer"),
   heroStage: $("#heroStage"),
   heroFocusIndex: $("#heroFocusIndex"),
@@ -56,6 +93,21 @@ const dom = {
   heroSignals: $("#heroSignals"),
   heroSearchForm: $("#heroSearchForm"),
   heroSearchInput: $("#heroSearchInput"),
+  journeyFeature: $("#journeyFeature"),
+  journeyReader: $("#journeyReader"),
+  closeJourney: $("#closeJourney"),
+  journeyProgress: $("#journeyProgress"),
+  journeyEvidenceLink: $("#journeyEvidenceLink"),
+  journeyTimeline: $("#journeyTimeline"),
+  journeyKicker: $("#journeyKicker"),
+  journeyReaderTitle: $("#journeyReaderTitle"),
+  journeyDeck: $("#journeyDeck"),
+  journeyFacts: $("#journeyFacts"),
+  journeyHeroImage: $("#journeyHeroImage"),
+  journeyMosaic: $("#journeyMosaic"),
+  journeyClusters: $("#journeyClusters"),
+  journeyPhaseShelves: $("#journeyPhaseShelves"),
+  journeyEvidenceBody: $("#journeyEvidenceBody"),
   pathGrid: $("#pathGrid"),
   collectionCount: $("#collectionCount"),
   classCount: $("#classCount"),
@@ -84,6 +136,8 @@ const dom = {
   globalSearchInput: $("#globalSearchInput"),
   searchSuggestions: $("#searchSuggestions"),
   detailDrawer: $("#detailDrawer"),
+  detailContent: $("#detailDrawer .detail-content"),
+  detailLoading: $("#detailLoading"),
   detailPosition: $("#detailPosition"),
   detailVisual: $("#detailVisual"),
   detailKicker: $("#detailKicker"),
@@ -92,11 +146,18 @@ const dom = {
   detailShelfButton: $("#detailShelfButton"),
   catalogLink: $("#catalogLink"),
   detailMetadata: $("#detailMetadata"),
+  detailPlacement: $("#detailPlacement"),
+  detailPlacementList: $("#detailPlacementList"),
+  detailCoverEvidence: $("#detailCoverEvidence"),
+  detailCoverEvidenceBody: $("#detailCoverEvidenceBody"),
   detailPhysical: $("#detailPhysical"),
   physicalBook: $("#physicalBook"),
   physicalMetrics: $("#physicalMetrics"),
   physicalEvidence: $("#physicalEvidence"),
   detailEdition: $("#detailEdition"),
+  detailEditionLoader: $("#detailEditionLoader"),
+  loadEditionEvidence: $("#loadEditionEvidence"),
+  editionLoaderStatus: $("#editionLoaderStatus"),
   editionMetadata: $("#editionMetadata"),
   editionEvidenceLink: $("#editionEvidenceLink"),
   editionEvidenceNote: $("#editionEvidenceNote"),
@@ -123,12 +184,44 @@ const initialUrl = parseUrlState();
 const state = {
   records: [],
   recordMap: new Map(),
+  recordIds: new Set(),
+  catalogSearchById: new Map(),
+  catalogSearchPromise: null,
+  catalogSearchAbortController: null,
+  catalogSearchStatus: "idle",
+  searchRequestToken: 0,
+  suggestionRequestToken: 0,
+  detailShardPromises: new Map(),
+  detailShardsReady: new Set(),
+  detailRequestToken: 0,
   filtered: [],
   paths: [],
   pathMap: new Map(),
   visuals: parseVisualManifest({}),
+  covers: null,
+  failedCoverIds: new Set(),
+  coverProvenance: null,
+  coverProvenancePromise: null,
+  coverEvidenceRequestToken: 0,
+  spineIndex: null,
+  spineIndexPromise: null,
+  spineIndexStatus: "idle",
+  catalogSha256: "",
   editions: parseEditionEnrichmentManifest({}),
+  editionLoadPromise: null,
+  editionStatus: "idle",
+  journeyIndex: parseJourneyIndex({}),
+  journeyManifests: new Map(),
+  journeyId: initialUrl.journey,
+  clusterId: initialUrl.cluster,
+  journeyReturnScroll: 0,
+  journeyLastFocus: null,
+  journeyObserver: null,
+  journeyNavigationToken: 0,
+  journeyNavigationLock: "",
+  deferredObservers: [],
   featuredConfig: {},
+  facets: null,
   filters: normalizeFilterState(initialUrl),
   view: ["covers", "spines", "list"].includes(initialUrl.view) ? initialUrl.view : "covers",
   renderLimit: PAGE_SIZE,
@@ -136,7 +229,8 @@ const state = {
   shelfIds: loadShelfIds(),
   activeDrawer: null,
   lastFocus: null,
-  syncingHistory: false
+  syncingHistory: false,
+  historySyncToken: 0
 };
 
 function textElement(tag, className, text) {
@@ -168,6 +262,29 @@ function compactMeta(record) {
   return [record.authors[0], record.yearPrimary, record.call_number].filter(Boolean).join(" · ");
 }
 
+function coverLabel(cover = {}) {
+  if (cover.status === "verified") return REVIEWED_COVER_LABEL;
+  if (cover.status === "provider_reference") return PROVIDER_REFERENCE_LABEL;
+  return UNRESOLVED_COVER_LABEL;
+}
+
+function setApplicationBusy(busy) {
+  document.body.dataset.appState = busy ? "loading" : "ready";
+  dom.loading?.setAttribute("aria-busy", busy ? "true" : "false");
+  dom.pageRegions.forEach(region => {
+    region.inert = busy || Boolean(state.activeDrawer);
+    if (busy) region.setAttribute("aria-busy", "true");
+    else region.removeAttribute("aria-busy");
+  });
+}
+
+function compactCoverEvidence(cover = {}) {
+  if (!canDisplayCover(cover)) return UNRESOLVED_COVER_LABEL;
+  const provider = cover.provider === "openlibrary" ? "Open Library" : titleCase(cover.provider || "provider");
+  const review = cover.status === "verified" ? "human reviewed" : "visual review pending";
+  return `${provider} · exact-edition reference · ${review} · remote only; artwork rights not established`;
+}
+
 function editionForRecord(record) {
   return getRecordEditionEnrichment(record, state.editions);
 }
@@ -177,6 +294,19 @@ function physicalRecord(record) {
   return record;
 }
 
+function validatedSpineProfile(record) {
+  const profile = getRecordSpineProfile(record, state.spineIndex || {});
+  return canDisplaySpine(profile) ? profile : null;
+}
+
+function spineRenderRecord(record) {
+  const profile = validatedSpineProfile(record);
+  return {
+    ...record,
+    physicalProfile: profile || {}
+  };
+}
+
 function yieldToBrowser() {
   return new Promise(resolve => {
     if ("requestIdleCallback" in window) window.requestIdleCallback(resolve, { timeout: 60 });
@@ -184,31 +314,213 @@ function yieldToBrowser() {
   });
 }
 
+function runWhenNear(element, task, { rootMargin = "240px 0px" } = {}) {
+  if (!element) return () => {};
+  let started = false;
+  const run = () => {
+    if (started) return;
+    started = true;
+    element.setAttribute("aria-busy", "true");
+    Promise.resolve(task())
+      .catch(error => console.warn("ShelfSignals deferred section could not be prepared:", error))
+      .finally(() => element.removeAttribute("aria-busy"));
+  };
+  if (!("IntersectionObserver" in window)) {
+    if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 1800 });
+    else setTimeout(run, 0);
+    return run;
+  }
+  const observer = new IntersectionObserver(entries => {
+    if (!entries.some(entry => entry.isIntersecting)) return;
+    observer.disconnect();
+    run();
+  }, { rootMargin, threshold: 0 });
+  observer.observe(element);
+  state.deferredObservers.push(observer);
+  return run;
+}
+
+function scheduleSecondarySections() {
+  if (state.journeyId) void renderJourneyFeature();
+  else runWhenNear(dom.journeyFeature, renderJourneyFeature);
+  runWhenNear(dom.pathGrid, renderPaths);
+}
+
+function restoreScrollImmediately(top) {
+  const root = document.documentElement;
+  const previous = root.style.scrollBehavior;
+  root.style.scrollBehavior = "auto";
+  window.scrollTo(0, top);
+  if (previous) root.style.scrollBehavior = previous;
+  else root.style.removeProperty("scroll-behavior");
+}
+
 async function enrichInBatches(rawRecords) {
   const enriched = [];
   const progress = dom.loading?.querySelector("p");
   for (let index = 0; index < rawRecords.length; index += 300) {
     const slice = rawRecords.slice(index, index + 300);
-    for (const record of slice) enriched.push(enrichRecord(record));
+    for (const record of slice) {
+      const projected = record.detail_hydrated === false;
+      const placements = projected ? record.placements : null;
+      const signals = projected ? record.signals : null;
+      const item = enrichRecord(record);
+      if (projected) {
+        item.placements = placements;
+        item.signals = signals;
+        item.searchText = [item.id, item.title, ...item.authors, item.year, item.call_number, item.material_type, ...placements.map(placement => placement.label)]
+          .filter(Boolean)
+          .join(" \u241f ")
+          .toLocaleLowerCase();
+      }
+      enriched.push(item);
+    }
     if (progress && index % 1200 === 0) progress.textContent = `Reading catalog metadata · ${formatNumber(Math.min(index + slice.length, rawRecords.length))}`;
     await yieldToBrowser();
   }
   return enriched;
 }
 
-async function fetchJson(url, fallback) {
+async function fetchJson(url, fallback, options = {}) {
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, options);
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     return await response.json();
   } catch (error) {
+    if (error?.name === "AbortError") throw error;
     console.warn(`ShelfSignals could not load ${url}:`, error);
     return fallback;
   }
 }
 
+async function ensureCatalogSearchIndex() {
+  if (state.catalogSearchStatus === "ready") return state.catalogSearchById;
+  if (state.catalogSearchStatus === "failed") return null;
+  if (state.catalogSearchPromise) return state.catalogSearchPromise;
+  const controller = new AbortController();
+  state.catalogSearchAbortController = controller;
+  state.catalogSearchStatus = "loading";
+  const attempt = (async () => {
+    try {
+      const raw = await fetchJson(CATALOG_SEARCH_URL, null, { signal: controller.signal });
+      if (!raw) throw new Error("the full-field search projection is unavailable");
+      const parsed = parseCatalogSearchIndex(raw, {
+        datasetSha256: state.catalogSha256,
+        catalogIds: state.recordIds
+      });
+      if (parsed.rejected) throw new Error(parsed.errors.map(error => `${error.path}: ${error.message}`).join(", "));
+      state.catalogSearchById = parsed.searchById;
+      state.records.forEach(record => {
+        const searchText = parsed.searchById.get(record.id);
+        if (searchText) record.searchText = searchText;
+      });
+      state.catalogSearchStatus = "ready";
+      return parsed.searchById;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        if (state.catalogSearchAbortController === controller) state.catalogSearchStatus = "idle";
+        return null;
+      }
+      state.catalogSearchStatus = "failed";
+      console.warn(`ShelfSignals could not apply ${CATALOG_SEARCH_URL}:`, error);
+      return null;
+    }
+  })();
+  state.catalogSearchPromise = attempt;
+  void attempt.finally(() => {
+    if (state.catalogSearchPromise === attempt) state.catalogSearchPromise = null;
+    if (state.catalogSearchAbortController === controller) state.catalogSearchAbortController = null;
+  });
+  return attempt;
+}
+
+function cancelCatalogSearch() {
+  if (state.catalogSearchStatus === "loading") state.catalogSearchAbortController?.abort();
+}
+
+function reenrichHydratedRecord(record) {
+  const detailShard = record.detail_shard;
+  const fullSearchText = state.catalogSearchById.get(record.id);
+  delete record.physicalProfile;
+  const enriched = enrichRecord(record);
+  Object.assign(record, enriched, { detail_shard: detailShard, detail_hydrated: true });
+  if (fullSearchText) record.searchText = fullSearchText;
+  return record;
+}
+
+async function ensureCatalogDetailShard(shard) {
+  if (state.detailShardsReady.has(shard)) return true;
+  if (state.detailShardPromises.has(shard)) return state.detailShardPromises.get(shard);
+  const url = new URL(detailShardName(shard), CATALOG_DETAIL_BASE_URL);
+  const attempt = (async () => {
+    try {
+      const raw = await fetchJson(url, null);
+      if (!raw) throw new Error("the detail projection is unavailable");
+      const parsed = parseCatalogDetailShard(raw, {
+        datasetSha256: state.catalogSha256,
+        catalogIds: state.recordIds,
+        expectedShard: shard
+      });
+      if (parsed.rejected) throw new Error(parsed.errors.map(error => `${error.path}: ${error.message}`).join(", "));
+      parsed.detailsById.forEach((details, id) => {
+        const record = state.recordMap.get(id);
+        if (record) reenrichHydratedRecord(hydrateCatalogRecord(record, details));
+      });
+      state.detailShardsReady.add(shard);
+      return true;
+    } catch (error) {
+      console.warn(`ShelfSignals could not apply ${url}:`, error);
+      return false;
+    }
+  })();
+  state.detailShardPromises.set(shard, attempt);
+  void attempt.finally(() => {
+    if (state.detailShardPromises.get(shard) === attempt) state.detailShardPromises.delete(shard);
+  });
+  return attempt;
+}
+
 function setStyles(element, properties) {
   for (const [property, value] of Object.entries(properties)) element.style.setProperty(property, value);
+}
+
+function coverStateForRecord(record) {
+  const cover = getRecordCoverState(record, state.covers || {});
+  if (!state.failedCoverIds.has(record.id)) return cover;
+  return {
+    ...cover,
+    status: "unresolved",
+    image: null,
+    label: UNRESOLVED_COVER_LABEL
+  };
+}
+
+function recordVisual(record) {
+  const cover = coverStateForRecord(record);
+  if (!canDisplayCover(cover)) return null;
+  return {
+    image_url: cover.image.image_url,
+    thumbnail_url: cover.image.thumbnail_url,
+    width: cover.image.width,
+    height: cover.image.height,
+    aspect_ratio: cover.image.width / cover.image.height
+  };
+}
+
+function responsiveImage(image, alt = "", { eager = false, sizes = "(max-width: 900px) 100vw, 66vw" } = {}) {
+  const img = document.createElement("img");
+  img.alt = alt;
+  img.loading = eager ? "eager" : "lazy";
+  img.decoding = "async";
+  img.fetchPriority = eager ? "high" : "low";
+  img.src = image.thumbnail_url || image.image_url;
+  if (image.thumbnail_url && image.image_url && image.thumbnail_url !== image.image_url) {
+    img.srcset = `${image.thumbnail_url} 960w, ${image.image_url} 1920w`;
+    img.sizes = sizes;
+  }
+  if (image.width) img.width = image.width;
+  if (image.height) img.height = image.height;
+  return img;
 }
 
 function appendCoverImage(container, record, visual, eager = false) {
@@ -219,24 +531,46 @@ function appendCoverImage(container, record, visual, eager = false) {
   image.loading = eager ? "eager" : "lazy";
   image.decoding = "async";
   image.fetchPriority = eager ? "high" : "low";
+  image.referrerPolicy = "no-referrer";
+  image.draggable = false;
+  if (visual.width) image.width = visual.width;
+  if (visual.height) image.height = visual.height;
   image.addEventListener("load", async () => {
     try { await image.decode(); } catch (_) { /* Loaded images are still safe to reveal. */ }
     requestAnimationFrame(() => container.classList.add("cover-ready"));
   }, { once: true });
   image.addEventListener("error", () => {
+    state.failedCoverIds.add(record.id);
     image.remove();
     container.classList.remove("has-cover");
     container.classList.remove("cover-ready");
     container.style.removeProperty("--cover-image");
+    container.dataset.coverStatus = "unresolved";
+    const stateLabel = container.querySelector(".cover-state-label");
+    if (stateLabel) stateLabel.textContent = UNRESOLVED_COVER_LABEL;
+    const updateCardEvidence = () => {
+      const cardEvidence = container.closest(".book-open")?.querySelector(".book-card-cover-scope");
+      if (cardEvidence) cardEvidence.textContent = UNRESOLVED_COVER_LABEL;
+      if (container.matches(".hero-book.is-focused")) {
+        dom.heroFocusMeta.textContent = [compactMeta(record), UNRESOLVED_COVER_LABEL].filter(Boolean).join(" · ");
+      }
+    };
+    updateCardEvidence();
+    // A cached/blocked image can fail while its book object is still being
+    // assembled off-DOM. Reconcile the sibling evidence line once attached.
+    requestAnimationFrame(updateCardEvidence);
+    if (state.selectedId === record.id) void renderCoverEvidence(record);
   }, { once: true });
   image.src = visual.thumbnail_url || visual.image_url;
   container.prepend(image);
 }
 
 function makeBookObject(record, { eager = false } = {}) {
-  const visual = getRecordVisual(record, state.visuals);
+  const cover = coverStateForRecord(record);
+  const visual = recordVisual(record);
   const object = document.createElement("div");
   object.className = "book-object";
+  object.dataset.coverStatus = cover.status;
   applyBookStyle(object, physicalRecord(record), visual);
   appendCoverImage(object, record, visual, eager);
 
@@ -246,10 +580,11 @@ function makeBookObject(record, { eager = false } = {}) {
     (() => {
       const meta = document.createElement("span");
       meta.className = "book-cover-meta";
-      meta.append(textElement("span", "", record.authors[0] || "Allan Sekula Library"));
+      meta.append(textElement("span", "", record.authors[0] || "Creator not recorded"));
       meta.append(textElement("span", "", record.yearPrimary || record.year || "Date unknown"));
       return meta;
-    })()
+    })(),
+    textElement("span", "cover-state-label", coverLabel(cover))
   );
   object.setAttribute("aria-hidden", "true");
   return object;
@@ -259,12 +594,14 @@ function renderHero() {
   clear(dom.heroStage);
   const featured = resolveFeaturedItems(state.records, state.featuredConfig, state.visuals, 11);
   featured.forEach((record, index) => {
-    const visual = getRecordVisual(record, state.visuals);
+    const visual = recordVisual(record);
+    const cover = coverStateForRecord(record);
     const button = document.createElement("button");
     button.type = "button";
     button.className = "hero-book";
     button.dataset.recordId = record.id;
-    button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}`);
+    button.dataset.coverStatus = cover.status;
+    button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}. ${coverLabel(cover)}`);
     applyBookStyle(button, physicalRecord(record), visual);
     appendCoverImage(button, record, visual, index < 5);
     const spine = document.createElement("span");
@@ -277,7 +614,7 @@ function renderHero() {
       button.classList.add("is-focused");
       dom.heroFocusIndex.textContent = String(index + 1).padStart(2, "0");
       dom.heroFocusTitle.textContent = record.displayTitle;
-      dom.heroFocusMeta.textContent = compactMeta(record);
+      dom.heroFocusMeta.textContent = [compactMeta(record), coverLabel(cover)].filter(Boolean).join(" · ");
     };
     button.addEventListener("mouseenter", focus);
     button.addEventListener("focus", focus);
@@ -310,10 +647,478 @@ function renderHeroSignals() {
 }
 
 function renderStats() {
-  const facets = collectionFacets(state.records);
+  const facets = state.facets || collectionFacets(state.records);
   dom.collectionCount.textContent = formatNumber(state.records.length);
   dom.classCount.textContent = formatNumber(facets.classes.length);
   dom.yearSpan.textContent = facets.minYear && facets.maxYear ? `${facets.minYear}–${facets.maxYear}` : "Cataloged dates";
+}
+
+function sourceAnchor(label, url, className = "") {
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.target = "_blank";
+  anchor.rel = "noopener noreferrer";
+  anchor.className = className;
+  anchor.textContent = label;
+  return anchor;
+}
+
+function placementControl(record, { card = false } = {}) {
+  const placements = Array.isArray(record.placements) ? record.placements : [];
+  if (!placements.length) {
+    return textElement("span", card ? "placement-unknown book-card-placement" : "placement-unknown", "Original Sekula placement not supplied in this record");
+  }
+  const placement = placements[0];
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = card ? "placement-badge book-card-placement" : "placement-badge";
+  button.textContent = `${placement.label}${placements.length > 1 ? ` +${placements.length - 1}` : ""}`;
+  button.title = `Browse records with the Clark placement ${placement.label}${placement.roomLabel ? ` in ${placement.roomLabel}` : ""}`;
+  button.addEventListener("click", () => applyPlacement(placement));
+  return button;
+}
+
+function journeyContextPhoto(manifest) {
+  return manifest?.photographs?.find(photo => photo.image) || null;
+}
+
+function journeyCitation(manifest, id) {
+  return manifest?.citations?.find(citation => citation.id === id) || null;
+}
+
+function journeyContextFigure(photo, citation, className, { eager = false } = {}) {
+  const figure = document.createElement("figure");
+  figure.className = className;
+  if (!photo?.image) {
+    figure.classList.add("is-withheld");
+    figure.append(
+      textElement("strong", "", "Context image withheld"),
+      textElement("p", "", "The journey manifest does not currently authorize a context image for public display.")
+    );
+    return figure;
+  }
+  const picture = document.createElement("picture");
+  picture.append(responsiveImage({
+    image_url: photo.image.url,
+    thumbnail_url: photo.image.thumbnail_url,
+    width: photo.image.width,
+    height: photo.image.height
+  }, photo.alt, { eager }));
+  const caption = document.createElement("figcaption");
+  caption.append(document.createTextNode(`${photo.rights.credit_line} Library context only—not a Sekula artwork or association evidence. `));
+  if (citation?.url) caption.append(sourceAnchor("Source ↗", citation.url));
+  figure.append(picture, caption);
+  return figure;
+}
+
+async function renderJourneyFeature() {
+  clear(dom.journeyFeature);
+  const journey = state.journeyIndex.journeys?.[0];
+  if (!journey) {
+    const unavailable = textElement("div", "journey-feature-loading", "No reviewed journey is currently available.");
+    dom.journeyFeature.append(unavailable);
+    return;
+  }
+  dom.journeyFeature.append(textElement("div", "journey-feature-loading", "Preparing the cited journey…"));
+  const manifest = await loadJourneyManifest(journey.id);
+  if (!manifest) {
+    clear(dom.journeyFeature);
+    dom.journeyFeature.append(textElement("div", "journey-feature-loading", "The journey evidence could not be loaded."));
+    return;
+  }
+  const contextPhoto = journeyContextPhoto(manifest);
+  const contextCitation = journeyCitation(manifest, contextPhoto?.source_citation_id);
+  clear(dom.journeyFeature);
+  const article = document.createElement("article");
+  article.className = "journey-feature-card";
+  article.append(journeyContextFigure(contextPhoto, contextCitation, "journey-feature-media", { eager: false }));
+  const copy = document.createElement("div");
+  copy.className = "journey-feature-copy";
+  const status = document.createElement("div");
+  status.className = "journey-status";
+  status.append(
+    textElement("span", "is-live", "Research preview"),
+    textElement("span", "", "Artwork images rights-pending"),
+    textElement("span", "", "No inferred relations")
+  );
+  copy.append(status, textElement("h3", "", journey.title), textElement("p", "", journey.subtitle));
+  const meta = document.createElement("div");
+  meta.className = "journey-feature-meta";
+  [
+    [journey.cluster_count, "photo movements"],
+    [journey.association_count, "published associations"],
+    [1, "Clark work record"]
+  ].forEach(([value, label]) => {
+    const item = document.createElement("div");
+    item.append(textElement("strong", "", String(value)), textElement("span", "", label));
+    meta.append(item);
+  });
+  const open = textElement("button", "journey-open", "Open the journey →");
+  open.type = "button";
+  open.addEventListener("click", () => { void openJourney(journey.id, { updateHistory: true, scroll: true }); });
+  copy.append(meta, open);
+  article.append(copy);
+  dom.journeyFeature.append(article);
+}
+
+async function loadJourneyManifest(id) {
+  if (state.journeyManifests.has(id)) return state.journeyManifests.get(id);
+  const entry = journeyById(state.journeyIndex, id);
+  if (!entry) return null;
+  const raw = await fetchJson(new URL(entry.manifest_ref, document.baseURI), null);
+  if (!raw) return null;
+  const manifest = parseJourneyManifest(raw, { catalogIds: state.recordIds });
+  if (manifest.rejected || manifest.id !== id) {
+    console.warn("ShelfSignals rejected a journey manifest:", manifest.errors);
+    return null;
+  }
+  state.journeyManifests.set(id, manifest);
+  return manifest;
+}
+
+function journeyPhotoMedia(photo, citation) {
+  if (photo?.image) {
+    const figure = document.createElement("figure");
+    figure.className = "journey-cluster-media";
+    const image = {
+      image_url: photo.image.url,
+      thumbnail_url: photo.image.thumbnail_url,
+      width: photo.image.width,
+      height: photo.image.height
+    };
+    figure.append(responsiveImage(image, photo.alt));
+    const caption = document.createElement("figcaption");
+    caption.append(document.createTextNode(`${photo.caption} ${photo.rights.credit_line || ""} `));
+    if (citation?.url) caption.append(sourceAnchor("Source ↗", citation.url));
+    figure.append(caption);
+    return figure;
+  }
+  const withheld = document.createElement("div");
+  withheld.className = "journey-cluster-media is-withheld";
+  withheld.append(
+    textElement("strong", "", photo?.title || "Photograph metadata"),
+    textElement("p", "", `${photo?.caption || "The source record is available, but ShelfSignals has no permission to reproduce the image."} Rights status: permission required.`)
+  );
+  if (citation?.url) withheld.append(sourceAnchor("Open the cited source ↗", citation.url, "journey-source-link"));
+  return withheld;
+}
+
+function setActiveJourneyCluster(id = "") {
+  let activeButton = null;
+  dom.journeyTimeline?.querySelectorAll("button[data-cluster-id]").forEach(button => {
+    const active = button.dataset.clusterId === id;
+    button.classList.toggle("active", active);
+    if (active) {
+      activeButton = button;
+      button.setAttribute("aria-current", "step");
+    }
+    else button.removeAttribute("aria-current");
+  });
+  if (activeButton && dom.journeyTimeline.scrollWidth > dom.journeyTimeline.clientWidth) {
+    const left = activeButton.offsetLeft - (dom.journeyTimeline.clientWidth - activeButton.offsetWidth) / 2;
+    dom.journeyTimeline.scrollTo({
+      left: Math.max(0, left),
+      behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+    });
+  }
+}
+
+function journeyClusterAtReadingLine() {
+  const clusters = [...dom.journeyClusters.querySelectorAll(".journey-cluster[data-cluster-id]")];
+  if (!clusters.length) return "";
+  const headerHeight = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--header-h")) || 0;
+  const readingLine = headerHeight + 116;
+  return clusters
+    .map(cluster => ({ id: cluster.dataset.clusterId, distance: Math.abs(cluster.getBoundingClientRect().top - readingLine) }))
+    .sort((left, right) => left.distance - right.distance)[0]?.id || "";
+}
+
+function navigateJourneyCluster(id, { push = false, focus = false, behavior = "smooth" } = {}) {
+  const target = document.getElementById(`journey-cluster-${id}`);
+  if (!target || dom.journeyReader.hidden) return false;
+  const navigationToken = ++state.journeyNavigationToken;
+  state.journeyNavigationLock = id;
+  state.clusterId = id;
+  setActiveJourneyCluster(id);
+  updateUrl({ replace: !push, scrollY: target.offsetTop });
+  target.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : behavior, block: "start" });
+  if (focus) requestAnimationFrame(() => target.focus({ preventScroll: true }));
+  let settled = false;
+  let timeout = 0;
+  const settleHistory = () => {
+    if (settled || navigationToken !== state.journeyNavigationToken) return;
+    settled = true;
+    clearTimeout(timeout);
+    state.journeyNavigationLock = "";
+    const activeId = journeyClusterAtReadingLine() || id;
+    state.clusterId = activeId;
+    setActiveJourneyCluster(activeId);
+    if (state.journeyId) updateUrl({ scrollY: window.scrollY });
+  };
+  if ("onscrollend" in window) window.addEventListener("scrollend", settleHistory, { once: true });
+  timeout = window.setTimeout(settleHistory, behavior === "auto" || matchMedia("(prefers-reduced-motion: reduce)").matches ? 100 : 1100);
+  return true;
+}
+
+function renderJourneyTimeline(manifest) {
+  clear(dom.journeyTimeline);
+  [...manifest.clusters].sort((left, right) => left.order - right.order).forEach(cluster => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.clusterId = cluster.id;
+    button.append(textElement("span", "", String(cluster.order).padStart(2, "0")), document.createTextNode(cluster.title));
+    button.addEventListener("click", () => navigateJourneyCluster(cluster.id, { push: true, focus: true }));
+    dom.journeyTimeline.append(button);
+  });
+  setActiveJourneyCluster(state.clusterId);
+}
+
+function renderJourneyMosaic(manifest) {
+  clear(dom.journeyMosaic);
+  const photos = new Map(manifest.photographs.map(photo => [photo.id, photo]));
+  const citations = new Map(manifest.citations.map(citation => [citation.id, citation]));
+  const header = document.createElement("header");
+  header.append(textElement("p", "section-index", "Five cited sequence movements"), textElement("h3", "", "A disassembled photo-text work, held at the rights boundary"));
+  const grid = document.createElement("div");
+  grid.className = "journey-mosaic-grid";
+  [...manifest.clusters].sort((left, right) => left.order - right.order).forEach(cluster => {
+    const photo = photos.get(cluster.photograph_ids[0]);
+    const citation = citations.get(photo?.source_citation_id);
+    const card = document.createElement("article");
+    card.className = "journey-mosaic-card";
+    const media = journeyPhotoMedia(photo, citation);
+    media.classList.add("journey-mosaic-media");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.append(textElement("span", "", String(cluster.order).padStart(2, "0")), document.createTextNode(cluster.title));
+    open.addEventListener("click", () => navigateJourneyCluster(cluster.id, { push: true, focus: true }));
+    card.append(media, open);
+    grid.append(card);
+  });
+  dom.journeyMosaic.append(header, grid);
+}
+
+function observeJourneyClusters() {
+  state.journeyObserver?.disconnect();
+  if (!("IntersectionObserver" in window)) return;
+  state.journeyObserver = new IntersectionObserver(entries => {
+    if (state.journeyNavigationLock) return;
+    const current = entries
+      .filter(entry => entry.isIntersecting)
+      .sort((left, right) => right.intersectionRatio - left.intersectionRatio || Math.abs(left.boundingClientRect.top) - Math.abs(right.boundingClientRect.top))[0];
+    const id = current?.target?.dataset?.clusterId;
+    if (!id || id === state.clusterId || state.syncingHistory) return;
+    state.clusterId = id;
+    setActiveJourneyCluster(id);
+    updateUrl({ scrollY: window.scrollY });
+  }, { rootMargin: "-32% 0px -58% 0px", threshold: 0 });
+  dom.journeyClusters.querySelectorAll(".journey-cluster").forEach(cluster => state.journeyObserver.observe(cluster));
+}
+
+function renderJourneyClusters(manifest) {
+  clear(dom.journeyClusters);
+  const photos = new Map(manifest.photographs.map(photo => [photo.id, photo]));
+  const citations = new Map(manifest.citations.map(citation => [citation.id, citation]));
+  [...manifest.clusters].sort((left, right) => left.order - right.order).forEach(cluster => {
+    const photo = photos.get(cluster.photograph_ids[0]);
+    const citation = citations.get(photo?.source_citation_id);
+    const article = document.createElement("article");
+    article.className = "journey-cluster";
+    article.id = `journey-cluster-${cluster.id}`;
+    article.dataset.clusterId = cluster.id;
+    article.tabIndex = -1;
+    const copy = document.createElement("div");
+    copy.className = "journey-cluster-copy";
+    copy.append(
+      textElement("span", "cluster-index", `${String(cluster.order).padStart(2, "0")} / ${cluster.period_label || "Sequence movement"}`),
+      textElement("h3", "", cluster.title),
+      textElement("p", "", cluster.narrative),
+      textElement("p", "cluster-scope", `${cluster.shelf_label} · Editorial navigation label. Rights-pending work imagery remains metadata-only; no substitute image is presented as Sekula’s photograph.`)
+    );
+    if (citation?.url) copy.append(sourceAnchor(`Read the source · ${citation.creator || citation.publisher} ↗`, citation.url, "journey-source-link"));
+    article.append(journeyPhotoMedia(photo, citation), copy);
+    dom.journeyClusters.append(article);
+  });
+  observeJourneyClusters();
+}
+
+const JOURNEY_PHASE_LABELS = Object.freeze({
+  preliminary_context: "Preliminary context",
+  early_research: "Early research",
+  direct_alignment: "Direct alignment with the work",
+  post_reflection: "Post-project reflection"
+});
+
+function targetWorkCard(manifest) {
+  const target = manifest.target_works[0];
+  const record = target ? state.recordMap.get(target.id) : null;
+  if (!record) return null;
+  const article = document.createElement("article");
+  article.className = "journey-book-card";
+  const open = document.createElement("button");
+  open.type = "button";
+  open.className = "book-open";
+  open.setAttribute("aria-label", `Open the Clark record for ${record.title}`);
+  open.append(makeBookObject(record), textElement("h4", "", record.displayTitle), textElement("span", "book-card-meta", `${record.yearPrimary || record.year} · Work identity, not an influence claim`));
+  open.addEventListener("click", () => openDetail(record.id, true));
+  article.append(open, placementControl(record, { card: true }));
+  return article;
+}
+
+function renderJourneyShelves(manifest) {
+  clear(dom.journeyPhaseShelves);
+  const publicAssociations = getPublicAssociations(manifest);
+  const citations = new Map(manifest.citations.map(citation => [citation.id, citation]));
+  JOURNEY_PHASES.forEach((phase, index) => {
+    const section = document.createElement("section");
+    section.className = "journey-phase";
+    const header = document.createElement("header");
+    const phaseAssociations = publicAssociations.filter(association => association.phase === phase);
+    header.append(textElement("strong", "", JOURNEY_PHASE_LABELS[phase]), textElement("span", "", `${String(index + 1).padStart(2, "0")} · ${phaseAssociations.length} reviewed relation${phaseAssociations.length === 1 ? "" : "s"}`));
+    const shelf = document.createElement("div");
+    shelf.className = "journey-book-shelf";
+    if (phase === "direct_alignment") {
+      const anchor = targetWorkCard(manifest);
+      if (anchor) shelf.append(anchor);
+    }
+    phaseAssociations.forEach(association => {
+      const record = state.recordMap.get(association.catalog_id);
+      if (!record) return;
+      const card = document.createElement("article");
+      card.className = "journey-book-card";
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "book-open";
+      open.setAttribute("aria-label", `Open the Clark record for ${record.title}`);
+      open.append(makeBookObject(record), textElement("h4", "", record.displayTitle), textElement("span", "book-card-meta", association.reasoning));
+      open.addEventListener("click", () => openDetail(record.id, true));
+      const evidence = document.createElement("div");
+      evidence.className = "journey-association-evidence";
+      evidence.append(
+        textElement("strong", "", associationClaimLabel(association)),
+        textElement("span", "", `${titleCase(association.evidence_grade)} evidence`),
+        textElement("span", "", `Reviewed by ${association.review.reviewer} · ${association.review.reviewed_at}`)
+      );
+      const links = document.createElement("div");
+      links.className = "journey-association-citations";
+      association.citation_ids.forEach(id => {
+        const citation = citations.get(id);
+        if (citation?.url) links.append(sourceAnchor(`Source · ${citation.title} ↗`, citation.url));
+      });
+      if (links.childElementCount) evidence.append(links);
+      card.append(open, evidence, placementControl(record, { card: true }));
+      shelf.append(card);
+    });
+    if (!shelf.childElementCount) {
+      const empty = document.createElement("div");
+      empty.className = "journey-empty-shelf";
+      empty.append(textElement("strong", "", "No reviewed relation published"), document.createTextNode("A source-backed candidate may enter here only after a named librarian records a decision, date, and reasoning."));
+      shelf.append(empty);
+    }
+    section.append(header, shelf);
+    dom.journeyPhaseShelves.append(section);
+  });
+}
+
+function evidenceItem(title, copy, link = null) {
+  const item = document.createElement("article");
+  item.className = "journey-evidence-item";
+  item.append(textElement("strong", "", title), textElement("p", "", copy));
+  if (link?.url) item.append(sourceAnchor(link.label || "Open source ↗", link.url));
+  return item;
+}
+
+function renderJourneyEvidence(manifest) {
+  clear(dom.journeyEvidenceBody);
+  dom.journeyEvidenceBody.className = "journey-evidence-body";
+  const contextPhoto = journeyContextPhoto(manifest);
+  const contextCitation = journeyCitation(manifest, contextPhoto?.source_citation_id);
+  const derivativeNote = contextPhoto?.image?.sha256
+    ? ` Local derivative retrieved ${contextPhoto.image.retrieved_at}; committed full-size SHA-256 ${contextPhoto.image.sha256.slice(7, 19)}… and thumbnail SHA-256 ${contextPhoto.image.thumbnail_sha256.slice(7, 19)}…. ${contextPhoto.image.derivative.reproducibility_status}.`
+    : "";
+  const contextEvidence = contextPhoto?.image
+    ? evidenceItem("Context photograph", `${contextPhoto.caption} ${contextPhoto.rights.credit_line}${derivativeNote}`, contextCitation?.url ? { label: "Open image source and license ↗", url: contextCitation.url } : null)
+    : evidenceItem("Context photograph", "No context photograph is authorized by the active journey manifest; the interface displays no hardcoded fallback image.");
+  if (contextPhoto?.image && contextPhoto.rights?.license_url) {
+    contextEvidence.append(sourceAnchor("Read the image license ↗", contextPhoto.rights.license_url));
+  }
+  dom.journeyEvidenceBody.append(
+    evidenceItem("Publication gate", "No machine-suggested book relation is bundled with this public manifest. Empty shelves are evidence of restraint, not missing interface content.", { label: "Open the local-only review tool →", url: "./review.html" }),
+    evidenceItem("Artwork rights", "Getty access is not reproduction permission, and Generali routes image reuse through a permission request. Sekula work images therefore appear as cited metadata frames only.", { label: "Getty permissions policy ↗", url: "https://www.getty.edu/research-conservation/library/reproductions-permissions/" }),
+    contextEvidence,
+    evidenceItem("Editorial scope", `${manifest.editorial.editor}; source audit recorded ${manifest.editorial.reviewed_at}. This approves the rights-aware journey structure, not any candidate association.`)
+  );
+  manifest.citations.forEach(citation => {
+    dom.journeyEvidenceBody.append(evidenceItem(citation.title, [citation.creator, citation.publisher, citation.date, citation.locator].filter(Boolean).join(" · "), citation.url ? { label: "Open cited source ↗", url: citation.url } : null));
+  });
+}
+
+function renderJourneyReader(manifest) {
+  dom.journeyReaderTitle.textContent = manifest.title;
+  dom.journeyKicker.textContent = "Photo-sequence research · work images pending permission";
+  dom.journeyDeck.textContent = manifest.introduction;
+  dom.journeyProgress.textContent = `${manifest.title} · ${manifest.clusters.length} movements · rights-aware preview`;
+  clear(dom.journeyFacts);
+  [["Work", manifest.target_works[0]?.date || "1973"], ["Movements", manifest.clusters.length], ["Published relations", getPublicAssociations(manifest).length]].forEach(([label, value]) => {
+    const item = document.createElement("div");
+    item.append(textElement("dt", "", label), textElement("dd", "", String(value)));
+    dom.journeyFacts.append(item);
+  });
+  clear(dom.journeyHeroImage);
+  const contextPhoto = journeyContextPhoto(manifest);
+  const context = journeyContextFigure(contextPhoto, journeyCitation(manifest, contextPhoto?.source_citation_id), "journey-hero-image", { eager: true });
+  dom.journeyHeroImage.replaceWith(context);
+  context.id = "journeyHeroImage";
+  dom.journeyHeroImage = context;
+  renderJourneyTimeline(manifest);
+  renderJourneyMosaic(manifest);
+  renderJourneyClusters(manifest);
+  renderJourneyShelves(manifest);
+  renderJourneyEvidence(manifest);
+}
+
+async function openJourney(id, { updateHistory = false, scroll = false, guard = null } = {}) {
+  const manifest = await loadJourneyManifest(id);
+  if (guard && !guard()) return false;
+  if (!manifest) {
+    showToast("This journey could not be opened");
+    return false;
+  }
+  if (updateHistory) {
+    state.journeyLastFocus = document.activeElement;
+    history.replaceState({ ...(history.state || {}), shelfsignals: true, scrollY: window.scrollY }, "", location.href);
+    state.journeyReturnScroll = window.scrollY;
+  }
+  state.journeyId = id;
+  state.journeyNavigationToken += 1;
+  state.journeyNavigationLock = "";
+  if (state.clusterId && !manifest.clusters.some(cluster => cluster.id === state.clusterId)) state.clusterId = "";
+  renderJourneyReader(manifest);
+  dom.journeyReader.hidden = false;
+  if (updateHistory) updateUrl({ replace: false, scrollY: dom.journeyReader.offsetTop });
+  if (updateHistory) requestAnimationFrame(() => dom.closeJourney.focus({ preventScroll: true }));
+  if (scroll) requestAnimationFrame(() => {
+    if (state.clusterId) navigateJourneyCluster(state.clusterId, { behavior: "auto" });
+    else dom.journeyReader.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  });
+  return true;
+}
+
+function closeJourney({ updateHistory = true, restoreScroll = true } = {}) {
+  if (!state.journeyId && dom.journeyReader.hidden) return;
+  state.journeyId = "";
+  state.clusterId = "";
+  state.journeyNavigationToken += 1;
+  state.journeyNavigationLock = "";
+  state.journeyObserver?.disconnect();
+  dom.journeyReader.hidden = true;
+  if (updateHistory) updateUrl({ replace: false, scrollY: state.journeyReturnScroll });
+  if (restoreScroll) requestAnimationFrame(() => {
+    const target = state.journeyReturnScroll || document.querySelector("#journeys")?.offsetTop || 0;
+    window.scrollTo({ top: target, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  });
+  const focusTarget = state.journeyLastFocus?.isConnected ? state.journeyLastFocus : dom.journeyFeature?.querySelector(".journey-open");
+  if (focusTarget) requestAnimationFrame(() => focusTarget.focus({ preventScroll: true }));
 }
 
 function pathColor(path, index) {
@@ -366,7 +1171,7 @@ function addOption(select, value, label) {
 }
 
 function initFacetControls() {
-  const facets = collectionFacets(state.records);
+  const facets = state.facets || collectionFacets(state.records);
   facets.classes.forEach(value => addOption(dom.lcFilter, value, value));
   facets.materials.forEach(value => addOption(dom.materialFilter, value, titleCase(value)));
   facets.decades.forEach(value => addOption(dom.decadeFilter, String(value), `${value}s`));
@@ -408,6 +1213,26 @@ function debounce(callback, delay = 220) {
   };
 }
 
+async function applyCatalogQuery(value, { scroll = false, syncControls = false } = {}) {
+  const query = String(value || "").trim();
+  const requestToken = ++state.searchRequestToken;
+  if (!query) cancelCatalogSearch();
+  if (query && state.catalogSearchStatus !== "ready") {
+    dom.collectionGrid.setAttribute("aria-busy", "true");
+    dom.resultSummary.textContent = "Preparing the complete catalog search index…";
+    dom.renderedCount.textContent = "Loading full-field search metadata…";
+    const searchIndex = await ensureCatalogSearchIndex();
+    if (requestToken !== state.searchRequestToken) return false;
+    if (!searchIndex) showToast("Full-field search is unavailable; searching core catalog fields");
+  }
+  if (requestToken !== state.searchRequestToken) return false;
+  state.filters = normalizeFilterState({ ...state.filters, query, path: "" });
+  if (syncControls) syncFilterControls();
+  applyFilters({ scroll });
+  dom.collectionGrid.setAttribute("aria-busy", "false");
+  return true;
+}
+
 function setFiltersExpanded(expanded) {
   dom.filtersPanel.classList.toggle("mobile-collapsed", !expanded);
   dom.toggleFilters.setAttribute("aria-expanded", expanded ? "true" : "false");
@@ -426,19 +1251,37 @@ function resetFilters({ scroll = false } = {}) {
   applyFilters({ scroll });
 }
 
-function updateUrl({ selectedId = state.selectedId, replace = true } = {}) {
+function updateUrl({ selectedId = state.selectedId, replace = true, scrollY = window.scrollY } = {}) {
   if (state.syncingHistory) return;
-  const url = serializeUrlState({ ...state.filters, record: selectedId, view: state.view });
-  history[replace ? "replaceState" : "pushState"]({ shelfsignals: true }, "", url);
+  const url = serializeUrlState({ ...state.filters, record: selectedId, journey: state.journeyId, cluster: state.clusterId, view: state.view });
+  history[replace ? "replaceState" : "pushState"]({ shelfsignals: true, scrollY }, "", url);
 }
 
-function applyFilters({ scroll = false } = {}) {
+function applyFilters({ scroll = false, push = false } = {}) {
   state.renderLimit = PAGE_SIZE;
   state.filtered = filterRecords(state.records, state.filters);
   renderCollection();
   renderActiveFilters();
-  updateUrl();
+  updateUrl({ replace: !push });
   if (scroll) $("#collection").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+function placementDisplayLabel(key) {
+  for (const record of state.records) {
+    const placement = record.placements?.find(item => item.key === key);
+    if (placement) return placement.label;
+  }
+  return key;
+}
+
+function applyPlacement(placement) {
+  if (!placement?.key) return;
+  if (state.activeDrawer === dom.detailDrawer) closeDetail({ updateHistory: false });
+  if (state.journeyId) closeJourney({ updateHistory: false, restoreScroll: false });
+  state.filters = normalizeFilterState({ ...state.filters, placement: placement.key, path: "" });
+  state.selectedId = "";
+  syncFilterControls();
+  applyFilters({ scroll: true, push: true });
 }
 
 function activeFilterEntries() {
@@ -450,6 +1293,7 @@ function activeFilterEntries() {
   if (state.filters.material) entries.push({ key: "material", label: titleCase(state.filters.material) });
   if (state.filters.decade) entries.push({ key: "decade", label: `${state.filters.decade}s` });
   if (state.filters.photo) entries.push({ key: "photo", label: state.filters.photo });
+  if (state.filters.placement) entries.push({ key: "placement", label: `Placement: ${placementDisplayLabel(state.filters.placement)}` });
   return entries;
 }
 
@@ -477,20 +1321,27 @@ function renderActiveFilters() {
 }
 
 function createCoverCard(record, index) {
+  const article = document.createElement("article");
+  article.className = "book-card";
+  article.dataset.recordId = record.id;
+  article.dataset.index = String(index);
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "book-card";
+  button.className = "book-open";
   button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}`);
   button.append(makeBookObject(record));
   button.append(textElement("strong", "book-card-title", record.displayTitle));
   button.append(textElement("span", "book-card-meta", compactMeta(record) || record.material_type));
+  const cover = coverStateForRecord(record);
+  button.append(textElement("span", "book-card-cover-scope", compactCoverEvidence(cover)));
   button.addEventListener("click", () => openDetail(record.id, true));
-  button.dataset.recordId = record.id;
-  button.dataset.index = String(index);
-  return button;
+  article.append(button, placementControl(record, { card: true }));
+  return article;
 }
 
 function createListBook(record, index) {
+  const article = document.createElement("article");
+  article.className = "list-book-row";
   const button = document.createElement("button");
   button.type = "button";
   button.className = "list-book";
@@ -501,36 +1352,69 @@ function createListBook(record, index) {
   button.append(textElement("span", "list-book-call", record.call_number || "—"));
   button.append(textElement("span", "", "→"));
   button.addEventListener("click", () => openDetail(record.id, true));
-  return button;
+  article.append(button, placementControl(record));
+  return article;
 }
 
 function createSpine(record) {
-  const visual = getRecordVisual(record, state.visuals);
+  const renderRecord = spineRenderRecord(record);
+  const profile = renderRecord.physicalProfile;
   const enrichment = editionForRecord(record);
-  const profile = physicalRecord(record).physicalProfile;
+  const article = document.createElement("article");
+  article.className = "spine-entry";
+  article.dataset.recordId = record.id;
+  article.dataset.spineStatus = profile.status || "unavailable";
+  article.dataset.warningCount = String(profile.warnings?.length || 0);
   const button = document.createElement("button");
   button.type = "button";
   button.className = "spine-book";
   button.classList.toggle("has-edition-evidence", Boolean(enrichment));
   button.dataset.recordId = record.id;
   button.dataset.binding = profile.binding?.term || "";
+  button.dataset.housing = profile.housing?.term || "";
+  button.dataset.objectForm = profile.object_form?.term || "unknown";
   const metadata = [record.authors[0], record.yearPrimary || record.year, record.call_number].filter(Boolean).join(" · ");
   const editionLabel = externalEditionLabel(enrichment);
   const evidenceDescription = enrichment
-    ? ` Open Library provider-edition evidence is available${editionLabel ? `: ${editionLabel}` : ` (${enrichment.preferred.source_id})`}; it does not describe the Clark copy.`
+    ? ` Open Library provider-edition details are available${editionLabel ? `: ${editionLabel}` : ` (${enrichment.preferred.source_id})`}; they do not shape this spine or describe the Clark copy.`
     : "";
-  button.title = `${record.title}${metadata ? ` — ${metadata}` : ""}.${evidenceDescription}`.trim();
-  button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}${record.call_number ? `, call number ${record.call_number}` : ""}.${evidenceDescription}`);
+  const placementDescription = record.placements?.length ? ` Original placement: ${record.placements.map(item => item.label).join("; ")}.` : " Original Sekula placement not supplied in this record.";
+  const profileDescription = canDisplaySpine(profile)
+    ? ` Metadata-derived physical representation; ${profile.axis_evidence?.height?.status === "stated" ? "height follows the Clark catalog" : "height uses a neutral renderer fallback"}${profile.axis_evidence?.depth?.status === "estimated" ? ", and depth is modeled from Clark-stated extent rather than measured" : ", with no factual depth asserted"}.`
+    : " Neutral physical placeholder; no validated spine geometry is available.";
+  button.title = `${record.title}${metadata ? ` — ${metadata}` : ""}.${profileDescription}${placementDescription}${evidenceDescription}`.trim();
+  button.setAttribute("aria-label", `Open ${record.title}${record.authors[0] ? ` by ${record.authors[0]}` : ""}${record.call_number ? `, call number ${record.call_number}` : ""}.${profileDescription}${placementDescription}${evidenceDescription}`);
   button.append(textElement("span", "spine-title", record.displayTitle));
   if (metadata) button.append(textElement("span", "spine-meta", metadata));
+  if (!canDisplaySpine(profile)) button.append(textElement("span", "spine-status-marker", "Evidence unavailable"));
   if (enrichment) {
     const evidence = textElement("span", "spine-evidence", "");
     evidence.setAttribute("aria-hidden", "true");
     button.append(evidence);
   }
-  applyBookStyle(button, record, visual);
+  // Shelf geometry is intentionally independent of covers and provider image
+  // analysis. Only the validated compact Clark-derived profile is supplied.
+  applyBookStyle(article, renderRecord, null);
+  applyBookStyle(button, renderRecord, null);
   button.addEventListener("click", () => openDetail(record.id, true));
-  return button;
+  const placement = placementControl(record);
+  placement.classList.add("spine-placement");
+  article.append(button, placement);
+  return article;
+}
+
+function updateCollectionProgress(count, rendered) {
+  dom.loadMoreWrap.hidden = count === 0;
+  dom.loadMore.hidden = rendered >= count;
+  const remaining = Math.max(0, count - rendered);
+  dom.loadMore.textContent = remaining ? `Reveal next ${formatNumber(Math.min(PAGE_SIZE, remaining))} records` : "All matching records revealed";
+  if (state.view === "spines" && state.spineIndexStatus === "loading") {
+    dom.renderedCount.textContent = `${formatNumber(rendered)} rendered · validating physical evidence…`;
+  } else if (state.view === "spines" && state.spineIndexStatus === "failed") {
+    dom.renderedCount.textContent = `${formatNumber(rendered)} rendered · physical evidence unavailable; neutral placeholders shown`;
+  } else {
+    dom.renderedCount.textContent = count ? `${formatNumber(rendered)} rendered · ${formatNumber(remaining)} remaining` : "";
+  }
 }
 
 function renderCollection() {
@@ -538,7 +1422,7 @@ function renderCollection() {
   const total = state.records.length;
   const count = state.filtered.length;
   const rendered = Math.min(state.renderLimit, count);
-  dom.resultSummary.textContent = `${formatNumber(count)} of ${formatNumber(total)} records${state.filters.path ? ` · dynamic path “${state.pathMap.get(state.filters.path)?.title || state.filters.path}”` : ""}`;
+  dom.resultSummary.textContent = `${formatNumber(count)} of ${formatNumber(total)} records${state.filters.path ? ` · dynamic path “${state.pathMap.get(state.filters.path)?.title || state.filters.path}”` : ""}${state.filters.placement ? ` · recorded placement “${placementDisplayLabel(state.filters.placement)}”` : ""}`;
   dom.collectionGrid.className = `collection-grid ${state.view}-view`;
   dom.profileMethod.hidden = state.view !== "spines";
   dom.emptyState.hidden = count !== 0;
@@ -568,9 +1452,41 @@ function renderCollection() {
     }
   }
 
-  dom.loadMoreWrap.hidden = count === 0;
-  dom.loadMore.hidden = rendered >= count;
-  dom.renderedCount.textContent = count ? `${formatNumber(rendered)} rendered · bounded page size ${PAGE_SIZE}` : "";
+  updateCollectionProgress(count, rendered);
+}
+
+function appendCollectionPage() {
+  const count = state.filtered.length;
+  if (!count || state.renderLimit >= count) return;
+  if (state.view === "spines") {
+    state.renderLimit = Math.min(state.renderLimit + PAGE_SIZE, count);
+    renderCollection();
+    return;
+  }
+
+  const selector = state.view === "covers" ? ".book-card" : ".list-book-row";
+  const start = dom.collectionGrid.querySelectorAll(selector).length;
+  const end = Math.min(start + PAGE_SIZE, count);
+  if (start >= end) {
+    state.renderLimit = end;
+    updateCollectionProgress(count, end);
+    return;
+  }
+
+  state.renderLimit = end;
+  dom.collectionGrid.setAttribute("aria-busy", "true");
+  dom.loadMore.disabled = true;
+  const fragment = document.createDocumentFragment();
+  state.filtered.slice(start, end).forEach((record, offset) => {
+    const index = start + offset;
+    fragment.append(state.view === "covers" ? createCoverCard(record, index) : createListBook(record, index));
+  });
+  dom.collectionGrid.append(fragment);
+  updateCollectionProgress(count, end);
+  requestAnimationFrame(() => {
+    dom.collectionGrid.setAttribute("aria-busy", "false");
+    dom.loadMore.disabled = false;
+  });
 }
 
 function metadataRow(label, value) {
@@ -644,42 +1560,78 @@ function externalPhysicalInputs(profile) {
   return inputs;
 }
 
+function spineAxisEvidenceLabel(profile, axis) {
+  const evidence = profile?.axis_evidence?.[axis];
+  if (!evidence) {
+    if (state.spineIndexStatus === "loading") return "Validating Clark-derived index";
+    if (state.spineIndexStatus === "failed") return "Unavailable · index validation failed";
+    return "Unknown";
+  }
+  const selected = {
+    clark_catalog_stated: "Clark catalog stated",
+    catalog_extent_model: "Estimated from extent · Clark catalog stated",
+    neutral_renderer_default: "Neutral renderer fallback"
+  }[evidence.selected_source] || titleCase(String(evidence.selected_source || evidence.status).replaceAll("_", " "));
+  return `${selected} · precedence ${evidence.precedence_rank}/${evidence.precedence.length}`;
+}
+
+function controlledTerm(value, fallback = "Not recorded") {
+  const term = value?.term || value;
+  return term ? titleCase(String(term).replaceAll("_", " ").replaceAll("-", " ")) : fallback;
+}
+
 function renderPhysicalProfile(record) {
-  const profile = physicalRecord(record).physicalProfile;
-  const visual = getRecordVisual(record, state.visuals);
+  // The drawer's physical contract is Clark-only. Provider edition metadata
+  // is optional context in its own panel and never fills a Clark axis here.
+  const catalogProfile = profileFromRecord(record);
+  const profile = validatedSpineProfile(record);
+  const renderProfile = profile || {};
+  const renderRecord = { ...record, physicalProfile: renderProfile };
   dom.physicalBook.removeAttribute("style");
   dom.physicalBook.classList.remove("has-cover", "cover-ready");
-  dom.physicalBook.dataset.binding = profile.binding?.term || "";
-  applyBookStyle(dom.physicalBook, record, visual);
+  dom.physicalBook.dataset.binding = renderProfile.binding?.term || "";
+  dom.physicalBook.dataset.housing = renderProfile.housing?.term || "";
+  dom.physicalBook.dataset.spineStatus = profile ? "indexed" : "unavailable";
+  applyBookStyle(dom.physicalBook, renderRecord, null);
 
   clear(dom.physicalMetrics);
-  const dimensions = profile.dimensions;
-  const thickness = profile.thickness;
+  const dimensions = renderProfile.dimensions;
+  const thickness = renderProfile.thickness;
   dom.physicalMetrics.append(
-    physicalMetricRow("Height", formatCentimeters(dimensions?.height_cm, dimensions?.height_min_cm, dimensions?.height_max_cm), dimensionAxisEvidenceStatus(dimensions, "height")),
-    physicalMetricRow("Width", formatCentimeters(dimensions?.width_cm, dimensions?.width_min_cm, dimensions?.width_max_cm), dimensionAxisEvidenceStatus(dimensions, "width")),
-    physicalMetricRow("Depth", formatCentimeters(thickness?.value_cm, thickness?.min_cm, thickness?.max_cm, thicknessIsModeled(thickness)), thicknessEvidenceStatus(thickness)),
-    physicalMetricRow("Extent", extentLabel(profile.extent), statedEvidenceStatus(profile.extent)),
-    physicalMetricRow("Binding / housing", bindingLabel(profile.binding), statedEvidenceStatus(profile.binding))
+    physicalMetricRow("Height", formatCentimeters(dimensions?.height_cm, dimensions?.height_min_cm, dimensions?.height_max_cm), spineAxisEvidenceLabel(renderProfile, "height")),
+    physicalMetricRow("Width", formatCentimeters(dimensions?.width_cm, dimensions?.width_min_cm, dimensions?.width_max_cm), spineAxisEvidenceLabel(renderProfile, "width")),
+    physicalMetricRow("Depth", formatCentimeters(thickness?.value_cm, thickness?.min_cm, thickness?.max_cm, Boolean(thickness)), spineAxisEvidenceLabel(renderProfile, "depth")),
+    physicalMetricRow("Catalog extent", extentLabel(catalogProfile.extent), statedEvidenceStatus(catalogProfile.extent)),
+    physicalMetricRow("Binding", controlledTerm(renderProfile.binding), renderProfile.binding ? "Clark catalog" : "Not stated"),
+    physicalMetricRow("Housing", controlledTerm(renderProfile.housing), renderProfile.housing ? "Clark catalog · separate from binding" : "Not stated"),
+    physicalMetricRow("Object form", controlledTerm(renderProfile.object_form, "Unknown"), renderProfile.object_form ? `${titleCase(renderProfile.object_form.evidence_status)} · ${renderProfile.object_form.basis.replaceAll("_", " ")}` : "Unavailable"),
+    physicalMetricRow("Representation", profile ? "Synthetic metadata derived" : "Neutral placeholder", profile ? "Metadata only · not a photograph" : "No validated geometry")
   );
-  const externalInputs = externalPhysicalInputs(profile);
-  if (profile.external_evidence) {
-    const externalSummary = externalInputs.length ? naturalList(externalInputs) : "physical metadata";
-    const depthSummary = !thickness
-      ? "No depth is inferred for this record."
-      : thicknessIsModeled(thickness)
-        ? "Depth remains an interface model, not a measured collection fact."
-        : thickness.status === "external_edition_stated"
-          ? "The stated depth is provider-edition evidence, not a measurement of the Clark copy."
-          : "Depth is not presented as a Clark-copy measurement.";
-    dom.physicalEvidence.textContent = profile.source_format
-      ? `Clark catalog evidence: ${profile.source_format}. Clark-stated values remain catalog facts. Exact-ISBN Open Library evidence supplies ${externalSummary} for a provider edition, not the Clark copy. ${depthSummary}`
-      : `No parseable physical description is present in the Clark catalog record. Exact-ISBN Open Library evidence supplies ${externalSummary} for a provider edition, not the Clark copy. ${depthSummary}`;
-  } else {
-    dom.physicalEvidence.textContent = profile.source_format
-      ? `Catalog evidence: ${profile.source_format}. Measurements are transcribed from Clark; ${thickness ? "depth is an interface model, not a measured collection fact" : "no depth is inferred for this record"}.`
-      : "No parseable physical description is present in this catalog record. The interface uses a neutral form and does not invent measurements.";
+  clear(dom.physicalEvidence);
+  if (!profile) {
+    const reason = state.spineIndexStatus === "loading"
+      ? "The compact Clark-derived physical index is being validated. Neutral geometry is shown until that check finishes."
+      : state.spineIndexStatus === "failed"
+        ? "The compact physical index failed source or schema validation. ShelfSignals is fail-closed: neutral geometry is shown and no measurement is asserted."
+        : "No validated compact physical record is available. Neutral geometry is shown and no measurement is asserted.";
+    dom.physicalEvidence.append(textElement("p", "", reason));
+    if (catalogProfile.source_format) dom.physicalEvidence.append(textElement("p", "", `Uninterpreted Clark catalog wording remains available as source evidence: ${catalogProfile.source_format}.`));
+    return;
   }
+
+  dom.physicalEvidence.append(textElement("p", "", `${profile.rights.credit_line}. Scope: metadata only; reuse status ${profile.rights.reuse_status.replaceAll("_", " ")}. Provenance: ${profile.provenance_ref}.`));
+  if (catalogProfile.source_format) dom.physicalEvidence.append(textElement("p", "", `Clark catalog wording: ${catalogProfile.source_format}.`));
+  const details = document.createElement("details");
+  details.className = "physical-contract";
+  details.append(textElement("summary", "", `Evidence precedence and ${profile.warnings.length} representation note${profile.warnings.length === 1 ? "" : "s"}`));
+  const list = document.createElement("ul");
+  ["height", "width", "depth"].forEach(axis => {
+    const evidence = profile.axis_evidence[axis];
+    list.append(textElement("li", "", `${titleCase(axis)} selected ${evidence.selected_source.replaceAll("_", " ")} at precedence ${evidence.precedence_rank}/${evidence.precedence.length}; order: ${evidence.precedence.join(" → ").replaceAll("_", " ")}. Copy-specific: no.`));
+  });
+  profile.warnings.forEach(warning => list.append(textElement("li", "", `${warning.code.replaceAll("_", " ")}: ${warning.message}`)));
+  details.append(list);
+  dom.physicalEvidence.append(details);
 }
 
 function editionMatchLabel(candidate) {
@@ -688,7 +1640,30 @@ function editionMatchLabel(candidate) {
   return `${candidate.match.method === "isbn_exact" ? "Exact ISBN" : `Exact ${types.join(" / ")}`} match${identifiers ? ` · ${identifiers}` : ""}`;
 }
 
+function renderEditionLoader(record) {
+  const enrichment = editionForRecord(record);
+  dom.detailEditionLoader.setAttribute("aria-busy", state.editionStatus === "loading" ? "true" : "false");
+  dom.loadEditionEvidence.hidden = state.editionStatus === "ready";
+  dom.loadEditionEvidence.disabled = state.editionStatus === "loading";
+
+  if (state.editionStatus === "loading") {
+    dom.loadEditionEvidence.textContent = "Loading external edition evidence…";
+    dom.editionLoaderStatus.textContent = "Downloading and validating the optional provider snapshot. Clark-copy facts and physical geometry remain unchanged.";
+  } else if (state.editionStatus === "ready") {
+    dom.editionLoaderStatus.textContent = enrichment
+      ? "The provider snapshot is loaded and contains an exact-identifier edition reference for this record. Its evidence appears below and remains separate from the Clark copy."
+      : "The provider snapshot is loaded; it contains no validated exact-identifier edition reference for this record.";
+  } else if (state.editionStatus === "failed") {
+    dom.loadEditionEvidence.textContent = "Try external edition evidence again · 17 MB";
+    dom.editionLoaderStatus.textContent = "The optional provider snapshot could not be loaded or validated. The Clark record and Clark-derived physical evidence remain available.";
+  } else {
+    dom.loadEditionEvidence.textContent = "Load external edition evidence · 17 MB";
+    dom.editionLoaderStatus.textContent = "Load the external provider snapshot only if you want to check for an exact-identifier edition reference. This is optional provider evidence, not evidence about the Clark copy.";
+  }
+}
+
 function renderEditionEvidence(record) {
+  renderEditionLoader(record);
   const enrichment = editionForRecord(record);
   clear(dom.editionMetadata);
   dom.editionEvidenceLink.removeAttribute("href");
@@ -729,6 +1704,110 @@ function renderEditionEvidence(record) {
   dom.detailEdition.hidden = false;
 }
 
+async function requestEditionEvidence() {
+  const recordId = state.selectedId;
+  const record = state.recordMap.get(recordId);
+  if (!record || state.editionStatus === "loading") return;
+  state.editionStatus = "loading";
+  renderEditionLoader(record);
+  const manifest = await loadEditionEnrichment();
+  if (state.selectedId !== recordId) return;
+  renderEditionEvidence(record);
+  if (manifest && editionForRecord(record)) dom.detailEdition.querySelector("h3")?.focus({ preventScroll: true });
+  else if (!manifest) dom.loadEditionEvidence.focus({ preventScroll: true });
+  else {
+    dom.editionLoaderStatus.tabIndex = -1;
+    dom.editionLoaderStatus.focus({ preventScroll: true });
+  }
+}
+
+function renderPlacementEvidence(record) {
+  clear(dom.detailPlacementList);
+  const placements = Array.isArray(record.placements) ? record.placements : [];
+  if (!placements.length) {
+    dom.detailPlacementList.append(textElement("span", "placement-unknown", "Original Sekula placement not supplied in this record"));
+    const currentLocation = record.best_location?.subLocation || record.holdings?.[0]?.subLocation;
+    if (currentLocation) dom.detailPlacementList.append(textElement("span", "placement-current", `Current Clark service location: ${currentLocation}`));
+    return;
+  }
+  placements.forEach(placement => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "placement-badge";
+    button.textContent = placement.label;
+    button.title = `Browse the same recorded placement${placement.roomLabel ? ` · ${placement.roomLabel}` : ""}`;
+    button.addEventListener("click", () => applyPlacement(placement));
+    dom.detailPlacementList.append(button);
+  });
+}
+
+async function loadCoverProvenance() {
+  if (state.coverProvenance) return state.coverProvenance;
+  if (state.coverProvenancePromise) return state.coverProvenancePromise;
+  state.coverProvenancePromise = (async () => {
+    const raw = await fetchJson(new URL("cover_provenance.json", COVER_INDEX_URL), null);
+    if (!raw) return null;
+    const parsed = parseCoverProvenance(raw, { catalogIds: state.recordIds, datasetSha256: state.catalogSha256 });
+    if (parsed.rejected) {
+      console.warn("ShelfSignals rejected cover provenance:", parsed.errors);
+      return null;
+    }
+    state.coverProvenance = parsed;
+    return parsed;
+  })().finally(() => { state.coverProvenancePromise = null; });
+  return state.coverProvenancePromise;
+}
+
+async function renderCoverEvidence(record) {
+  const requestToken = ++state.coverEvidenceRequestToken;
+  clear(dom.detailCoverEvidenceBody);
+  const cover = coverStateForRecord(record);
+  if (!canDisplayCover(cover)) {
+    dom.detailCoverEvidenceBody.append(
+      textElement("p", "cover-evidence-status unresolved", UNRESOLVED_COVER_LABEL),
+      textElement("p", "evidence-scope", "The interface keeps a labeled surrogate front face. No work-level or look-alike image is substituted for this Clark edition.")
+    );
+    return;
+  }
+  dom.detailCoverEvidenceBody.append(
+    textElement("p", `cover-evidence-status ${cover.status}`, coverLabel(cover)),
+    textElement("p", "evidence-scope", "Loading the source match, rights scope, and retrieval record…")
+  );
+  const provenance = await loadCoverProvenance();
+  if (state.selectedId !== record.id || requestToken !== state.coverEvidenceRequestToken) return;
+  clear(dom.detailCoverEvidenceBody);
+  if (!canDisplayCover(coverStateForRecord(record))) {
+    dom.detailCoverEvidenceBody.append(
+      textElement("p", "cover-evidence-status unresolved", UNRESOLVED_COVER_LABEL),
+      textElement("p", "evidence-scope", "The provider image could not be displayed, so ShelfSignals reverted to the real metadata-derived front face.")
+    );
+    return;
+  }
+  const evidence = provenance ? getRecordCoverProvenance(record, provenance) : null;
+  if (!evidence || !canDisplayCover(evidence)) {
+    dom.detailCoverEvidenceBody.append(textElement("p", "evidence-scope", "The compact cover is available, but its detailed provenance record could not be loaded."));
+    return;
+  }
+  const list = document.createElement("dl");
+  list.className = "edition-metadata";
+  const identifiers = evidence.matched_identifiers.map(identifier => `${identifier.type.toUpperCase()} ${identifier.value}`).join(" · ");
+  [
+    metadataRow("Scope", "Exact provider edition — not Clark-copy photography"),
+    metadataRow("Provider", titleCase(evidence.provider || "")),
+    metadataRow("Exact match", identifiers),
+    metadataRow("Selection", evidence.selection_rationale),
+    metadataRow("Retrieved", evidence.retrieved_at),
+    metadataRow("Display basis", titleCase(evidence.rights?.basis || "unknown")),
+    metadataRow("Review", evidence.status === "verified"
+      ? `${evidence.review.reviewer} · ${evidence.review.reviewed_at}`
+      : "Legacy exact-identifier reference · named visual review not yet recorded"),
+    metadataRow("Cache", evidence.cache_policy === "remote_only" ? "Remote provider image; binary not cached" : titleCase(evidence.cache_policy))
+  ].filter(Boolean).forEach(row => list.append(row));
+  dom.detailCoverEvidenceBody.append(textElement("p", `cover-evidence-status ${evidence.status}`, coverLabel(evidence)), list);
+  if (evidence.source?.source_url) dom.detailCoverEvidenceBody.append(sourceAnchor("View cover source record ↗", evidence.source.source_url, "edition-evidence-link"));
+  dom.detailCoverEvidenceBody.append(textElement("p", "evidence-scope", "Provider display availability does not establish that the underlying cover artwork is openly licensed, and it does not describe this Clark copy’s texture, wear, or side profile."));
+}
+
 function setDrawer(drawer, open) {
   if (open) {
     if (state.activeDrawer && state.activeDrawer !== drawer) setDrawer(state.activeDrawer, false);
@@ -756,6 +1835,21 @@ function setDrawer(drawer, open) {
       if (state.lastFocus?.isConnected) state.lastFocus.focus();
     }
   }
+}
+
+function setDetailLoadState(status, record) {
+  const loading = status === "loading";
+  dom.detailContent.classList.toggle("is-loading", loading);
+  dom.detailLoading.classList.toggle("error", status === "failed");
+  if (status === "ready") {
+    dom.detailLoading.hidden = true;
+    dom.detailLoading.textContent = "";
+    return;
+  }
+  dom.detailLoading.hidden = false;
+  dom.detailLoading.textContent = status === "failed"
+    ? "Complete catalog detail could not be loaded. Core Clark title, creator, date, call number, placement, and catalog link remain available; empty detail fields are not asserted as absent."
+    : `Loading the complete Clark catalog detail for ${record?.displayTitle || record?.title || "this record"}…`;
 }
 
 function renderDetail(record) {
@@ -789,10 +1883,11 @@ function renderDetail(record) {
     metadataRow("Availability", titleCase(record.availability)),
     metadataRow("ISBN", record.isbns.join(" · ")),
     metadataRow("OCLC", record.oclc_numbers.join(" · ")),
-    metadataRow("Photo likelihood", photoValue),
-    record.photo_insert_reasoning ? metadataRow("Estimate note", record.photo_insert_reasoning) : null
+    metadataRow("Photo likelihood", photoValue)
   ].filter(Boolean).forEach(row => dom.detailMetadata.append(row));
 
+  renderPlacementEvidence(record);
+  void renderCoverEvidence(record);
   renderPhysicalProfile(record);
   renderEditionEvidence(record);
 
@@ -804,16 +1899,30 @@ function renderDetail(record) {
   dom.detailNotes.hidden = !dom.notesList.childElementCount;
 }
 
-function openDetail(id, updateHistory = false) {
+async function openDetail(id, updateHistory = false) {
   const record = state.recordMap.get(id);
   if (!record) return;
+  const detailRequestToken = ++state.detailRequestToken;
+  const spineIndexPromise = ensureSpineIndex();
+  dom.detailPhysical.setAttribute("aria-busy", state.spineIndexStatus === "ready" ? "false" : "true");
   state.selectedId = id;
-  renderDetail(record);
-  setDrawer(dom.detailDrawer, true);
+  setDetailLoadState("loading", record);
+  if (state.activeDrawer !== dom.detailDrawer) setDrawer(dom.detailDrawer, true);
   updateUrl({ selectedId: id, replace: !updateHistory });
+  const hydrated = record.detail_hydrated || await ensureCatalogDetailShard(record.detail_shard);
+  if (detailRequestToken !== state.detailRequestToken || state.selectedId !== id) return;
+  renderDetail(record);
+  setDetailLoadState(hydrated && record.detail_hydrated ? "ready" : "failed", record);
+  void spineIndexPromise.then(() => {
+    if (state.selectedId === id) {
+      renderPhysicalProfile(record);
+      dom.detailPhysical.setAttribute("aria-busy", "false");
+    }
+  });
 }
 
 function closeDetail({ updateHistory = true } = {}) {
+  state.detailRequestToken += 1;
   setDrawer(dom.detailDrawer, false);
   state.selectedId = "";
   if (updateHistory) updateUrl({ selectedId: "" });
@@ -853,15 +1962,20 @@ function renderShelf() {
       item.className = "shelf-item";
       item.append(textElement("span", "shelf-item-index", String(index + 1).padStart(2, "0")));
       const copy = document.createElement("div");
-      copy.append(textElement("strong", "", record.displayTitle));
-      copy.append(textElement("small", "", compactMeta(record)));
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "shelf-item-open";
+      open.setAttribute("aria-label", `Open ${record.title}`);
+      open.append(textElement("strong", "", record.displayTitle), textElement("small", "", compactMeta(record)));
+      open.addEventListener("click", () => openDetail(record.id, true));
+      copy.append(open);
+      copy.append(placementControl(record, { card: true }));
       const remove = document.createElement("button");
       remove.type = "button";
       remove.textContent = "✕";
       remove.setAttribute("aria-label", `Remove ${record.title} from My Shelf`);
       remove.addEventListener("click", () => toggleShelf(record.id));
       item.append(copy, remove);
-      item.addEventListener("dblclick", () => openDetail(record.id, true));
       dom.shelfList.append(item);
     });
   }
@@ -891,7 +2005,7 @@ async function exportShelfReceipt() {
     items: records,
     filters: state.filters,
     datasetName: "Allan Sekula Library",
-    datasetUrl: DATA_URL.href,
+    datasetHash: state.catalogSha256.replace(/^sha256:/, ""),
     appVersion: APP_VERSION
   });
   downloadReceipt(receipt);
@@ -950,13 +2064,22 @@ function showToast(message) {
 function openSearchDialog() {
   if (!dom.searchDialog.open) dom.searchDialog.showModal();
   dom.globalSearchInput.value = state.filters.query;
-  renderSearchSuggestions(dom.globalSearchInput.value);
+  void renderSearchSuggestions(dom.globalSearchInput.value);
   requestAnimationFrame(() => dom.globalSearchInput.focus());
 }
 
-function renderSearchSuggestions(query) {
+async function renderSearchSuggestions(query) {
+  const requestToken = ++state.suggestionRequestToken;
   clear(dom.searchSuggestions);
   const trimmed = String(query || "").trim();
+  if (trimmed && state.catalogSearchStatus !== "ready") {
+    const loading = textElement("p", "shelf-empty", "Preparing the complete catalog search…");
+    loading.setAttribute("role", "status");
+    dom.searchSuggestions.append(loading);
+    await ensureCatalogSearchIndex();
+    if (requestToken !== state.suggestionRequestToken) return;
+    clear(dom.searchSuggestions);
+  }
   const matches = trimmed ? filterRecords(state.records, { query: trimmed }).slice(0, SEARCH_SUGGESTION_LIMIT) : resolveFeaturedItems(state.records, state.featuredConfig, state.visuals, SEARCH_SUGGESTION_LIMIT);
   if (!matches.length) {
     dom.searchSuggestions.append(textElement("p", "shelf-empty", "No catalog records match this search."));
@@ -984,16 +2107,11 @@ function bindEvents() {
   const handleFilterBreakpoint = event => setFiltersExpanded(!event.matches);
   if (filterBreakpoint.addEventListener) filterBreakpoint.addEventListener("change", handleFilterBreakpoint);
   else filterBreakpoint.addListener(handleFilterBreakpoint);
-  const updateSearch = debounce(value => {
-    state.filters = normalizeFilterState({ ...state.filters, query: value, path: "" });
-    applyFilters();
-  });
+  const updateSearch = debounce(value => { void applyCatalogQuery(value); });
   dom.collectionSearch.addEventListener("input", event => updateSearch(event.target.value));
-  dom.heroSearchForm.addEventListener("submit", event => {
+  dom.heroSearchForm.addEventListener("submit", async event => {
     event.preventDefault();
-    state.filters = normalizeFilterState({ ...state.filters, query: dom.heroSearchInput.value, path: "" });
-    syncFilterControls();
-    applyFilters({ scroll: true });
+    await applyCatalogQuery(dom.heroSearchInput.value, { scroll: true, syncControls: true });
   });
   [[dom.lcFilter, "lc"], [dom.materialFilter, "material"], [dom.decadeFilter, "decade"], [dom.photoFilter, "photo"], [dom.groupFilter, "group"]].forEach(([select, key]) => {
     select.addEventListener("change", () => {
@@ -1006,8 +2124,8 @@ function bindEvents() {
     setFiltersExpanded(dom.toggleFilters.getAttribute("aria-expanded") !== "true");
   });
   dom.emptyReset.addEventListener("click", () => resetFilters());
-  dom.loadMore.addEventListener("click", () => { state.renderLimit += PAGE_SIZE; renderCollection(); });
-  $$(".view-button").forEach(button => button.addEventListener("click", () => {
+  dom.loadMore.addEventListener("click", appendCollectionPage);
+  $$(".view-button").forEach(button => button.addEventListener("click", async () => {
     state.view = button.dataset.view;
     $$(".view-button").forEach(candidate => {
       const active = candidate === button;
@@ -1015,21 +2133,28 @@ function bindEvents() {
       candidate.setAttribute("aria-pressed", active ? "true" : "false");
     });
     state.renderLimit = PAGE_SIZE;
+    const spineIndexPromise = state.view === "spines" ? ensureSpineIndex() : null;
+    dom.collectionGrid.setAttribute("aria-busy", spineIndexPromise ? "true" : "false");
     renderCollection();
     updateUrl();
+    if (spineIndexPromise) {
+      await spineIndexPromise;
+      if (state.view === "spines") renderCollection();
+      dom.collectionGrid.setAttribute("aria-busy", "false");
+    }
   }));
   dom.openSearch.addEventListener("click", openSearchDialog);
-  dom.globalSearchInput.addEventListener("input", debounce(event => renderSearchSuggestions(event.target.value), 120));
-  dom.globalSearchInput.addEventListener("keydown", event => {
+  dom.closeJourney.addEventListener("click", () => closeJourney());
+  dom.globalSearchInput.addEventListener("input", debounce(event => { void renderSearchSuggestions(event.target.value); }, 120));
+  dom.globalSearchInput.addEventListener("keydown", async event => {
     if (event.key === "Enter") {
       event.preventDefault();
       dom.searchDialog.close();
-      state.filters = normalizeFilterState({ ...state.filters, query: event.currentTarget.value, path: "" });
-      syncFilterControls();
-      applyFilters({ scroll: true });
+      await applyCatalogQuery(event.currentTarget.value, { scroll: true, syncControls: true });
     }
   });
   dom.closeDetail.addEventListener("click", () => closeDetail());
+  dom.loadEditionEvidence.addEventListener("click", () => { void requestEditionEvidence(); });
   dom.previousBook.addEventListener("click", () => navigateDetail(-1));
   dom.nextBook.addEventListener("click", () => navigateDetail(1));
   dom.drawerBackdrop.addEventListener("click", () => state.activeDrawer === dom.detailDrawer ? closeDetail() : setDrawer(dom.shelfDrawer, false));
@@ -1049,9 +2174,11 @@ function bindEvents() {
       event.preventDefault();
       openSearchDialog();
     }
-    if (event.key === "Escape" && state.activeDrawer) {
+    if (event.key === "Escape") {
+      if (dom.searchDialog.open) return;
       if (state.activeDrawer === dom.detailDrawer) closeDetail();
-      else setDrawer(state.activeDrawer, false);
+      else if (state.activeDrawer) setDrawer(state.activeDrawer, false);
+      else if (state.journeyId) closeJourney();
     }
     if (event.key === "Tab" && state.activeDrawer) {
       const focusable = [...state.activeDrawer.querySelectorAll("button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex='-1'])")]
@@ -1074,14 +2201,21 @@ function bindEvents() {
     if (state.activeDrawer === dom.detailDrawer && event.key === "ArrowLeft") navigateDetail(-1);
     if (state.activeDrawer === dom.detailDrawer && event.key === "ArrowRight") navigateDetail(1);
   });
-  window.addEventListener("popstate", () => {
+  window.addEventListener("popstate", async event => {
+    const syncToken = ++state.historySyncToken;
+    const isCurrent = () => state.historySyncToken === syncToken;
     const restored = parseUrlState();
     state.syncingHistory = true;
     state.filters = normalizeFilterState(restored);
     state.view = ["covers", "spines", "list"].includes(restored.view) ? restored.view : "covers";
     state.selectedId = restored.record;
+    state.clusterId = restored.cluster;
     syncFilterControls();
     state.filtered = filterRecords(state.records, state.filters);
+    if (state.view === "spines") {
+      await ensureSpineIndex();
+      if (!isCurrent()) return;
+    }
     renderCollection();
     renderActiveFilters();
     $$(".view-button").forEach(button => {
@@ -1091,76 +2225,145 @@ function bindEvents() {
     });
     if (state.selectedId && state.recordMap.has(state.selectedId)) openDetail(state.selectedId);
     else if (state.activeDrawer === dom.detailDrawer) closeDetail({ updateHistory: false });
-    state.syncingHistory = false;
+    if (restored.journey && journeyById(state.journeyIndex, restored.journey)) {
+      await openJourney(restored.journey, { updateHistory: false, scroll: false, guard: isCurrent });
+      if (!isCurrent()) return;
+    } else if (state.journeyId || !dom.journeyReader.hidden) {
+      closeJourney({ updateHistory: false, restoreScroll: false });
+    }
+    if (!isCurrent()) return;
+    const scrollY = Number(event.state?.scrollY);
+    // Restore before releasing the popstate transaction. This keeps the
+    // newly revealed journey and its scroll position observable as one state,
+    // and prevents the cluster observer from replacing the saved position.
+    if (Number.isFinite(scrollY)) restoreScrollImmediately(scrollY);
+    requestAnimationFrame(() => {
+      if (state.historySyncToken === syncToken) state.syncingHistory = false;
+    });
   });
 }
 
-async function loadEditionEnrichment() {
-  try {
-    const response = await fetch(EDITIONS_URL);
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    const manifest = await parseEditionEnrichmentManifestAsync(await response.json(), {
-      batchSize: 400,
-      yieldControl: yieldToBrowser
-    });
-    if (manifest.rejected) throw new Error("the manifest failed provenance or schema validation");
-    if (manifest.source.record_count !== state.records.length) throw new Error("the manifest does not match the active catalog record count");
-
-    state.editions = manifest;
-    state.records.forEach(record => { delete record.physicalProfile; });
-    await yieldToBrowser();
-
-    $$(".hero-book[data-record-id]").forEach(button => {
-      const record = state.recordMap.get(button.dataset.recordId);
-      if (record) applyBookStyle(button, physicalRecord(record), getRecordVisual(record, state.visuals));
-    });
-    if (state.view === "spines") {
-      renderCollection();
-    } else if (state.view === "covers") {
-      $$(".book-card[data-record-id]").forEach(card => {
-        const record = state.recordMap.get(card.dataset.recordId);
-        const object = card.querySelector(".book-object");
-        if (record && object) applyBookStyle(object, physicalRecord(record), getRecordVisual(record, state.visuals));
-      });
-    }
-    const selected = state.recordMap.get(state.selectedId);
-    if (selected) {
-      renderPhysicalProfile(selected);
-      renderEditionEvidence(selected);
-    }
-  } catch (error) {
-    console.warn(`ShelfSignals could not apply ${EDITIONS_URL}:`, error);
+async function ensureSpineIndex() {
+  if (state.spineIndex?.rejected === false) return state.spineIndex;
+  if (state.spineIndexPromise) return state.spineIndexPromise;
+  state.spineIndexStatus = "loading";
+  if (!state.catalogSha256) {
+    state.spineIndexStatus = "failed";
+    console.warn("ShelfSignals cannot validate the spine index without the active catalog checksum.");
+    return null;
   }
+  const attempt = loadSpineIndex(SPINE_INDEX_URL, {
+    catalogIds: state.recordIds,
+    datasetSha256: state.catalogSha256
+  })
+    .then(index => {
+      if (index.rejected) throw new Error(index.errors?.join(", ") || "the compact index failed validation");
+      if (index.source.record_count !== state.records.length) throw new Error("the compact index does not match the active catalog record count");
+      state.spineIndex = index;
+      state.spineIndexStatus = "ready";
+      return index;
+    })
+    .catch(error => {
+      state.spineIndexStatus = "failed";
+      console.warn(`ShelfSignals could not apply ${SPINE_INDEX_URL}:`, error);
+      return null;
+    });
+  state.spineIndexPromise = attempt;
+  void attempt.finally(() => {
+    if (state.spineIndexPromise === attempt) state.spineIndexPromise = null;
+  });
+  return attempt;
 }
 
-function scheduleEditionEnrichment() {
-  const load = () => { void loadEditionEnrichment(); };
-  if ("requestIdleCallback" in window) window.requestIdleCallback(load, { timeout: 1400 });
-  else setTimeout(load, 0);
+async function loadEditionEnrichment() {
+  if (state.editionStatus === "ready") return state.editions;
+  if (state.editionLoadPromise) return state.editionLoadPromise;
+  state.editionStatus = "loading";
+  const attempt = (async () => {
+    try {
+      const response = await fetch(EDITIONS_URL);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      const manifest = await parseEditionEnrichmentManifestAsync(await response.json(), {
+        batchSize: 400,
+        yieldControl: yieldToBrowser
+      });
+      if (manifest.rejected) throw new Error("the manifest failed provenance or schema validation");
+      if (manifest.source.record_count !== state.records.length) throw new Error("the manifest does not match the active catalog record count");
+
+      state.editions = manifest;
+      state.editionStatus = "ready";
+      state.records.forEach(record => { delete record.physicalProfile; });
+      await yieldToBrowser();
+
+      $$(".hero-book[data-record-id]").forEach(button => {
+        const record = state.recordMap.get(button.dataset.recordId);
+        if (record) applyBookStyle(button, physicalRecord(record), recordVisual(record));
+      });
+      if (state.view === "spines") {
+        renderCollection();
+      } else if (state.view === "covers") {
+        $$(".book-card[data-record-id]").forEach(card => {
+          const record = state.recordMap.get(card.dataset.recordId);
+          const object = card.querySelector(".book-object");
+          if (record && object) applyBookStyle(object, physicalRecord(record), recordVisual(record));
+        });
+      }
+      const selected = state.recordMap.get(state.selectedId);
+      if (selected) {
+        renderPhysicalProfile(selected);
+        renderEditionEvidence(selected);
+      }
+      return manifest;
+    } catch (error) {
+      state.editionStatus = "failed";
+      console.warn(`ShelfSignals could not apply ${EDITIONS_URL}:`, error);
+      return null;
+    }
+  })();
+  state.editionLoadPromise = attempt;
+  const manifest = await attempt;
+  if (!manifest && state.editionLoadPromise === attempt) state.editionLoadPromise = null;
+  return manifest;
 }
 
 async function init() {
+  setApplicationBusy(true);
   try {
-    const [rawData, rawVisuals, featuredConfig, pathConfig] = await Promise.all([
-      fetchJson(DATA_URL, []),
-      fetchJson(VISUALS_URL, {}),
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    if (!history.state?.shelfsignals) history.replaceState({ shelfsignals: true, scrollY: window.scrollY }, "", location.href);
+    const [rawCoreCatalog, rawCovers, featuredConfig, pathConfig, rawJourneyIndex] = await Promise.all([
+      fetchJson(CORE_CATALOG_URL, null),
+      fetchJson(COVER_INDEX_URL, {}),
       fetchJson(FEATURED_URL, {}),
-      fetchJson(PATHS_URL, { paths: [] })
+      fetchJson(PATHS_URL, { paths: [] }),
+      fetchJson(JOURNEY_INDEX_URL, { schema: "shelfsignals-journey-index@1", journeys: [] })
     ]);
-    const rawRecords = Array.isArray(rawData) ? rawData : (rawData.items || []);
+    if (!rawCoreCatalog) throw new Error("The compact browser catalog is unavailable.");
+    const coreCatalog = parseBrowserCatalog(rawCoreCatalog);
+    if (coreCatalog.rejected) throw new Error(`The compact browser catalog failed validation: ${coreCatalog.errors.map(error => `${error.path}: ${error.message}`).join(", ")}`);
+    state.catalogSha256 = coreCatalog.source.dataset_sha256;
+    const rawRecords = coreCatalog.records;
     if (!rawRecords.length) throw new Error("The collection dataset is empty or unavailable.");
-    state.visuals = parseVisualManifest(rawVisuals);
+    state.recordIds = new Set(rawRecords.map(record => String(record.id || "")).filter(Boolean));
+    state.covers = parseCoverIndex(rawCovers, { catalogIds: state.recordIds, datasetSha256: state.catalogSha256 });
+    if (state.covers.rejected) console.warn("ShelfSignals rejected the cover index:", state.covers.errors);
+    state.visuals = parseVisualManifest({});
+    state.journeyIndex = parseJourneyIndex(rawJourneyIndex);
+    if (state.journeyIndex.rejected) console.warn("ShelfSignals rejected the journey index:", state.journeyIndex.errors);
     state.featuredConfig = featuredConfig || {};
     state.paths = Array.isArray(pathConfig.paths) ? pathConfig.paths : [];
     state.pathMap = new Map(state.paths.map(path => [path.id, path]));
     state.records = await enrichInBatches(rawRecords);
     state.recordMap = new Map(state.records.map(record => [record.id, record]));
+    state.facets = collectionFacets(state.records);
+    if (state.filters.query) await ensureCatalogSearchIndex();
     state.filtered = filterRecords(state.records, state.filters);
+    if (state.view === "spines") await ensureSpineIndex();
 
     renderHero();
     renderHeroSignals();
     renderStats();
-    renderPaths();
+    scheduleSecondarySections();
     initFacetControls();
     syncFilterControls();
     bindEvents();
@@ -1185,15 +2388,28 @@ async function init() {
       state.selectedId = "";
       updateUrl({ selectedId: "" });
     }
+    if (state.journeyId && journeyById(state.journeyIndex, state.journeyId)) {
+      await openJourney(state.journeyId, { updateHistory: false, scroll: true });
+    } else if (state.journeyId) {
+      state.journeyId = "";
+      updateUrl();
+    }
+    setApplicationBusy(false);
     dom.loading.classList.add("ready");
     setTimeout(() => dom.loading.remove(), 320);
-    scheduleEditionEnrichment();
   } catch (error) {
     console.error("ShelfSignals initialization failed:", error);
     const progress = dom.loading?.querySelector("p");
     if (progress) progress.textContent = `The library could not be opened: ${error.message}`;
+    document.body.dataset.appState = "error";
+    dom.loading?.setAttribute("aria-busy", "false");
     dom.loading?.classList.add("error");
+    if (dom.retryApp) {
+      dom.retryApp.hidden = false;
+      dom.retryApp.focus();
+    } else dom.loading?.focus();
   }
 }
 
+dom.retryApp?.addEventListener("click", () => location.reload());
 init();

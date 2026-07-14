@@ -1,6 +1,6 @@
 # ShelfSignals
 
-**Collection intelligence framework** that reveals hidden patterns in library and archive metadata through visual analytics, AI-powered deep facets, and reproducible data pipelines.
+**Collection intelligence framework** for browsing the Allan Sekula Library through catalog truth, recorded shelf placement, evidence-scoped book visuals, and reproducible research pathways.
 
 > **Start Here**: New users should read the [**Introduction & User Guide**](INTRODUCTION.md) for a visual walkthrough, or jump to the [**📚 Complete Documentation**](docs/index.md).
 
@@ -20,17 +20,21 @@ The framework is **source-agnostic** and **collection-neutral**—adapt it to an
 
 ## Quick Start
 
-### 🌐 Try it Live
-- [**Preview Interface**](https://gitbrainlab.github.io/ShelfSignals/preview/) - Explore the virtual shelf (recommended)
-- [**Exhibit Interface**](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/) - Museum-ready with curated paths
+### 🌐 Try it live
+
+- [**Independent HTTPS mirror**](https://evcatalyst.github.io/ShelfSignals-live/) — primary cinematic interface (recommended)
+- [**Aerospace Folktales journey route**](https://evcatalyst.github.io/ShelfSignals-live/?journey=aerospace-folktales) — activates after this branch merges and the mirror’s next source sync
+- [**Project GitHub Pages route**](https://gitbrainlab.github.io/ShelfSignals/) — canonical repository deployment
+- [**Legacy interface**](https://evcatalyst.github.io/ShelfSignals-live/legacy/) — preserved v1 experience
 
 ### 💻 Run Locally
 ```bash
-# Clone and serve
+# Clone and serve the static site
 git clone https://github.com/gitbrainlab/ShelfSignals.git
-cd ShelfSignals/docs
-python -m http.server 8000
-# Open http://localhost:8000/preview/
+cd ShelfSignals
+python3 -m http.server 8000 --directory docs
+# Open http://localhost:8000/
+# Direct journey: http://localhost:8000/?journey=aerospace-folktales
 ```
 
 ### 🔧 Run the Pipeline
@@ -58,6 +62,33 @@ python scripts/merge_scores_to_json.py \
 
 See [**docs/operations.md**](docs/operations.md) for complete pipeline documentation.
 
+### Verify the production interface
+
+```bash
+# Build and validate the compact public cover manifests (no network access)
+python3 scripts/build_cover_index.py --self-test
+python3 scripts/build_cover_index.py --check
+python3 scripts/ingest_cleared_covers.py self-test
+python3 scripts/ingest_cleared_covers.py encoder-self-test  # requires Pillow
+python3 scripts/cleared_cover_ingest_unit_tests.py
+python3 scripts/google_books_cover_source.py self-test
+python3 scripts/google_books_cover_source_unit_tests.py
+python3 scripts/build_spine_index.py --self-test
+python3 scripts/build_spine_index.py
+node scripts/build_browser_catalog.mjs --self-test
+node scripts/build_browser_catalog.mjs --check
+
+# Validate the private cover-review pipeline and browser contracts
+python3 scripts/cover_source_pipeline.py self-test
+node --test scripts/browser_catalog_unit_tests.mjs scripts/cinematic_unit_tests.mjs scripts/phase_one_unit_tests.mjs scripts/review_unit_tests.mjs scripts/spine_index_unit_tests.mjs scripts/aerospace_review_queue_tests.mjs scripts/association_promotion_tests.mjs
+node scripts/preview_acceptance_tests.mjs
+
+# Optional full-browser suite; requires Playwright and a Chromium/Chrome binary
+python3 scripts/browser_smoke_test.py --start-server --browser-channel chrome
+```
+
+The browser test covers the primary route, direct journey URL and history behavior, placement filtering, cover failure states, responsive layouts, and the Legacy/Preview/Exhibit compatibility routes.
+
 ---
 
 ## Documentation
@@ -69,6 +100,13 @@ See [**docs/operations.md**](docs/operations.md) for complete pipeline documenta
 - **[docs/receipts.md](docs/receipts.md)** - Digital Receipt system for portable, verifiable exports
 - **[docs/operations.md](docs/operations.md)** - Running locally, scheduling, storage layout, export formats
 - **[docs/edition-enrichment.md](docs/edition-enrichment.md)** - Exact-edition metadata, provenance, physical evidence, and regeneration
+- **[docs/cover-source-pipeline.md](docs/cover-source-pipeline.md)** - Conservative cover discovery, review gates, rights, and cache policy
+- **[docs/cleared-cover-ingest.md](docs/cleared-cover-ingest.md)** - Clark/rights-cleared image intake, bounded WebP derivatives, and publication gates
+- **[docs/google-books-cover-source.md](docs/google-books-cover-source.md)** - Temporary exact-ISBN research leads under Google cache, rights, and branding constraints
+- **[docs/browser-catalog.md](docs/browser-catalog.md)** - Compact first load, lazy full-field search/details, source identity, and regeneration
+- **[docs/association-promotion.md](docs/association-promotion.md)** - Dry-run-first, digest-confirmed journey association publication
+- **[docs/journey-method.md](docs/journey-method.md)** - Journey evidence grades, publication gate, placement scope, and photograph rights
+- **[research/review-queues/aerospace-folktales-methodology.md](research/review-queues/aerospace-folktales-methodology.md)** - Unpublished Aerospace Folktales association audit and inference limits
 
 ### 📖 Getting Started Guides
 - **[INTRODUCTION.md](INTRODUCTION.md)** - Visual user guide with screenshots and workflows
@@ -91,14 +129,18 @@ See [**docs/operations.md**](docs/operations.md) for complete pipeline documenta
 - **Pattern Detection**: Sequence analysis, signal matching, classification clustering
 - **Visual Intelligence**: Virtual shelf, LC coloring, thematic overlays, interactive exploration
 - **Evidence-Aware Book Forms**: Clark catalog geometry plus exact-edition physical metadata with property-level provenance
+- **Copy-Specific Placement**: Source-transcribed Sekula shelf identifiers on cards and drawers, with same-placement filtering
+- **Evidence-Led Journeys**: Photograph-record research narratives whose citations, image-rights state, review status, and association reasoning remain inspectable; rights-pending work images stay visibly withheld
 - **AI Deep Facets**: Embedded Photography Likelihood scorer (xAI Grok API)
 
-### 🎨 Three Specialized Interfaces
+### 🎨 Primary and compatibility interfaces
+
 | Interface | Status | Best For |
 |-----------|--------|----------|
-| [**Production**](https://gitbrainlab.github.io/ShelfSignals/) | Deprecated (v1.x) | Legacy compatibility |
-| [**Preview**](https://gitbrainlab.github.io/ShelfSignals/preview/) | ✅ Active (v2.x) | Research, accessibility |
-| [**Exhibit**](https://gitbrainlab.github.io/ShelfSignals/preview/exhibit/) | ✅ Active (v2.x) | Museums, kiosks, public engagement |
+| [**Primary**](https://evcatalyst.github.io/ShelfSignals-live/) | Active pre-journey build; this branch pending merge/sync | Cinematic browsing, catalog research, My Shelf; Aerospace Folktales activates after merge and mirror sync |
+| [**Legacy**](https://evcatalyst.github.io/ShelfSignals-live/legacy/) | Archived | Preserved v1 behavior |
+| [**Preview**](https://evcatalyst.github.io/ShelfSignals-live/preview/) | Compatibility | Earlier research and spatial experiments |
+| [**Exhibit**](https://evcatalyst.github.io/ShelfSignals-live/preview/exhibit/) | Compatibility | Kiosk and exhibition experiments |
 
 See [**docs/interfaces.md**](docs/interfaces.md) for detailed comparison.
 
@@ -115,9 +157,11 @@ See [**docs/receipts.md**](docs/receipts.md) for complete documentation.
 
 ## Screenshots
 
-### Preview Interface
-![ShelfSignals Preview Interface](docs/images/preview-interface.png)
-*Virtual shelf with LC classification coloring, real-time search, and interactive book spines*
+### Primary interface
+
+![ShelfSignals primary interface](docs/images/cinematic-desktop.png)
+
+*Cinematic catalog browsing with progressively rendered records, evidence-scoped covers, placement controls, and physical/list views.*
 
 *For more screenshots and use cases, see the [Introduction & User Guide](INTRODUCTION.md).*
 
@@ -134,17 +178,26 @@ ShelfSignals/
 │   ├── receipts.md          # Digital Receipt system
 │   ├── operations.md        # Running locally, scheduling
 │   ├── PHOTO_LIKELIHOOD_FACET.md  # Deep facets guide
-│   ├── index.html           # Production interface (deprecated)
-│   ├── preview/             # Preview interface (v2.x)
+│   ├── index.html           # Primary cinematic interface
+│   ├── legacy/              # Archived v1 interface
+│   ├── preview/             # Research compatibility route
 │   │   ├── index.html
-│   │   └── exhibit/         # Exhibit interface
-│   ├── js/                  # Shared JavaScript modules
-│   └── data/                # Collection data (JSON, CSV)
+│   │   └── exhibit/         # Exhibit compatibility route
+│   ├── review.html          # Local-only association and cover review handoff
+│   ├── js/                  # Shared JavaScript and evidence contracts
+│   └── data/                # Catalog, cover, placement-derived, and journey manifests
 ├── scripts/                 # Data pipeline tools
+│   ├── build_cover_index.py # Compact cover/provenance manifest generator
+│   ├── build_spine_index.py # Compact Clark-derived spine geometry generator
+│   ├── cover_source_pipeline.py # Private cover discovery and review queue
+│   ├── ingest_cleared_covers.py # Rights-cleared local derivative ingest
+│   ├── cleared_cover_contract.py # Strict local-cover evidence contract
 │   ├── sekula_indexer.py    # Primo API harvester
 │   ├── photo_feature_extractor.py  # AI feature extraction
 │   ├── photo_likelihood_scorer.py  # Grok API scoring
 │   └── merge_scores_to_json.py     # Merge enriched data
+├── research/                # Non-deployed editorial evidence packets
+│   └── review-queues/       # Explicitly unpublished association queues + methods
 ├── README.md                # This file
 └── INTRODUCTION.md          # Visual user guide
 ```
@@ -157,7 +210,9 @@ ShelfSignals/
 2. **Collection-Neutral**: Adaptable to any library, archive, or museum catalog
 3. **Reproducible Pipelines**: Version-controlled scripts with frozen parameters
 4. **Visual Intelligence**: Transform metadata into spatial, chromatic representations
-5. **Research-Oriented**: Designed for discovery and insight, not end-user search
+5. **Evidence Scope**: Keep Clark-copy facts, provider-edition evidence, work-level context, estimates, and unresolved states distinct
+6. **Human Review**: Never publish machine-suggested book/work associations without cited reasoning and named review
+7. **Research-Oriented**: Designed for discovery and insight, not end-user search
 
 See [**docs/index.md**](docs/index.md#key-principles) for detailed principles.
 
