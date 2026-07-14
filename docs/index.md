@@ -246,7 +246,7 @@ Built for discovery and insight, not end-user search:
 
 ## Next Steps
 
-1. **Explore the current mirror**: use the [independent HTTPS mirror](https://evcatalyst.github.io/ShelfSignals-live/) or compare the [Exhibit compatibility route](https://evcatalyst.github.io/ShelfSignals-live/preview/exhibit/). The Aerospace Folktales route activates only after this branch merges to `gitbrainlab/ShelfSignals@main` and the mirror completes its next sync; until then, test it locally at `/?journey=aerospace-folktales`.
+1. **Explore the current mirror**: use the [independent HTTPS mirror](https://evcatalyst.github.io/ShelfSignals-live/), open the live [Aerospace Folktales journey](https://evcatalyst.github.io/ShelfSignals-live/?journey=aerospace-folktales), or compare the [Exhibit compatibility route](https://evcatalyst.github.io/ShelfSignals-live/preview/exhibit/).
 2. **Understand the data pipeline**: Read [docs/pipeline.md](pipeline.md)
 3. **Learn about interfaces**: See [docs/interfaces.md](interfaces.md)
 4. **Run locally**: Follow [docs/operations.md](operations.md)

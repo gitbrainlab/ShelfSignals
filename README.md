@@ -23,7 +23,7 @@ The framework is **source-agnostic** and **collection-neutral**—adapt it to an
 ### 🌐 Try it live
 
 - [**Independent HTTPS mirror**](https://evcatalyst.github.io/ShelfSignals-live/) — primary cinematic interface (recommended)
-- [**Aerospace Folktales journey route**](https://evcatalyst.github.io/ShelfSignals-live/?journey=aerospace-folktales) — activates after this branch merges and the mirror’s next source sync
+- [**Aerospace Folktales journey route**](https://evcatalyst.github.io/ShelfSignals-live/?journey=aerospace-folktales) — cited five-movement research journey
 - [**Project GitHub Pages route**](https://gitbrainlab.github.io/ShelfSignals/) — canonical repository deployment
 - [**Legacy interface**](https://evcatalyst.github.io/ShelfSignals-live/legacy/) — preserved v1 experience
 
@@ -137,7 +137,7 @@ The browser test covers the primary route, direct journey URL and history behavi
 
 | Interface | Status | Best For |
 |-----------|--------|----------|
-| [**Primary**](https://evcatalyst.github.io/ShelfSignals-live/) | Active pre-journey build; this branch pending merge/sync | Cinematic browsing, catalog research, My Shelf; Aerospace Folktales activates after merge and mirror sync |
+| [**Primary**](https://evcatalyst.github.io/ShelfSignals-live/) | Active | Cinematic browsing, catalog research, My Shelf, and the Aerospace Folktales journey |
 | [**Legacy**](https://evcatalyst.github.io/ShelfSignals-live/legacy/) | Archived | Preserved v1 behavior |
 | [**Preview**](https://evcatalyst.github.io/ShelfSignals-live/preview/) | Compatibility | Earlier research and spatial experiments |
 | [**Exhibit**](https://evcatalyst.github.io/ShelfSignals-live/preview/exhibit/) | Compatibility | Kiosk and exhibition experiments |
