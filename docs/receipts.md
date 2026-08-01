@@ -1,24 +1,25 @@
 # ShelfSignals Digital Receipts
 
-Digital Receipts are client-side JSON exports for carrying a ShelfSignals reading list or filtered view between browser sessions. The primary `2.0.0` interface supports shelf export and restore without an account or backend.
+Digital Receipts are client-side JSON exports for carrying a ShelfSignals reading list or filtered view between browser sessions. The primary `2.0.0` interface supports shelf export and restore without an account or backend, while keeping Sekula and Jefferson selections in separate collection namespaces.
 
 ## Current schema
 
 ```json
 {
-  "schema": "shelfsignals-receipt@1",
-  "createdAt": "2026-07-12T00:00:00.000Z",
+  "schema": "shelfsignals-receipt@2",
+  "createdAt": "2026-08-01T00:00:00.000Z",
   "app": {
     "name": "ShelfSignals",
     "channel": "primary",
     "version": "2.0.0"
   },
   "dataset": {
-    "name": "Allan Sekula Library",
-    "indexHash": "sha256-or-status"
+    "id": "jefferson",
+    "name": "Thomas Jefferson's Library",
+    "indexHash": "dc446e2530f3946719d927a82ffe6bbe93deccd3cd85b06bc81b693656954c92"
   },
   "mode": "shelf",
-  "items": ["alma991002035079708431"],
+  "items": ["jefferson-loc-89f398bf-0d30-50a0-8129-3ecccdc869de"],
   "filters": {},
   "annotations": {},
   "hash": {
@@ -29,11 +30,24 @@ Digital Receipts are client-side JSON exports for carrying a ShelfSignals readin
 }
 ```
 
-The export intentionally stores stable item IDs rather than trusting stale embedded catalog metadata. Restore resolves those IDs against the currently loaded dataset and reports missing items.
+The export intentionally stores stable item IDs rather than trusting stale embedded catalog metadata. Receipt v2 also records the collection ID and the source hash already validated by the active compact catalog. Restore first verifies receipt integrity and collection identity, then resolves IDs against the currently loaded dataset and reports missing items.
+
+`dataset.indexHash` identifies the source snapshot used when the receipt was created. It supports auditing and explains later missing records; it is not a signature and is not by itself a promise that two snapshots have identical metadata.
 
 ## Integrity
 
-`docs/js/receipt.js` serializes the payload with sorted object keys and computes SHA-256 through WebCrypto. Restore verifies the hash before changing My Shelf. The hash detects accidental or deliberate modification; it is not a digital signature and does not establish authorship.
+`docs/js/receipt.js` serializes the payload with sorted object keys and computes SHA-256 through WebCrypto. Restore verifies the hash before checking collection identity or changing My Shelf. The hash detects accidental or deliberate modification; it is not a digital signature and does not establish authorship.
+
+## Collection isolation
+
+Each collection has its own localStorage key and manifest-supplied receipt filename:
+
+| Collection | Shelf key | Receipt schema accepted |
+|---|---|---|
+| Allan Sekula Library | `shelfsignals_shelf` | matching `@2`, plus legacy `@1` |
+| Thomas Jefferson catalog beta | `shelfsignals_shelf:jefferson` | matching `@2` only |
+
+A `shelfsignals-receipt@2` file restores only when `dataset.id` matches the active collection. A wrong-collection receipt is rejected before either shelf is mutated. The collection switcher performs a clean reload, but both shelves remain in localStorage under their independent keys.
 
 ## Export and restore
 
@@ -41,9 +55,9 @@ The export intentionally stores stable item IDs rather than trusting stale embed
 2. Open My Shelf and choose **Digital Receipt**.
 3. Keep or share the downloaded JSON file.
 4. Choose **Restore receipt** in the primary interface.
-5. Select the JSON file. ShelfSignals verifies the hash and resolves its item IDs.
+5. Select the JSON file. ShelfSignals verifies the hash, confirms that its collection matches the active view, and resolves its item IDs.
 
-Text-list export is also available and includes each record's dataset-supplied Clark catalog URL.
+Text-list export is also available and includes a record's dataset-supplied catalog URL when one is present. ShelfSignals does not synthesize a catalog link when the active projection has no validated URL.
 
 ## URL fragments
 
@@ -57,9 +71,11 @@ QR export is disabled. The previous implementation returned a placeholder SVG ra
 
 - Receipt generation and verification run in the browser.
 - No receipt is uploaded by ShelfSignals.
-- The receipt contains selected record IDs and optional filter/annotation state; it contains no account identifier.
+- The receipt contains the collection ID, dataset hash, selected record IDs, and optional filter/annotation state; it contains no account identifier.
 - Users control where exported files are stored or shared.
 
 ## Compatibility
 
-The primary importer accepts `shelfsignals-receipt@1` with an `items` array. Unknown schemas, invalid JSON, and hash mismatches are rejected. Items that no longer exist in the dataset are reported and omitted from the restored shelf.
+New exports use `shelfsignals-receipt@2`. The primary importer accepts v2 only for the active `dataset.id`; it also accepts `shelfsignals-receipt@1` with an `items` array **only while Sekula is active**. A v1 receipt has no collection identity and is therefore never interpreted as Jefferson data.
+
+Unknown schemas, invalid JSON, hash mismatches, and wrong-collection receipts are rejected. Items that no longer exist in the active dataset are reported and omitted from the restored shelf. Legacy receipt support does not merge, migrate, or copy the Sekula shelf into Jefferson storage.

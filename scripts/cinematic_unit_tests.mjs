@@ -490,6 +490,9 @@ test("URL state round-trips record deep links and browsing controls", () => {
   assert.ok(serialized.includes("unrelated=kept"));
   assert.ok(serialized.endsWith("#archive"));
   assert.deepEqual(parseUrlState(`https://example.test${serialized}`), {
+    collection: "sekula",
+    corpus: "",
+    order: "",
     record: "alma991002293459708431",
     query: "Allan Sekula",
     signals: ["image", "labor"],
@@ -497,6 +500,7 @@ test("URL state round-trips record deep links and browsing controls", () => {
     lc: "NE",
     material: "book",
     decade: "1970",
+    evidence: "",
     photo: "Strongly Likely",
     placement: "front bedroom ab",
     group: "material",

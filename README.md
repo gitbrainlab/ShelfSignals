@@ -1,6 +1,6 @@
 # ShelfSignals
 
-**Collection intelligence framework** for browsing the Allan Sekula Library through catalog truth, recorded shelf placement, evidence-scoped book visuals, and reproducible research pathways.
+**Collection intelligence framework** for browsing the Allan Sekula Library and the Thomas Jefferson catalog beta through catalog truth, evidence-scoped visuals, and reproducible research pathways.
 
 > **Start Here**: New users should read the [**Introduction & User Guide**](INTRODUCTION.md) for a visual walkthrough, or jump to the [**📚 Complete Documentation**](docs/index.md).
 
@@ -23,21 +23,25 @@ The framework is **source-agnostic** and **collection-neutral**—adapt it to an
 ### 🌐 Try it live
 
 - [**Independent HTTPS mirror**](https://evcatalyst.github.io/ShelfSignals-live/) — primary cinematic interface (recommended)
+- [**Thomas Jefferson catalog beta**](https://gitbrainlab.github.io/ShelfSignals/?collection=jefferson) — 2,748 current Library of Congress catalog instances, explicitly separate from the historical Sowerby corpus
 - [**Aerospace Folktales journey route**](https://evcatalyst.github.io/ShelfSignals-live/?journey=aerospace-folktales) — cited five-movement research journey
 - [**Project GitHub Pages route**](https://gitbrainlab.github.io/ShelfSignals/) — canonical repository deployment
 - [**Legacy interface**](https://evcatalyst.github.io/ShelfSignals-live/legacy/) — preserved v1 experience
 
 ### 💻 Run Locally
+
 ```bash
 # Clone and serve the static site
 git clone https://github.com/gitbrainlab/ShelfSignals.git
 cd ShelfSignals
 python3 -m http.server 8000 --directory docs
 # Open http://localhost:8000/
+# Jefferson catalog beta: http://localhost:8000/?collection=jefferson
 # Direct journey: http://localhost:8000/?journey=aerospace-folktales
 ```
 
 ### 🔧 Run the Pipeline
+
 ```bash
 # Harvest catalog data
 python scripts/sekula_indexer.py
@@ -78,6 +82,12 @@ python3 scripts/build_spine_index.py
 node scripts/build_browser_catalog.mjs --self-test
 node scripts/build_browser_catalog.mjs --check
 
+# Build and verify the committed Jefferson browser package (no network access)
+python3 scripts/build_jefferson_browser_package.py --self-test
+python3 scripts/build_jefferson_browser_package.py --check
+python3 scripts/build_jefferson_browser_package_unit_tests.py
+node --test scripts/collection_contract_unit_tests.mjs scripts/collection_runtime_unit_tests.mjs
+
 # Validate the private cover-review pipeline and browser contracts
 python3 scripts/cover_source_pipeline.py self-test
 node --test scripts/browser_catalog_unit_tests.mjs scripts/cinematic_unit_tests.mjs scripts/phase_one_unit_tests.mjs scripts/review_unit_tests.mjs scripts/spine_index_unit_tests.mjs scripts/aerospace_review_queue_tests.mjs scripts/association_promotion_tests.mjs
@@ -85,6 +95,8 @@ node scripts/preview_acceptance_tests.mjs
 
 # Optional full-browser suite; requires Playwright and a Chromium/Chrome binary
 python3 scripts/browser_smoke_test.py --start-server --browser-channel chrome
+# With the local server running, verify collection switching and isolation:
+node scripts/collection_browser_journey.mjs http://127.0.0.1:8000/
 ```
 
 The browser test covers the primary route, direct journey URL and history behavior, placement filtering, cover failure states, responsive layouts, and the Legacy/Preview/Exhibit compatibility routes.
@@ -94,6 +106,7 @@ The browser test covers the primary route, direct journey URL and history behavi
 ## Documentation
 
 ### 📚 Core Documentation
+
 - **[docs/index.md](docs/index.md)** - Overview, concepts, use cases, and navigation map
 - **[docs/pipeline.md](docs/pipeline.md)** - Data model, normalization, AI enrichment, reproducibility
 - **[docs/interfaces.md](docs/interfaces.md)** - Production/Preview/Exhibit interface documentation
@@ -104,15 +117,18 @@ The browser test covers the primary route, direct journey URL and history behavi
 - **[docs/cleared-cover-ingest.md](docs/cleared-cover-ingest.md)** - Clark/rights-cleared image intake, bounded WebP derivatives, and publication gates
 - **[docs/google-books-cover-source.md](docs/google-books-cover-source.md)** - Temporary exact-ISBN research leads under Google cache, rights, and branding constraints
 - **[docs/browser-catalog.md](docs/browser-catalog.md)** - Compact first load, lazy full-field search/details, source identity, and regeneration
+- **[docs/jefferson-collection.md](docs/jefferson-collection.md)** - Jefferson catalog-beta scope, collection routes, package build, reviewer-mode limits, and Phase 2 gates
 - **[docs/association-promotion.md](docs/association-promotion.md)** - Dry-run-first, digest-confirmed journey association publication
 - **[docs/journey-method.md](docs/journey-method.md)** - Journey evidence grades, publication gate, placement scope, and photograph rights
 - **[research/review-queues/aerospace-folktales-methodology.md](research/review-queues/aerospace-folktales-methodology.md)** - Unpublished Aerospace Folktales association audit and inference limits
 
 ### 📖 Getting Started Guides
+
 - **[INTRODUCTION.md](INTRODUCTION.md)** - Visual user guide with screenshots and workflows
 - **[docs/PHOTO_LIKELIHOOD_FACET.md](docs/PHOTO_LIKELIHOOD_FACET.md)** - AI-powered deep facets implementation
 
 ### 🎯 Quick Navigation
+
 - **What problem does this solve?** → [docs/index.md](docs/index.md#what-problems-does-shelfsignals-solve)
 - **How does data flow through the pipeline?** → [docs/pipeline.md](docs/pipeline.md)
 - **How do I run the interfaces?** → [docs/interfaces.md](docs/interfaces.md) or [docs/operations.md](docs/operations.md#running-locally)
@@ -124,6 +140,7 @@ The browser test covers the primary route, direct journey URL and history behavi
 ## Features
 
 ### 🔍 Core Capabilities
+
 - **Metadata Harvesting**: API connectors (Primo, OCLC), CSV imports, HTML/DOM extraction
 - **Normalization Layer**: LC parsing, publisher canonicalization, year normalization, subject cleanup
 - **Pattern Detection**: Sequence analysis, signal matching, classification clustering
@@ -137,7 +154,7 @@ The browser test covers the primary route, direct journey URL and history behavi
 
 | Interface | Status | Best For |
 |-----------|--------|----------|
-| [**Primary**](https://evcatalyst.github.io/ShelfSignals-live/) | Active | Cinematic browsing, catalog research, My Shelf, and the Aerospace Folktales journey |
+| [**Primary**](https://evcatalyst.github.io/ShelfSignals-live/) | Active | Collection-aware cinematic browsing, Sekula research journeys, the Jefferson catalog beta, and isolated My Shelves |
 | [**Legacy**](https://evcatalyst.github.io/ShelfSignals-live/legacy/) | Archived | Preserved v1 behavior |
 | [**Preview**](https://evcatalyst.github.io/ShelfSignals-live/preview/) | Compatibility | Earlier research and spatial experiments |
 | [**Exhibit**](https://evcatalyst.github.io/ShelfSignals-live/preview/exhibit/) | Compatibility | Kiosk and exhibition experiments |
@@ -145,10 +162,12 @@ The browser test covers the primary route, direct journey URL and history behavi
 See [**docs/interfaces.md**](docs/interfaces.md) for detailed comparison.
 
 ### 🎫 Digital Receipts
+
 **Portable, verifiable exports** of curated collections:
 - RFC 8785 canonical JSON + SHA-256 verification
+- Collection-bound `shelfsignals-receipt@2` exports and isolated shelf storage
 - No server storage (fully client-side)
-- Shareable via JSON download, QR code, or URL fragment
+- Shareable via JSON download; URL-fragment helpers remain available for compatibility experiments
 - Human-readable IDs: `SS-XXXX-XXXX-XXXX`
 
 See [**docs/receipts.md**](docs/receipts.md) for complete documentation.
@@ -221,16 +240,19 @@ See [**docs/index.md**](docs/index.md#key-principles) for detailed principles.
 ## External Dependencies
 
 ### Required (Harvesting)
+
 - Python 3.8+
 - `requests` library (`pip install requests`)
 - Institution-specific API access (may require VPN or authentication)
 
 ### Optional (AI Enrichment)
+
 - xAI (Grok) API key for deep facet scoring
 - Free tier: ~100 requests/hour
 - Safe default: Mock mode (`--mock` flag) for testing
 
 ### Web Interfaces
+
 - **No dependencies**: Pure HTML/CSS/JavaScript
 - Runs on modern browsers with native modal isolation (Chrome 102+, Firefox 112+, Safari 15.5+)
 - GitHub Pages hosting (free for public repositories)
@@ -244,16 +266,19 @@ See [**docs/pipeline.md**](docs/pipeline.md#external-api-dependencies) for API d
 ShelfSignals serves multiple personas and research workflows:
 
 ### 📚 Researchers
+
 - **Pattern discovery**: Find thematic clusters across traditional subject boundaries
 - **Collection analysis**: Understand topic distribution and relationships
 - **Reproducible workflows**: Document methodology with Digital Receipts
 
 ### 🏛️ Librarians & Curators
+
 - **Collection visualization**: See shelf organization from a bird's-eye view
 - **Gap analysis**: Identify underrepresented subject areas
 - **Exhibition planning**: Build curated pathways through collections
 
 ### 👥 Museum Visitors
+
 - **Guided exploration**: Follow curated paths through themed content
 - **Take-home collections**: Export selections via Digital Receipts (QR codes, JSON)
 - **Self-guided learning**: Kiosk mode for unattended installations

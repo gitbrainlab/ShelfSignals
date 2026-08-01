@@ -1,0 +1,68 @@
+{
+  "schema": "shelfsignals-collection-manifest@1",
+  "id": "sekula",
+  "copy": {
+    "name": "Allan Sekula Library",
+    "short_name": "Sekula Library",
+    "institution": "Clark Art Institute",
+    "status_label": "Canonical collection",
+    "introduction": "A working collection across photography, labor, maritime culture, art, and critical thought—made visible through the traces held in its catalog.",
+    "coverage_statement": "The Allan Sekula Library at the Clark Art Institute brings a lifetime of reading into view. ShelfSignals traces its subjects, classifications, physical identifiers, and unlikely adjacencies without replacing the catalog record.",
+    "source_label": "Clark catalog"
+  },
+  "data": {
+    "core": "data/catalog-core.json",
+    "search": "data/catalog-search.json",
+    "detail_template": "data/catalog-details/{shard}.json",
+    "detail_index": "data/catalog-details/index.json",
+    "featured": "data/featured_items.json",
+    "covers": "data/cover_index.json",
+    "cover_provenance": "data/cover_provenance.json",
+    "paths": "preview/exhibit/curated-paths.json",
+    "journeys": "data/journeys/index.json",
+    "spines": "data/spine_index.json",
+    "editions": "data/book_editions.json"
+  },
+  "features": {
+    "journeys": true,
+    "placement": true,
+    "photo_likelihood": true,
+    "provider_editions": true,
+    "curated_paths": true,
+    "historical_hierarchy": false,
+    "coverage_comparison": false,
+    "reconstruction_status": false,
+    "digital_surrogates": false,
+    "evidence_ledger": false,
+    "physical": true
+  },
+  "coverage": {
+    "status": "canonical",
+    "entity_type": "bibliographic_record",
+    "record_count": 11176,
+    "historical_entry_count": null,
+    "historical_volume_count": null,
+    "established_sowerby_links": null
+  },
+  "shelf": {
+    "storage_key": "shelfsignals_shelf",
+    "receipt_name": "shelfsignals-sekula-receipt.json"
+  },
+  "facets": [
+    "classes",
+    "materials",
+    "decades",
+    "photo_likelihood",
+    "signals",
+    "placements"
+  ],
+  "orders": [
+    { "id": "catalog", "label": "Catalog sequence" },
+    { "id": "title", "label": "Title" },
+    { "id": "lc", "label": "LC classification" }
+  ],
+  "defaults": {
+    "corpus": "catalog",
+    "order": "catalog"
+  }
+}

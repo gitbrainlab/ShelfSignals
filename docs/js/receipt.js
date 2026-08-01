@@ -113,6 +113,7 @@ export async function createReceipt(options = {}) {
     items = [],
     filters = {},
     annotations = {},
+    datasetId = 'sekula',
     datasetName = 'Allan Sekula Library',
     datasetHash = null,
     datasetUrl = null,
@@ -131,7 +132,7 @@ export async function createReceipt(options = {}) {
   
   // Build receipt payload (without hash yet)
   const payload = {
-    schema: 'shelfsignals-receipt@1',
+    schema: 'shelfsignals-receipt@2',
     createdAt: new Date().toISOString(),
     app: {
       name: 'ShelfSignals',
@@ -139,6 +140,7 @@ export async function createReceipt(options = {}) {
       version: appVersion
     },
     dataset: {
+      id: datasetId,
       name: datasetName,
       indexHash: indexHash
     },

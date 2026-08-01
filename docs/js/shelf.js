@@ -1,4 +1,5 @@
 export const SHELF_STORAGE_KEY = "shelfsignals_shelf";
+export const JEFFERSON_SHELF_STORAGE_KEY = "shelfsignals_shelf:jefferson";
 
 function normalizeIds(value) {
   const items = Array.isArray(value) ? value : [];
@@ -35,8 +36,11 @@ export function resolveShelfRecords(ids = [], records = []) {
   return normalizeIds(ids).map(id => byId.get(id)).filter(Boolean);
 }
 
-export function restoreShelfFromReceipt(receipt = {}, records = []) {
-  if (!receipt || receipt.schema !== "shelfsignals-receipt@1" || !Array.isArray(receipt.items)) {
+export function restoreShelfFromReceipt(receipt = {}, records = [], { collectionId = "sekula" } = {}) {
+  const isLegacySekulaReceipt = receipt?.schema === "shelfsignals-receipt@1" && collectionId === "sekula";
+  const isMatchingCollectionReceipt = receipt?.schema === "shelfsignals-receipt@2"
+    && receipt?.dataset?.id === collectionId;
+  if ((!isLegacySekulaReceipt && !isMatchingCollectionReceipt) || !Array.isArray(receipt?.items)) {
     return { valid: false, ids: [], missing: [] };
   }
   const available = new Set(records.map(record => record.id));

@@ -6,7 +6,6 @@
   <meta name="theme-color" content="#090a0a">
   <meta name="description" content="Browse the Allan Sekula Library through ShelfSignals: an editorial, data-driven view of the Clark Art Institute collection.">
   <title>ShelfSignals — Allan Sekula Library</title>
-  <link rel="preconnect" href="https://covers.openlibrary.org" crossorigin>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23070808'/%3E%3Cpath d='M14 14h9v36h-9zm13 6h10v30H27zm14-9h9v39h-9z' fill='%23c5a875'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./css/cinematic.css">
 </head>
@@ -20,7 +19,17 @@
   </div>
 
   <header class="site-header" id="top">
-    <a class="wordmark" href="#top" aria-label="ShelfSignals home">Shelf<span>Signals</span></a>
+    <div class="brand-controls">
+      <a class="wordmark" href="#top" aria-label="ShelfSignals home">Shelf<span>Signals</span></a>
+      <label class="collection-switcher" for="collectionSwitcher">
+        <span class="collection-switcher-label">Collection</span>
+        <select id="collectionSwitcher" name="collection" aria-describedby="collectionSwitcherHint">
+          <option value="sekula" selected>Sekula</option>
+          <option value="jefferson">Jefferson</option>
+        </select>
+        <span class="sr-only" id="collectionSwitcherHint">Switching collections reloads the cinematic collection view.</span>
+      </label>
+    </div>
     <nav class="primary-nav" aria-label="Primary navigation">
       <a href="#collection">Explore</a>
       <a href="#journeys">Journey</a>
@@ -34,9 +43,23 @@
       <button class="text-button shelf-trigger" id="openShelf" type="button" aria-controls="shelfDrawer">
         My Shelf <span class="count-badge" id="shelfCount">0</span>
       </button>
+      <button class="text-button reviewer-mode-trigger" id="openReviewerMode" type="button" aria-haspopup="dialog" aria-controls="reviewerDialog" hidden>Reviewer mode</button>
       <a class="about-link" href="#about">About</a>
     </div>
   </header>
+
+  <div class="mode-banners" id="modeBanners">
+    <section class="collection-status-banner" id="collectionStatusBanner" role="region" aria-live="polite" aria-labelledby="collectionStatusLabel" hidden>
+      <strong id="collectionStatusLabel">Jefferson catalog beta</strong>
+      <p id="collectionStatusText">This view represents 2,748 current Library of Congress catalog instances—not the complete 4,931-entry historical library or its 6,487 volumes.</p>
+      <a id="collectionStatusLink" href="#jeffersonOverview">Review coverage and evidence</a>
+    </section>
+    <section class="reviewer-mode-banner" id="reviewerModeBanner" role="region" aria-live="polite" aria-labelledby="reviewerModeStatus" hidden>
+      <strong id="reviewerModeStatus">Review mode—not access controlled</strong>
+      <p>Rights-pending metadata may be visible. Nothing in this public interface indicates that an asset is cleared for reuse.</p>
+      <button type="button" id="exitReviewerMode">Exit review mode</button>
+    </section>
+  </div>
 
   <main>
     <section class="hero" aria-labelledby="heroTitle">
@@ -76,6 +99,42 @@
           <div><dt id="classCount">—</dt><dd>LC classes</dd></div>
           <div><dt id="yearSpan">—</dt><dd>publication span</dd></div>
         </dl>
+      </div>
+    </section>
+
+    <section class="collection-overview" id="jeffersonOverview" aria-labelledby="jeffersonOverviewTitle" hidden>
+      <header class="collection-overview-header">
+        <div>
+          <p class="section-index">Jefferson catalog beta</p>
+          <h2 id="jeffersonOverviewTitle">A catalog view with<br><em>historical limits.</em></h2>
+        </div>
+        <p id="jeffersonOverviewSummary">This beta keeps modern Library of Congress catalog records, Sowerby’s reconstructed historical order, physical copies, holdings, and digital objects distinct.</p>
+      </header>
+      <div class="collection-overview-grid">
+        <article class="collection-overview-card" id="jeffersonCoverage" aria-labelledby="jeffersonCoverageTitle">
+          <p class="collection-overview-index">01</p>
+          <h3 id="jeffersonCoverageTitle">Coverage</h3>
+          <p id="jeffersonCoverageSummary">The current view is a modern catalog extraction, not a complete reconstruction of Jefferson’s 1815 library.</p>
+          <dl class="coverage-counts" id="jeffersonCoverageCounts">
+            <div><dt id="jeffersonCoverageCount">2,748</dt><dd>catalog instances</dd></div>
+            <div><dt id="jeffersonHistoricalCount">4,931</dt><dd>base Sowerby entries</dd></div>
+            <div><dt id="jeffersonVolumeCount">6,487</dt><dd>historical volumes</dd></div>
+          </dl>
+        </article>
+        <article class="collection-overview-card" id="jeffersonHierarchy" aria-labelledby="jeffersonHierarchyTitle">
+          <p class="collection-overview-index">02</p>
+          <h3 id="jeffersonHierarchyTitle">Historical hierarchy</h3>
+          <p id="jeffersonHierarchySummary">The 44 Sowerby chapters across History, Philosophy, and Fine Arts are shown as a coverage preview. They do not reconstruct physical shelf adjacency.</p>
+          <div class="hierarchy-faculties" id="jeffersonHierarchyContent" aria-label="Sowerby faculties">
+            <span>History</span><span>Philosophy</span><span>Fine Arts</span>
+          </div>
+        </article>
+        <article class="collection-overview-card" id="jeffersonEvidence" aria-labelledby="jeffersonEvidenceTitle">
+          <p class="collection-overview-index">03</p>
+          <h3 id="jeffersonEvidenceTitle">Evidence and uncertainty</h3>
+          <p id="jeffersonEvidenceSummary">Only 17 catalog–Sowerby candidates are established within a bounded 25-record MARC assessment. Ownership and reconstruction status remain not established unless directly sourced.</p>
+          <a id="jeffersonEvidenceLink" href="#about">How this beta uses evidence</a>
+        </article>
       </div>
     </section>
 
@@ -135,7 +194,13 @@
           <h2 id="collectionTitle">Browse the shelves</h2>
           <p class="result-summary" id="resultSummary" aria-live="polite">Preparing the collection…</p>
         </div>
-        <div class="view-controls" aria-label="Collection view">
+        <div class="view-controls" aria-label="Collection view and ordering">
+          <label class="order-control" for="orderFilter" hidden>
+            <span>Order</span>
+            <select id="orderFilter" name="order">
+              <option value="title">Title</option>
+            </select>
+          </label>
           <button type="button" class="view-button active" data-view="covers" aria-pressed="true">Covers</button>
           <button type="button" class="view-button" data-view="spines" aria-pressed="false">Physical</button>
           <button type="button" class="view-button" data-view="list" aria-pressed="false">List</button>
@@ -175,6 +240,11 @@
           <fieldset class="filter-group">
             <legend>Publication period</legend>
             <label><span class="sr-only">Publication decade</span><select id="decadeFilter"><option value="">All years</option></select></label>
+          </fieldset>
+
+          <fieldset class="filter-group" id="evidenceFilterGroup" hidden>
+            <legend>Evidence status</legend>
+            <label><span class="sr-only">Evidence status</span><select id="evidenceFilter"><option value="">All evidence states</option></select></label>
           </fieldset>
 
           <fieldset class="filter-group">
@@ -221,6 +291,26 @@
     <form method="dialog" class="dialog-top"><span id="searchDialogTitle">Search ShelfSignals</span><button aria-label="Close search">Esc</button></form>
     <label><span class="sr-only">Search all catalog metadata</span><input id="globalSearchInput" type="search" placeholder="Search title, creator, subject, call number…" autocomplete="off"></label>
     <div class="search-suggestions" id="searchSuggestions"></div>
+  </dialog>
+
+  <dialog class="reviewer-dialog" id="reviewerDialog" aria-labelledby="reviewerDialogTitle" aria-describedby="reviewerDialogDescription">
+    <form id="reviewerModeForm" novalidate>
+      <header class="reviewer-dialog-header">
+        <div>
+          <p class="section-index">Local review session</p>
+          <h2 id="reviewerDialogTitle">Enter reviewer mode</h2>
+        </div>
+        <button type="button" id="closeReviewerDialog" aria-label="Close reviewer mode dialog">Esc</button>
+      </header>
+      <div class="reviewer-dialog-body">
+        <p id="reviewerDialogDescription">This code is interface friction on a public static site, not authentication. Review mode may reveal rights-pending metadata but never grants reuse permission.</p>
+        <label for="reviewerCode">Reviewer code</label>
+        <input id="reviewerCode" name="reviewerCode" type="password" inputmode="text" autocomplete="off" spellcheck="false" aria-describedby="reviewerCodeHint reviewerCodeError" required>
+        <p class="reviewer-code-hint" id="reviewerCodeHint">The unlock lasts only for this browser tab.</p>
+        <p class="reviewer-code-error" id="reviewerCodeError" role="alert" hidden>The reviewer code was not accepted.</p>
+        <button class="reviewer-unlock" type="submit" id="unlockReviewerMode">Enter review mode</button>
+      </div>
+    </form>
   </dialog>
 
   <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>

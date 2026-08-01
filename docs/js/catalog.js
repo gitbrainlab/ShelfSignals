@@ -8,9 +8,17 @@ function arrayValue(value) {
   return Array.isArray(value) ? value.filter(Boolean).map(String) : (value ? [String(value)] : []);
 }
 
+function namedArrayValue(value) {
+  return Array.isArray(value)
+    ? value.map(item => typeof item === "string" ? item : item?.name).filter(Boolean).map(String)
+    : [];
+}
+
 export function enrichRecord(record = {}) {
   const authors = arrayValue(record.authors);
-  const contributors = arrayValue(record.contributors);
+  const contributors = namedArrayValue(record.contributors).length
+    ? namedArrayValue(record.contributors)
+    : arrayValue(record.contributors);
   const subjects = [...new Set(arrayValue(record.subjects))];
   const notes = arrayValue(record.notes);
   const provenance = arrayValue(record.provenance_notes);
@@ -50,6 +58,13 @@ export function enrichRecord(record = {}) {
     ...identifiers
   ].filter(Boolean).join(" \u241f ").toLocaleLowerCase();
   const searchText = typeof record.searchText === "string" ? record.searchText : derivedSearchText;
+  const publications = Array.isArray(record.publication) ? record.publication.filter(item => item && typeof item === "object") : [];
+  const publishers = arrayValue(record.publishers).length
+    ? arrayValue(record.publishers)
+    : publications.map(item => item.publisher).filter(Boolean).map(String);
+  const places = arrayValue(record.places).length
+    ? arrayValue(record.places)
+    : publications.map(item => item.place).filter(Boolean).map(String);
 
   return {
     ...record,
@@ -63,7 +78,10 @@ export function enrichRecord(record = {}) {
     provenance_notes: provenance,
     sekula_notes: sekulaNotes,
     placements,
-    publishers: arrayValue(record.publishers),
+    publishers,
+    places,
+    publication_places: places,
+    languages: arrayValue(record.languages),
     formats: arrayValue(record.formats),
     isbns: arrayValue(record.isbns),
     oclc_numbers: arrayValue(record.oclc_numbers),
@@ -92,6 +110,7 @@ export function normalizeFilterState(state = {}) {
     lc: String(state.lc || ""),
     material: String(state.material || ""),
     decade: state.decade === "" || state.decade == null ? "" : String(state.decade),
+    evidence: String(state.evidence || ""),
     photo: String(state.photo || ""),
     placement: normalizePlacementKey(state.placement),
     group: ["lc", "decade", "material"].includes(state.group) ? state.group : "lc",
@@ -114,6 +133,7 @@ export function filterRecords(records = [], rawState = {}) {
     if (state.lc && record.lcClass !== state.lc) return false;
     if (state.material && record.materialKey !== state.material) return false;
     if (state.decade && String(record.decade || "") !== state.decade) return false;
+    if (state.evidence && record.evidence_status !== state.evidence) return false;
     if (state.photo && record.photo_insert_bucket !== state.photo) return false;
     if (state.placement && !recordMatchesPlacement(record, state.placement)) return false;
     return true;
@@ -165,45 +185,69 @@ export function collectionFacets(records = []) {
 export function parseUrlState(url = globalThis.location?.href || "https://example.invalid/") {
   const parsed = new URL(url, "https://example.invalid/");
   const params = parsed.searchParams;
+  const collectionValue = (params.get("collection") || "sekula").toLocaleLowerCase();
+  const corpusValue = (params.get("corpus") || "").toLocaleLowerCase();
+  const orderValue = (params.get("order") || "").toLocaleLowerCase();
+  const collection = ["sekula", "jefferson"].includes(collectionValue) ? collectionValue : "sekula";
+  const allowedOrders = collection === "jefferson" ? ["sowerby", "title", "lc"] : ["catalog", "title", "lc"];
+  const sekulaState = collection === "sekula";
+  const viewValue = params.get("view") || "covers";
   return {
+    collection,
+    corpus: collection === "jefferson" && ["catalog", "historical"].includes(corpusValue) ? corpusValue : "",
+    order: allowedOrders.includes(orderValue) ? orderValue : "",
     record: params.get("record") || "",
     query: params.get("q") || "",
-    signals: (params.get("signals") || "").split(",").filter(Boolean),
-    signalMode: params.get("signalMode") || "any",
+    signals: sekulaState ? (params.get("signals") || "").split(",").filter(Boolean) : [],
+    signalMode: sekulaState && params.get("signalMode") === "all" ? "all" : "any",
     lc: params.get("lc") || "",
     material: params.get("material") || "",
     decade: params.get("decade") || "",
-    photo: params.get("photo") || "",
-    placement: params.get("placement") || "",
-    group: params.get("group") || "lc",
-    path: params.get("path") || "",
-    journey: params.get("journey") || "",
-    cluster: params.get("cluster") || "",
-    view: params.get("view") || "covers"
+    evidence: collection === "jefferson" ? (params.get("evidence") || "") : "",
+    photo: sekulaState ? (params.get("photo") || "") : "",
+    placement: sekulaState ? (params.get("placement") || "") : "",
+    group: sekulaState ? (params.get("group") || "lc") : "lc",
+    path: sekulaState ? (params.get("path") || "") : "",
+    journey: sekulaState ? (params.get("journey") || "") : "",
+    cluster: sekulaState ? (params.get("cluster") || "") : "",
+    view: collection === "jefferson" && viewValue === "spines" ? "covers" : viewValue
   };
 }
 
 export function serializeUrlState(rawState = {}, base = globalThis.location?.href || "https://example.invalid/") {
   const state = normalizeFilterState(rawState);
   const url = new URL(base, "https://example.invalid/");
-  for (const key of ["record", "q", "signals", "signalMode", "lc", "material", "decade", "photo", "placement", "group", "path", "journey", "cluster", "view"]) {
+  for (const key of ["collection", "corpus", "order", "record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "view"]) {
     url.searchParams.delete(key);
   }
+  const collection = String(rawState.collection || "sekula").toLocaleLowerCase() === "jefferson" ? "jefferson" : "sekula";
+  const corpus = ["catalog", "historical"].includes(String(rawState.corpus || "").toLocaleLowerCase())
+    ? String(rawState.corpus).toLocaleLowerCase()
+    : "";
+  const allowedOrders = collection === "jefferson" ? ["sowerby", "title", "lc"] : ["catalog", "title", "lc"];
+  const order = allowedOrders.includes(String(rawState.order || "").toLocaleLowerCase())
+    ? String(rawState.order).toLocaleLowerCase()
+    : "";
+  const sekulaState = collection === "sekula";
   const values = {
+    collection: collection === "jefferson" ? collection : "",
+    corpus: collection === "jefferson" ? corpus : "",
+    order: collection === "jefferson" ? order : (order && order !== "catalog" ? order : ""),
     record: rawState.record,
     q: state.query,
-    signals: state.signals.join(","),
-    signalMode: state.signalMode !== "any" ? state.signalMode : "",
+    signals: sekulaState ? state.signals.join(",") : "",
+    signalMode: sekulaState && state.signalMode !== "any" ? state.signalMode : "",
     lc: state.lc,
     material: state.material,
     decade: state.decade,
-    photo: state.photo,
-    placement: state.placement,
-    group: state.group !== "lc" ? state.group : "",
-    path: state.path,
-    journey: rawState.journey,
-    cluster: rawState.journey ? rawState.cluster : "",
-    view: rawState.view && rawState.view !== "covers" ? rawState.view : ""
+    evidence: collection === "jefferson" ? state.evidence : "",
+    photo: sekulaState ? state.photo : "",
+    placement: sekulaState ? state.placement : "",
+    group: sekulaState && state.group !== "lc" ? state.group : "",
+    path: sekulaState ? state.path : "",
+    journey: sekulaState ? rawState.journey : "",
+    cluster: sekulaState && rawState.journey ? rawState.cluster : "",
+    view: rawState.view && rawState.view !== "covers" && !(collection === "jefferson" && rawState.view === "spines") ? rawState.view : ""
   };
   for (const [key, value] of Object.entries(values)) {
     if (value) url.searchParams.set(key, String(value));

@@ -17,6 +17,10 @@ dist/
 *.sqlite-shm
 *.sqlite-wal
 
+# Reproducible Jefferson/LOC research harvests (large; see research/jefferson/README.md)
+research/jefferson/work/cache/
+research/jefferson/work/data/
+
 # Editor/IDE
 .vscode/
 .idea/
