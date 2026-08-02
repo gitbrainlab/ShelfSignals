@@ -21,6 +21,7 @@ dist/
 research/jefferson/work/cache/
 research/jefferson/work/data/
 research/jefferson/work/private-media/
+research/jefferson/work/private-ocr/
 research/jefferson/work/private-review/
 
 # Local Cloudflare deployment values and installed gateway dependencies

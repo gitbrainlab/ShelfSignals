@@ -151,9 +151,9 @@ This mechanism provides interface friction and prevents accidental public-mode r
 
 Library of Congress item descriptions can include rights information, but the user remains responsible for assessing intended use. See the [LOC copyright and primary-source guidance](https://www.loc.gov/legal/understanding-copyright/).
 
-## Authenticated photograph edition
+## Authenticated evidence edition
 
-Four contributor photographs of the reconstructed Library of Congress exhibition are packaged separately from the public site. The builder strips EXIF/XMP/GPS metadata, assigns content-hash filenames, records their exhibition-context-only evidence scope, and fails if any source or sanitized photo hash appears beneath `docs/`. The complete review site is written only beneath the ignored `research/jefferson/work/private-review/` workspace.
+Four contributor photographs of the reconstructed Library of Congress exhibition are packaged separately from the public site. The builder strips EXIF/XMP/GPS metadata, assigns content-hash filenames, records their exhibition-context-only evidence scope, and fails if any source or sanitized photo hash appears beneath `docs/`. A separate private OCR pilot contains 132 machine-detected Sowerby entry blocks—three per chapter—with 192 bounded LOC scan regions and the five records that carry direct documentary event relationships. The OCR is explicitly unreviewed, and its contextual event scores are not reading or influence probabilities. Both source bundles and the complete review site remain beneath ignored `research/jefferson/work/` paths.
 
 The deployable gateway under `infrastructure/private-review/cloudflare/` serves one immutable review release from a private R2 bucket. Cloudflare Access authenticates the reviewer, and the Worker independently verifies the Access JWT issuer, audience, signature, lifetime, and approved email before reading an exact object key. The bucket has no public domain or listing endpoint. Responses are `no-store`, `noindex`, same-origin isolated, and limited to `GET`/`HEAD`. This is access control, not DRM: an authorized reviewer can still save or photograph what they can see.
 
@@ -161,6 +161,7 @@ Build and validate the ignored release with:
 
 ```bash
 python3 scripts/build_jefferson_private_media_bundle.py --help
+python3 scripts/build_jefferson_private_ocr_review.py --help
 python3 scripts/build_jefferson_private_review_release.py --help
 python3 scripts/upload_jefferson_private_review_release.py --bucket shelfsignals-private-review --dry-run
 ```

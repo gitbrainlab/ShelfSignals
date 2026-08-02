@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build an immutable authenticated Jefferson review-site release.
 
-The output combines the public static site with the separately built private
-photo bundle and a small same-origin gallery overlay. It stays beneath the
-git-ignored research workspace and must be served through the fail-closed
+The output combines the public static site with separately built private photo
+and OCR-review bundles plus a same-origin evidence overlay. It stays beneath
+the git-ignored research workspace and must be served through the fail-closed
 Cloudflare Access + Worker + private R2 gateway.
 """
 
@@ -20,22 +20,40 @@ import shutil
 import tempfile
 from typing import Any, Mapping, Sequence
 
+from jefferson_private_media_contract import (
+    PrivateMediaContractError,
+    SCHEMA as MEDIA_SCHEMA,
+    validate_manifest as validate_private_media_manifest,
+)
+from jefferson_private_ocr_contract import (
+    MAX_MANIFEST_BYTES as MAX_OCR_MANIFEST_BYTES,
+    PrivateOcrContractError,
+    SCHEMA as OCR_SCHEMA,
+    validate_manifest as validate_private_ocr_manifest,
+    validate_manifest_size as validate_private_ocr_manifest_size,
+)
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPOSITORY_ROOT = SCRIPT_DIR.parent
 DEFAULT_PUBLIC_ROOT = REPOSITORY_ROOT / "docs"
 DEFAULT_MEDIA_ROOT = REPOSITORY_ROOT / "research/jefferson/work/private-media/latest"
+DEFAULT_OCR_ROOT = REPOSITORY_ROOT / "research/jefferson/work/private-ocr/latest"
 DEFAULT_OUTPUT_ROOT = REPOSITORY_ROOT / "research/jefferson/work/private-review"
 DEFAULT_ASSET_ROOT = REPOSITORY_ROOT / "infrastructure/private-review/site-assets"
 
 RELEASE_SCHEMA = "shelfsignals-private-site-release@1"
-MEDIA_SCHEMA = "shelfsignals-private-media-bundle@1"
 SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 UTC_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 ASSET_PATH_RE = re.compile(r"^private/jefferson/display/[0-9a-f]{64}\.jpg$")
 HTML_HEAD_MARKER = '<link rel="stylesheet" href="./private-review/private-review.css">'
 HTML_BODY_MARKER = '<script type="module" src="./private-review/private-review.js"></script>'
 FORBIDDEN_PUBLIC_SUFFIXES = {".db", ".sqlite", ".sqlite3"}
+RESERVED_PUBLIC_FILES = {
+    "data/collections/jefferson/media-authenticated.json",
+    "data/collections/jefferson/ocr-review.json",
+}
+RESERVED_PUBLIC_PREFIXES = {"private-review", "private/jefferson"}
 
 
 class ReleaseError(RuntimeError):
@@ -43,7 +61,7 @@ class ReleaseError(RuntimeError):
 
 
 def json_bytes(value: Any) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    return (json.dumps(value, allow_nan=False, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -68,9 +86,18 @@ def validate_timestamp(value: str) -> str:
     return value
 
 
+def reject_duplicate_json_keys(pairs: Sequence[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ReleaseError(f"Duplicate JSON key is not permitted in a private release input: {key}")
+        result[key] = value
+    return result
+
+
 def load_json(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_json_keys)
     except (OSError, json.JSONDecodeError) as error:
         raise ReleaseError(f"Unable to read JSON {path}: {error}") from error
 
@@ -101,12 +128,14 @@ def validate_output_boundary(
     *,
     public_root: Path,
     media_root: Path,
+    ocr_root: Path,
     asset_root: Path,
 ) -> None:
     output = resolved_path(output_root, "private review output", must_exist=False)
     sources = {
         "public site": resolved_path(public_root, "public site", must_exist=True),
         "private media bundle": resolved_path(media_root, "private media bundle", must_exist=True),
+        "private OCR bundle": resolved_path(ocr_root, "private OCR bundle", must_exist=True),
         "private review overlay": resolved_path(asset_root, "private review overlay", must_exist=True),
     }
     for label, source in sources.items():
@@ -133,13 +162,11 @@ def safe_relative_path(value: Any) -> str:
 def validate_media_bundle(media_root: Path) -> tuple[Mapping[str, Any], list[tuple[Path, str]]]:
     manifest_path = media_root / "data/collections/jefferson/media-authenticated.json"
     raw = load_json(manifest_path)
-    if not isinstance(raw, dict) or raw.get("schema") != MEDIA_SCHEMA:
-        raise ReleaseError("Private media manifest schema is unsupported")
-    if raw.get("collection_id") != "jefferson" or raw.get("audience") != "authenticated_review":
-        raise ReleaseError("Private media manifest has the wrong collection or audience")
+    try:
+        validate_private_media_manifest(raw)
+    except PrivateMediaContractError as error:
+        raise ReleaseError(f"Private media manifest failed its strict release contract: {error}") from error
     items = raw.get("items")
-    if not isinstance(items, list) or len(items) != 4:
-        raise ReleaseError("Private media manifest must contain exactly four photographs")
     ids: set[str] = set()
     asset_paths: set[str] = set()
     asset_hashes: set[str] = set()
@@ -172,18 +199,50 @@ def validate_media_bundle(media_root: Path) -> tuple[Mapping[str, Any], list[tup
     return raw, files
 
 
-def copy_public_site(source: Path, destination: Path) -> None:
+def validate_ocr_bundle(ocr_root: Path) -> tuple[Mapping[str, Any], Path]:
+    manifest_path = ocr_root / "data/collections/jefferson/ocr-review.json"
+    if not manifest_path.is_file() or manifest_path.is_symlink():
+        raise ReleaseError("Private OCR manifest is unavailable or unsafe")
+    if manifest_path.stat().st_size > MAX_OCR_MANIFEST_BYTES:
+        raise ReleaseError("Private OCR manifest exceeds its release-size budget")
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+        validate_private_ocr_manifest_size(manifest_bytes)
+        raw = load_json(manifest_path)
+        validate_private_ocr_manifest(raw)
+    except (OSError, json.JSONDecodeError, PrivateOcrContractError) as error:
+        raise ReleaseError(f"Private OCR manifest failed its strict release contract: {error}") from error
+    return raw, manifest_path
+
+
+def is_reserved_public_path(relative: Path) -> bool:
+    value = relative.as_posix().rstrip("/")
+    return value in RESERVED_PUBLIC_FILES or any(
+        value == prefix or value.startswith(f"{prefix}/")
+        for prefix in RESERVED_PUBLIC_PREFIXES
+    )
+
+
+def validate_public_tree(source: Path) -> None:
     reject_symlinks(source, "Public site")
     if not (source / "index.html").is_file():
         raise ReleaseError("Public site does not contain index.html")
+    for path in sorted(source.rglob("*")):
+        relative = path.relative_to(source)
+        if is_reserved_public_path(relative):
+            raise ReleaseError(f"Public site contains a reserved authenticated-review path: {relative}")
+        if path.is_file() and path.suffix.lower() in FORBIDDEN_PUBLIC_SUFFIXES:
+            raise ReleaseError(f"Public site contains a forbidden database file: {relative}")
+
+
+def copy_public_site(source: Path, destination: Path) -> None:
+    validate_public_tree(source)
     for path in sorted(source.rglob("*")):
         relative = path.relative_to(source)
         target = destination / relative
         if path.is_dir():
             target.mkdir(parents=True, exist_ok=True)
             continue
-        if path.suffix.lower() in FORBIDDEN_PUBLIC_SUFFIXES:
-            raise ReleaseError(f"Public site contains a forbidden database file: {relative}")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, target)
 
@@ -239,12 +298,14 @@ def atomic_write(path: Path, body: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
     temporary.write_bytes(body)
+    temporary.chmod(0o600)
     os.replace(temporary, path)
 
 
 def build_release(
     public_root: Path,
     media_root: Path,
+    ocr_root: Path,
     asset_root: Path,
     output_root: Path,
     *,
@@ -255,15 +316,23 @@ def build_release(
         output_root,
         public_root=public_root,
         media_root=media_root,
+        ocr_root=ocr_root,
         asset_root=asset_root,
     )
     reject_symlinks(media_root, "Private media bundle")
+    reject_symlinks(ocr_root, "Private OCR bundle")
     reject_symlinks(asset_root, "Private review overlay")
     media_manifest, media_files = validate_media_bundle(media_root)
-    required_overlay = [asset_root / "private-review.css", asset_root / "private-review.js"]
+    ocr_manifest, _ = validate_ocr_bundle(ocr_root)
+    required_overlay = [
+        asset_root / "private-review.css",
+        asset_root / "private-review.js",
+        asset_root / "private-ocr-contract.js",
+    ]
     if any(not path.is_file() for path in required_overlay):
         raise ReleaseError("Private review overlay assets are incomplete")
-    output_root.mkdir(parents=True, exist_ok=True)
+    output_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    output_root.chmod(0o700)
 
     with tempfile.TemporaryDirectory(prefix="private-review-site-", dir=output_root) as temporary:
         staging = Path(temporary)
@@ -272,6 +341,8 @@ def build_release(
         manifest_target = site / "data/collections/jefferson/media-authenticated.json"
         manifest_target.parent.mkdir(parents=True, exist_ok=True)
         manifest_target.write_bytes(json_bytes(media_manifest))
+        ocr_target = site / "data/collections/jefferson/ocr-review.json"
+        ocr_target.write_bytes(json_bytes(ocr_manifest))
         for source, relative in media_files:
             target = site / relative
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -326,6 +397,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--public-root", type=Path, default=DEFAULT_PUBLIC_ROOT)
     parser.add_argument("--media-root", type=Path, default=DEFAULT_MEDIA_ROOT)
+    parser.add_argument("--ocr-root", type=Path, default=DEFAULT_OCR_ROOT)
     parser.add_argument("--asset-root", type=Path, default=DEFAULT_ASSET_ROOT)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--generated-at", required=True, help="Deterministic build timestamp, YYYY-MM-DDTHH:MM:SSZ")
@@ -338,6 +410,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         release = build_release(
             args.public_root,
             args.media_root,
+            args.ocr_root,
             args.asset_root,
             args.output_root,
             generated_at=args.generated_at,

@@ -110,6 +110,9 @@ async function authenticate(request, env) {
     issuer: teamDomain,
     audience,
     algorithms: ["RS256"],
+    requiredClaims: ["exp", "iat", "email"],
+    maxTokenAge: "4h",
+    clockTolerance: "1 min",
   });
   const email = String(payload.email || "").trim().toLocaleLowerCase();
   if (!reviewers.has(email)) throw new Error("access_denied");
@@ -118,9 +121,14 @@ async function authenticate(request, env) {
 
 async function objectResponse(request, env, path) {
   const key = `releases/${env.ACTIVE_RELEASE}/site/${path}`;
-  const object = request.method === "HEAD"
-    ? await env.PRIVATE_REVIEW.head(key)
-    : await env.PRIVATE_REVIEW.get(key);
+  let object;
+  try {
+    object = request.method === "HEAD"
+      ? await env.PRIVATE_REVIEW.head(key)
+      : await env.PRIVATE_REVIEW.get(key);
+  } catch (_) {
+    return plainResponse("Gateway unavailable", 503);
+  }
   if (!object) return plainResponse("Not found", 404);
   const headers = secureHeaders(contentType(path));
   headers.set("Content-Length", String(object.size));

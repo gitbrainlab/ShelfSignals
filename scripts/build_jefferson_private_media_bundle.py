@@ -22,6 +22,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+from jefferson_private_media_contract import (
+    PrivateMediaContractError,
+    SCHEMA as BUNDLE_SCHEMA,
+    SECURITY_NOTICE,
+    validate_manifest as validate_private_media_manifest,
+)
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPOSITORY_ROOT = SCRIPT_DIR.parent
@@ -29,7 +36,6 @@ DEFAULT_PRIVATE_MEDIA_ROOT = REPOSITORY_ROOT / "research/jefferson/work/private-
 DEFAULT_OUTPUT_DIR = DEFAULT_PRIVATE_MEDIA_ROOT / "latest"
 DEFAULT_PUBLIC_ROOT = REPOSITORY_ROOT / "docs"
 
-BUNDLE_SCHEMA = "shelfsignals-private-media-bundle@1"
 RELEASE_SCHEMA = "shelfsignals-private-release@1"
 MAX_SOURCE_BYTES = 50 * 1024 * 1024
 ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -65,7 +71,7 @@ class BundleError(RuntimeError):
 
 
 def json_bytes(value: Any) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+    return (json.dumps(value, allow_nan=False, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -308,9 +314,13 @@ def build_bundle(
             "audience": "authenticated_review",
             "generated_at": generated_at,
             "unit_of_count": "exhibition context photograph",
-            "security_notice": "This manifest requires gateway authentication. Possession of this bundle is not access control or public-reuse permission.",
+            "security_notice": SECURITY_NOTICE,
             "items": items,
         }
+        try:
+            validate_private_media_manifest(media_manifest)
+        except PrivateMediaContractError as error:
+            raise BundleError(f"Generated private media manifest failed its release contract: {error}") from error
         manifest_path = root / "data/collections/jefferson/media-authenticated.json"
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
         manifest_path.write_bytes(json_bytes(media_manifest))

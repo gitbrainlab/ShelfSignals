@@ -76,9 +76,11 @@ jobs:
           python3 scripts/build_jefferson_collection_package_unit_tests.py
           python3 scripts/build_jefferson_insight_graph_unit_tests.py
           python3 scripts/build_jefferson_private_media_bundle_unit_tests.py
+          python3 scripts/build_jefferson_private_ocr_review_unit_tests.py
           python3 scripts/build_jefferson_private_review_release_unit_tests.py
           python3 scripts/upload_jefferson_private_review_release_unit_tests.py
           python3 scripts/private_review_browser_test_unit_tests.py
+          python3 scripts/private_review_public_tree_audit.py
 
       - name: Verify authenticated review gateway
         working-directory: infrastructure/private-review/cloudflare

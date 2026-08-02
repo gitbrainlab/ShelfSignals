@@ -58,17 +58,20 @@ async function accessToken({
   audience = POLICY_AUD,
   email = APPROVED_EMAIL,
   expirationTime = Math.floor(Date.now() / 1000) + 3600,
+  issuedAt = Math.floor(Date.now() / 1000) - 30,
+  includeEmail = true,
+  includeExpiration = true,
+  includeIssuedAt = true,
   key = signingKey,
 } = {}) {
-  const now = Math.floor(Date.now() / 1000);
-  return new SignJWT({ email })
+  let token = new SignJWT(includeEmail ? { email } : {})
     .setProtectedHeader({ alg: "RS256", kid: "approved-test-key", typ: "JWT" })
     .setIssuer(TEAM_DOMAIN)
     .setAudience(audience)
-    .setIssuedAt(now - 30)
-    .setNotBefore(now - 30)
-    .setExpirationTime(expirationTime)
-    .sign(key);
+    .setNotBefore(Math.floor(Date.now() / 1000) - 30);
+  if (includeIssuedAt) token = token.setIssuedAt(issuedAt);
+  if (includeExpiration) token = token.setExpirationTime(expirationTime);
+  return token.sign(key);
 }
 
 
@@ -204,6 +207,22 @@ test("signed Access JWT must have the configured audience, reviewer email, lifet
       label: "forged signature",
       token: await accessToken({ key: forgedSigningKey }),
     },
+    {
+      label: "missing expiration",
+      token: await accessToken({ includeExpiration: false }),
+    },
+    {
+      label: "missing issued-at",
+      token: await accessToken({ includeIssuedAt: false }),
+    },
+    {
+      label: "missing email",
+      token: await accessToken({ includeEmail: false }),
+    },
+    {
+      label: "token older than the review session",
+      token: await accessToken({ issuedAt: Math.floor(Date.now() / 1000) - 5 * 60 * 60 }),
+    },
   ];
 
   for (const { label, token } of invalidTokens) {
@@ -290,4 +309,20 @@ test("authenticated missing and unsafe paths return 404 without escaping the rel
   assert.equal(await unsafe.text(), "Not found");
   assertPrivateResponseHeaders(unsafe, "text/plain; charset=utf-8");
   assert.deepEqual(r2.calls, [{ method: "get", key: missingKey }]);
+});
+
+
+test("authenticated R2 failures return a secured generic 503", async () => {
+  const token = await accessToken();
+  const r2 = {
+    async get() { throw new Error("private storage detail must not escape"); },
+    async head() { throw new Error("private storage detail must not escape"); },
+  };
+
+  for (const method of ["GET", "HEAD"]) {
+    const response = await worker.fetch(reviewRequest("/index.html", { method, token }), gatewayEnv(r2));
+    assert.equal(response.status, 503);
+    assert.equal(await response.text(), "Gateway unavailable");
+    assertPrivateResponseHeaders(response, "text/plain; charset=utf-8");
+  }
 });

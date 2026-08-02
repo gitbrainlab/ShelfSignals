@@ -10,17 +10,32 @@ The public GitHub Pages deployment remains the home of public bibliographic
 data. User photographs, rights-pending media, credentials, and authenticated
 manifests must never be placed under `docs/` or committed to Git.
 
-Build the immutable review site before upload:
+Build the bounded OCR evidence pilot, then the immutable review site before
+upload. The pilot includes three page-resolved entries from each of the 44
+Sowerby chapters (132 entries total), the five records carrying direct
+documentary graph relationships, machine transcripts, and 192 LOC IIIF source
+regions. The private bundle contains the index and source coordinates; its
+inline scan regions are requested from the official public LOC image service.
+
+```bash
+python3 scripts/build_jefferson_private_ocr_review.py \
+  --generated-at 2026-08-02T14:10:00Z
+```
+
+Then build the authenticated release:
 
 ```bash
 python3 scripts/build_jefferson_private_review_release.py \
-  --generated-at 2026-08-02T02:00:00Z
+  --generated-at 2026-08-02T14:20:00Z
 ```
 
-The builder copies the public cinematic runtime, adds the authenticated photo
-manifest and four sanitized images, injects the private field-note gallery,
-and writes `research/jefferson/work/private-review/active.json`. That output is
-git-ignored and must only be uploaded to the private bucket.
+The release builder copies the public cinematic runtime, adds the authenticated
+photo manifest and four sanitized images, adds the private OCR index, injects
+the field-note gallery and OCR evidence lab, and writes
+`research/jefferson/work/private-review/active.json`. The private OCR layer
+also hides the public site's non-secure reviewer-code affordance and provides a
+Cloudflare Access logout link. The output is git-ignored and must only be
+uploaded to the private bucket.
 
 ## Cost and security boundary
 
@@ -46,6 +61,12 @@ The R2 bucket itself stays private; do not enable its `r2.dev` URL or attach a
 public bucket domain. Access is the identity gateway, while JWT validation in
 the Worker prevents a forged header from bypassing that gateway. This does not
 provide DRM: an authorized reviewer can still save or screenshot a photograph.
+
+The OCR index, coordinates, and contextual graph remain behind the gateway,
+but the displayed scan regions are requested directly from the public
+`tile.loc.gov` IIIF service. Those LOC-hosted bytes are not made private by this
+gateway, and LOC can observe the reviewer request. Proxy or cache them only
+after the relevant reuse and request-privacy requirements are approved.
 
 AWS S3 remains a viable storage substitute, but it is not required for this
 release. Preserve the same immutable `releases/<id>/` layout and place
@@ -103,11 +124,12 @@ Internet egress is not billed.
 
 8. Deploy once, then in **Workers & Pages → the Worker → Settings → Domains &
    Routes**, enable Cloudflare Access for the production `workers.dev` URL.
-   Configure a default-deny Allow policy for the same reviewer emails. Email
-   one-time PIN is adequate for a small review group but must be added on new
-   Zero Trust organizations; Cloudflare's identity provider is now the
-   default. An organizational IdP is also supported. Disable public preview
-   URLs.
+   Configure a default-deny Allow policy for the same exact reviewer emails.
+   Email one-time PIN is the recommended simple passcode experience for this
+   small review group; it must be added on new Zero Trust organizations because
+   Cloudflare's identity provider is now the default. Set the Access session to
+   four hours, avoid domain-wide policies and shared mailboxes, and disable
+   public preview URLs. An organizational IdP is also supported.
 9. Redeploy after the Access application exists so the real audience tag is in
    `wrangler.local.jsonc`.
 
@@ -140,7 +162,10 @@ Before sharing the URL, verify all of these from a signed-out browser:
 - the Worker URL redirects to Access or returns a denial before any asset;
 - an unapproved email cannot sign in;
 - a direct R2 URL is unavailable;
-- authenticated HTML, JavaScript, JSON, and all four photographs load;
+- authenticated HTML, JavaScript, JSON, all four photographs, the 132-entry OCR
+  index, inline LOC regions, search, and drawer evidence load;
+- the public static reviewer-code dialog is absent and the Access logout link
+  ends the session;
 - a fabricated or expired Access JWT receives `403`;
 - `POST`, traversal paths, directory listing attempts, and unknown objects fail;
 - responses contain `no-store`, `noindex`, and same-origin isolation headers.
@@ -149,5 +174,10 @@ From this directory, run the local contract checks with:
 
 ```bash
 npm test
+python3 ../../../scripts/build_jefferson_private_media_bundle_unit_tests.py
+python3 ../../../scripts/build_jefferson_private_ocr_review_unit_tests.py
+python3 ../../../scripts/build_jefferson_private_review_release_unit_tests.py
 python3 ../../../scripts/upload_jefferson_private_review_release_unit_tests.py
+python3 ../../../scripts/private_review_browser_test_unit_tests.py
+python3 ../../../scripts/private_review_public_tree_audit.py
 ```

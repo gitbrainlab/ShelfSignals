@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the authenticated Jefferson photo overlay in a real browser.
+"""Verify the authenticated Jefferson photo and OCR review layers in a browser.
 
 This test expects an already running local server whose document root is one
 staged private review release. It does not test Cloudflare Access itself; the
@@ -81,8 +81,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         page = context.new_page()
         page.set_default_timeout(args.timeout_ms)
         errors: list[str] = []
+        requests: list[str] = []
         page.on("pageerror", lambda error: errors.append(f"pageerror: {error}"))
         page.on("console", lambda message: errors.append(f"console: {message.text}") if message.type == "error" else None)
+        page.on("request", lambda request: requests.append(request.url))
         response = page.goto(target, wait_until="domcontentloaded")
         check(response is not None and response.ok, "Private review route did not return HTTP success")
         page.locator("#loadingScreen").wait_for(state="hidden")
@@ -110,20 +112,55 @@ def main(argv: Sequence[str] | None = None) -> int:
             page.locator('.authenticated-review-marker[role="status"]').count() == 1,
             "The persistent authenticated-review marker is missing",
         )
+        check(page.locator('.authenticated-review-logout[href="/cdn-cgi/access/logout"]').count() == 1, "Access logout is missing")
+        check(page.locator("#reviewerDialog").count() == 0, "The public static reviewer-code dialog leaked into the authenticated host")
+
+        lab = page.locator("#jeffersonOcrLab")
+        lab.wait_for(state="visible")
+        check("132 machine-readable entry blocks" in lab.locator(".private-ocr-introduction").inner_text(), "OCR pilot coverage is missing")
+        search = page.get_by_label("Search OCR, titles, chapters, and events")
+        search.fill("Tacitus")
+        page.locator(".private-ocr-status").wait_for(state="visible")
+        check(page.locator(".ocr-result").count() >= 1, "OCR search did not return a Tacitus entry")
+        check("Tacitus" in page.locator(".ocr-result").first.inner_text(), "OCR result did not expose the matching source text")
+        page.locator(".ocr-result .ocr-open-record").first.click()
+        page.locator("#detailDrawer[aria-hidden='false']").wait_for(state="visible")
+        evidence = page.locator("#privateOcrEvidence")
+        evidence.wait_for(state="visible")
+        check("not yet human reviewed" in evidence.locator(".ocr-evidence-status").inner_text(), "OCR review status is missing")
+        check(evidence.locator(".ocr-source-snapshot").count() >= 1, "No inline LOC source snapshot was rendered")
+        source_images = evidence.locator(".ocr-source-snapshot img")
+        for index in range(source_images.count()):
+            image = source_images.nth(index)
+            image.scroll_into_view_if_needed()
+            image.evaluate("element => element.decode()")
+        check(
+            source_images.evaluate_all("images => images.every(image => image.complete && image.naturalWidth > 100 && image.naturalHeight > 40)"),
+            "One or more LOC source regions failed to load",
+        )
+        check(evidence.locator(".ocr-inline-transcript").inner_text().strip(), "Inline OCR transcript is empty")
+        check(evidence.locator(".ocr-event").count() >= 1, "OCR evidence is not connected to the event graph")
+        check("does not grant reuse permission" in evidence.locator(".ocr-rights-note").inner_text(), "OCR rights warning is missing")
         check(not errors, "Browser emitted errors: " + " | ".join(errors))
+        forbidden = [url for url in requests if any(value in url for value in ("research/jefferson/work", ".sqlite", ".jsonl", "loc_sowerby_ocr_v1"))]
+        check(not forbidden, "Browser requested forbidden private source artifacts: " + " | ".join(forbidden))
 
         page.set_viewport_size({"width": 390, "height": 844})
         widths = page.locator(".private-photo-card").evaluate_all(
             "cards => cards.map(card => card.getBoundingClientRect().width)"
         )
         check(len(widths) == 4 and min(widths) > 320 and max(widths) < 390, "Private gallery did not collapse to a usable mobile column")
+        page.locator("#closeDetail").click()
+        page.locator("#jeffersonOcrLab").scroll_into_view_if_needed()
+        result_widths = page.locator(".ocr-result").evaluate_all("cards => cards.map(card => card.getBoundingClientRect().width)")
+        check(result_widths and min(result_widths) > 320 and max(result_widths) < 390, "OCR results did not collapse to a usable mobile column")
         if screenshot_destination:
             screenshot_destination.parent.mkdir(parents=True, exist_ok=True)
-            section.screenshot(path=str(screenshot_destination))
+            lab.screenshot(path=str(screenshot_destination))
         context.close()
         browser.close()
 
-    print("[PASS] authenticated review gallery: four images, evidence labels, mobile layout, no browser errors")
+    print("[PASS] authenticated review: four photos, 132-entry OCR search, inline LOC snapshots, graph context, mobile layout, no browser errors")
     return 0
 
 

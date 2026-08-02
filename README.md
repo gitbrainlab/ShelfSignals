@@ -121,7 +121,7 @@ The browser test covers the primary route, direct journey URL and history behavi
 - **[docs/cleared-cover-ingest.md](docs/cleared-cover-ingest.md)** - Clark/rights-cleared image intake, bounded WebP derivatives, and publication gates
 - **[docs/google-books-cover-source.md](docs/google-books-cover-source.md)** - Temporary exact-ISBN research leads under Google cache, rights, and branding constraints
 - **[docs/browser-catalog.md](docs/browser-catalog.md)** - Compact first load, lazy full-field search/details, source identity, and regeneration
-- **[docs/jefferson-collection.md](docs/jefferson-collection.md)** - Jefferson dual-corpus scope, routes, evidence model, authenticated-photo release, and promotion gates
+- **[docs/jefferson-collection.md](docs/jefferson-collection.md)** - Jefferson dual-corpus scope, routes, evidence model, authenticated evidence release, and promotion gates
 - **[docs/association-promotion.md](docs/association-promotion.md)** - Dry-run-first, digest-confirmed journey association publication
 - **[docs/journey-method.md](docs/journey-method.md)** - Journey evidence grades, publication gate, placement scope, and photograph rights
 - **[research/review-queues/aerospace-folktales-methodology.md](research/review-queues/aerospace-folktales-methodology.md)** - Unpublished Aerospace Folktales association audit and inference limits
