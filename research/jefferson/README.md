@@ -156,6 +156,15 @@ python3 scripts/build_jefferson_collection_package.py
 python3 scripts/build_jefferson_collection_package.py --check
 ```
 
+The tracked `jefferson-life-events.json` is the reviewed input to the public
+life-event evidence graph. It names nine dated lenses, 44 chapter-cluster
+connections, five documentary record relationships, LOC sources, confidence
+rules, and explicit limitations. `scripts/build_jefferson_insight_graph.py`
+binds that input to the exact historical dataset and record-ID set and emits
+`historical/insights.json`. Context scores are ordinal navigation evidence, not
+reading probabilities; a use-confidence score is permitted only for a named,
+source-backed interaction and is otherwise `not_established`.
+
 ## Generated evidence
 
 `research/jefferson/work/data/` contains:

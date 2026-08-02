@@ -13,6 +13,7 @@ import {
   parseCatalogSearchIndex
 } from "../docs/js/catalog-data.js";
 import { parseCollectionManifest } from "../docs/js/collections.js";
+import { eventContextForRecord, parseJeffersonInsightGraph } from "../docs/js/jefferson-insights.js";
 
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../", import.meta.url));
@@ -150,6 +151,23 @@ test("committed historical projections are complete, hash-bound, private-source-
   assert.ok(validation.counts.source_backed_titles > 0);
   assert.ok(Object.values(validation.checks).every(value => value === true));
 
+  const insights = parseJeffersonInsightGraph(await jsonAt(COLLECTION_ROOT, corpus.data.insights), {
+    catalogSource: core.source,
+    recordIds: ids,
+    recordChapters: new Map(core.records.map(record => [record.id, record.chapter_number]))
+  });
+  assert.equal(insights.rejected, false, JSON.stringify(insights.errors));
+  assert.equal(insights.events.length, 9);
+  assert.equal(insights.chapter_clusters.length, 44);
+  assert.equal(insights.record_relations.length, 5);
+  assert.equal(insights.coverage.source_backed_titles, validation.counts.source_backed_titles);
+  assert.equal(insights.coverage.titles_not_established, validation.counts.titles_not_established);
+  const adamsContext = eventContextForRecord(insights, core.records.find(record => record.id === "jefferson-sowerby-4659"));
+  const adamsRelation = adamsContext.find(context => context.event.id === "adams-homespun-1812")?.direct;
+  assert.equal(adamsRelation?.event_use_status, "documented_interaction");
+  assert.equal(adamsRelation?.use_confidence_score, 98);
+  assert.equal(insights.record_relations.filter(relation => relation.event_use_status === "not_established").every(relation => relation.use_confidence_score === null), true);
+
   const chapterRangesBody = await readFile(CHAPTER_RANGES_PATH);
   assert.equal(
     sha256(chapterRangesBody),
@@ -169,7 +187,7 @@ test("committed historical projections are complete, hash-bound, private-source-
   assert.equal(covered.size, 4928);
   assert.ok([...ids].every(id => covered.has(Number(id.replace("jefferson-sowerby-", "")))));
 
-  const expectedFiles = new Set([...Object.keys(validation.outputs), "validation.json"]);
+  const expectedFiles = new Set([...Object.keys(validation.outputs), "validation.json", "insights.json"]);
   assert.deepEqual(new Set(await filesUnder(HISTORICAL_ROOT)), expectedFiles);
   const forbidden = /(?:https?:\/\/)?(?:www\.|tjlibraries\.)?monticello\.org|thomas jefferson foundation|\/research\/jefferson\/|\/Volumes\/|\.sqlite(?:3)?(?:["'\s?#]|$)/iu;
   for (const [relative, identity] of Object.entries(validation.outputs)) {
@@ -178,6 +196,8 @@ test("committed historical projections are complete, hash-bound, private-source-
     assert.equal(sha256(body), identity.sha256, `${relative} validation hash drifted`);
     assert.equal(forbidden.test(body.toString("utf8")), false, `${relative} leaked private/local source identity`);
   }
+  const insightBody = await readFile(path.join(HISTORICAL_ROOT, "insights.json"));
+  assert.equal(forbidden.test(insightBody.toString("utf8")), false, "insights.json leaked private/local source identity");
 
   const sourceBacked = core.records.find(record => record.title_status === "source_backed");
   const unresolved = core.records.find(record => record.title_status === "not_established");

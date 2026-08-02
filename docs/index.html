@@ -32,6 +32,7 @@
     </div>
     <nav class="primary-nav" aria-label="Primary navigation">
       <a href="#collection">Explore</a>
+      <a href="#jeffersonInsights" id="jeffersonInsightsNav" hidden>Life</a>
       <a href="#journeys">Journey</a>
       <a href="#signals">Signals</a>
       <a href="#paths">Paths</a>
@@ -137,6 +138,22 @@
           <a id="jeffersonEvidenceLink" href="#about">How this beta uses evidence</a>
         </article>
       </div>
+    </section>
+
+    <section class="jefferson-insights" id="jeffersonInsights" aria-labelledby="jeffersonInsightsTitle" hidden>
+      <header class="section-header jefferson-insights-header">
+        <div>
+          <p class="section-index">02 / Evidence graph</p>
+          <h2 id="jeffersonInsightsTitle">Books inside a life,<br><em>without inventing use.</em></h2>
+        </div>
+        <p id="jeffersonInsightsSummary">Dated events connect to Sowerby chapter clusters. Documentary interactions are separated from contextual relationships and every score explains its evidence boundary.</p>
+      </header>
+      <div class="insight-questions" id="insightQuestions" aria-label="Questions this evidence graph can answer"></div>
+      <nav class="life-event-timeline" id="lifeEventTimeline" aria-label="Thomas Jefferson life events"></nav>
+      <article class="life-event-panel" id="lifeEventPanel" aria-live="polite">
+        <p class="insight-loading">Preparing the event graph…</p>
+      </article>
+      <div class="insight-method" id="insightMethod"></div>
     </section>
 
     <section class="journeys-section" id="journeys" aria-labelledby="journeysTitle">
@@ -334,6 +351,10 @@
       <p class="detail-byline" id="detailByline"></p>
       <div class="detail-actions"><button type="button" id="detailShelfButton">Add to My Shelf</button><a id="catalogLink" target="_blank" rel="noopener noreferrer">View in Clark catalog ↗</a></div>
       <dl class="metadata-list" id="detailMetadata"></dl>
+      <section class="detail-section detail-insights" id="detailInsights" hidden>
+        <h3>Why here? What happened? Was it used?</h3>
+        <div id="detailInsightsBody"></div>
+      </section>
       <section class="detail-section detail-placement" id="detailPlacement">
         <h3>Original shelf placement</h3>
         <div class="placement-list" id="detailPlacementList"></div>

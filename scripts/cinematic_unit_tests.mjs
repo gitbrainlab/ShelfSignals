@@ -483,6 +483,7 @@ test("URL state round-trips record deep links and browsing controls", () => {
     path: "labor-images",
     journey: "aerospace-folktales",
     cluster: "domestic-interior",
+    event: "",
     view: "spines"
   }, "https://example.test/ShelfSignals/?record=old&unrelated=kept#archive");
 
@@ -507,6 +508,7 @@ test("URL state round-trips record deep links and browsing controls", () => {
     path: "labor-images",
     journey: "aerospace-folktales",
     cluster: "domestic-interior",
+    event: "",
     view: "spines"
   });
   assert.equal(parseUrlState("https://example.test/ShelfSignals/?path=labor-images").path, "labor-images", "legacy path links must remain unchanged");

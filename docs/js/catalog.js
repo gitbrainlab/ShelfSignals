@@ -210,6 +210,7 @@ export function parseUrlState(url = globalThis.location?.href || "https://exampl
     path: sekulaState ? (params.get("path") || "") : "",
     journey: sekulaState ? (params.get("journey") || "") : "",
     cluster: sekulaState ? (params.get("cluster") || "") : "",
+    event: collection === "jefferson" && corpusValue === "historical" ? (params.get("event") || "") : "",
     view: collection === "jefferson" && viewValue === "spines" ? "covers" : viewValue
   };
 }
@@ -217,7 +218,7 @@ export function parseUrlState(url = globalThis.location?.href || "https://exampl
 export function serializeUrlState(rawState = {}, base = globalThis.location?.href || "https://example.invalid/") {
   const state = normalizeFilterState(rawState);
   const url = new URL(base, "https://example.invalid/");
-  for (const key of ["collection", "corpus", "order", "record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "view"]) {
+  for (const key of ["collection", "corpus", "order", "record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "event", "view"]) {
     url.searchParams.delete(key);
   }
   const collection = String(rawState.collection || "sekula").toLocaleLowerCase() === "jefferson" ? "jefferson" : "sekula";
@@ -247,6 +248,7 @@ export function serializeUrlState(rawState = {}, base = globalThis.location?.hre
     path: sekulaState ? state.path : "",
     journey: sekulaState ? rawState.journey : "",
     cluster: sekulaState && rawState.journey ? rawState.cluster : "",
+    event: collection === "jefferson" && corpus === "historical" ? rawState.event : "",
     view: rawState.view && rawState.view !== "covers" && !(collection === "jefferson" && rawState.view === "spines") ? rawState.view : ""
   };
   for (const [key, value] of Object.entries(values)) {

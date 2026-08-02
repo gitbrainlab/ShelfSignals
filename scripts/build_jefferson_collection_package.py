@@ -20,12 +20,14 @@ from typing import Any, Mapping, Sequence
 
 import build_jefferson_browser_package as catalog_builder
 import build_jefferson_historical_browser_package as historical_builder
+import build_jefferson_insight_graph as insight_builder
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SOURCE_DIR = REPOSITORY_ROOT / "research/jefferson/work/data"
 DEFAULT_OUTPUT_DIR = REPOSITORY_ROOT / "docs/data/collections/jefferson"
 DEFAULT_CHAPTER_RANGES = REPOSITORY_ROOT / "research/jefferson/loc-sowerby-chapter-ranges.json"
+DEFAULT_INSIGHT_CONFIG = REPOSITORY_ROOT / "research/jefferson/jefferson-life-events.json"
 MANIFEST_SCHEMA = "shelfsignals-collection-manifest@2"
 SOURCE_BACKED_ENTRY_COUNT = 4928
 HISTORICAL_POSITION_COUNT = 4931
@@ -93,8 +95,8 @@ def build_combined_manifest(
         raise BuildError("Catalog manifest coverage is invalid")
     catalog_copy["coverage_statement"] = (
         f"This beta contains {catalog_record_count:,} current LOC catalog instances, separate from the "
-        f"{SOURCE_BACKED_ENTRY_COUNT:,}-entry historical Sowerby layer across {HISTORICAL_POSITION_COUNT:,} "
-        f"source positions and from the {HISTORICAL_VOLUME_COUNT:,} physical volumes transferred in 1815. "
+        f"{SOURCE_BACKED_ENTRY_COUNT:,} source-backed Sowerby entries across {HISTORICAL_POSITION_COUNT:,} "
+        f"historical source positions and from the {HISTORICAL_VOLUME_COUNT:,} physical volumes transferred in 1815. "
         "The catalog and historical layers overlap and must not be added as unique books. "
         f"Only {established_links} Sowerby links are established by the bounded MARC sample."
     )
@@ -157,6 +159,7 @@ def build_combined_manifest(
         "reconstruction_status": True,
         "digital_surrogates": False,
         "evidence_ledger": True,
+        "life_events": True,
         "physical": False,
     }
     historical_corpus = {
@@ -171,6 +174,7 @@ def build_combined_manifest(
             "detail_template": "historical/catalog-details/{shard}.json",
             "detail_index": "historical/catalog-details/index.json",
             "validation": "historical/validation.json",
+            "insights": "historical/insights.json",
         },
         "features": historical_features,
         "facets": ["evidence_status"],
@@ -276,12 +280,18 @@ def validate_shared_hierarchy(hierarchy_body: bytes, chapter_ranges_path: Path) 
 def build_package(
     source_dir: Path = DEFAULT_SOURCE_DIR,
     chapter_ranges_path: Path = DEFAULT_CHAPTER_RANGES,
+    insight_config_path: Path = DEFAULT_INSIGHT_CONFIG,
 ) -> dict[str, bytes]:
     catalog_files = catalog_builder.build_package(source_dir)
     historical_files = historical_builder.build_package(source_dir, chapter_ranges_path)
     validate_shared_hierarchy(catalog_files["hierarchy.json"], chapter_ranges_path)
     catalog_manifest = decode_json(catalog_files["manifest.json"], "Catalog manifest")
     historical_validation = decode_json(historical_files["validation.json"], "Historical validation")
+    historical_core = decode_json(historical_files["catalog-core.json"], "Historical core")
+    insight_config = insight_builder.load_object(insight_config_path, "event config")
+    historical_files["insights.json"] = insight_builder.json_bytes(
+        insight_builder.build_graph(historical_core, insight_config)
+    )
     manifest = build_combined_manifest(catalog_manifest, historical_validation)
     files = {path: body for path, body in catalog_files.items() if path != "manifest.json"}
     for path, body in historical_files.items():
@@ -338,6 +348,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-dir", type=Path, default=DEFAULT_SOURCE_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--chapter-ranges", type=Path, default=DEFAULT_CHAPTER_RANGES)
+    parser.add_argument("--insight-config", type=Path, default=DEFAULT_INSIGHT_CONFIG)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--self-test", action="store_true")
@@ -347,8 +358,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        first = build_package(args.source_dir, args.chapter_ranges)
-        second = build_package(args.source_dir, args.chapter_ranges)
+        first = build_package(args.source_dir, args.chapter_ranges, args.insight_config)
+        second = build_package(args.source_dir, args.chapter_ranges, args.insight_config)
         if first != second:
             raise BuildError("Combined Jefferson package is not deterministic across two builds")
         if args.check:
@@ -361,7 +372,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             action = "wrote"
         print(f"Combined Jefferson package {action}: {len(first)} files, {sum(map(len, first.values()))} bytes")
         return 0
-    except (BuildError, catalog_builder.BuildError, historical_builder.BuildError) as error:
+    except (BuildError, catalog_builder.BuildError, historical_builder.BuildError, insight_builder.BuildError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 

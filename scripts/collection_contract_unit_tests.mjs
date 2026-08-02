@@ -72,6 +72,7 @@ function manifestFixture() {
       reconstruction_status: true,
       digital_surrogates: true,
       evidence_ledger: true,
+      life_events: false,
       physical: false
     },
     coverage: {

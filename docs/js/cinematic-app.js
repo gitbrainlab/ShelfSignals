@@ -70,6 +70,7 @@ import {
   resolveCollectionCorpus,
   resolveCollectionCorpusForState
 } from "./collections.js";
+import { eventContextForRecord, parseJeffersonInsightGraph } from "./jefferson-insights.js";
 
 // Each collection owns its data paths and feature switches. Only these small,
 // versioned manifests are selected by application code.
@@ -106,6 +107,13 @@ const dom = {
   jeffersonHierarchySummary: $("#jeffersonHierarchySummary"),
   jeffersonHierarchyContent: $("#jeffersonHierarchyContent"),
   jeffersonEvidenceSummary: $("#jeffersonEvidenceSummary"),
+  jeffersonInsights: $("#jeffersonInsights"),
+  jeffersonInsightsNav: $("#jeffersonInsightsNav"),
+  jeffersonInsightsSummary: $("#jeffersonInsightsSummary"),
+  insightQuestions: $("#insightQuestions"),
+  lifeEventTimeline: $("#lifeEventTimeline"),
+  lifeEventPanel: $("#lifeEventPanel"),
+  insightMethod: $("#insightMethod"),
   openReviewerMode: $("#openReviewerMode"),
   reviewerDialog: $("#reviewerDialog"),
   reviewerCode: $("#reviewerCode"),
@@ -177,6 +185,8 @@ const dom = {
   detailShelfButton: $("#detailShelfButton"),
   catalogLink: $("#catalogLink"),
   detailMetadata: $("#detailMetadata"),
+  detailInsights: $("#detailInsights"),
+  detailInsightsBody: $("#detailInsightsBody"),
   detailPlacement: $("#detailPlacement"),
   detailPlacementList: $("#detailPlacementList"),
   detailCoverEvidence: $("#detailCoverEvidence"),
@@ -237,6 +247,8 @@ const state = {
   hierarchy: null,
   historicalNumbering: null,
   validation: null,
+  insightGraph: null,
+  eventId: initialUrl.event,
   publicMedia: null,
   reviewMedia: null,
   reviewUnlocked: false,
@@ -545,6 +557,10 @@ function setCollectionSpecificCopy() {
       : "The current view is a modern catalog extraction, not a complete reconstruction of Jefferson’s 1815 library.";
   }
   dom.openReviewerMode.hidden = !manifest.review?.enabled || !corpus?.data?.review_media;
+  const lifeEventsEnabled = isJefferson && featureEnabled("life_events");
+  dom.jeffersonInsights.hidden = !lifeEventsEnabled;
+  dom.jeffersonInsightsNav.hidden = !lifeEventsEnabled;
+  if (!lifeEventsEnabled) dom.detailInsights.hidden = true;
   $("#journeys").hidden = !featureEnabled("journeys");
   $("#paths").hidden = !featureEnabled("curated_paths");
   $("#signals").hidden = !facets.includes("signals");
@@ -649,10 +665,241 @@ function updateJeffersonOverview() {
     : `The historical spine has ${historicalCounts.positions.toLocaleString()} positions: ${historicalCounts.entries.toLocaleString()} source-backed entries plus explicit non-book gaps ${historicalCounts.gaps.join(", ")}. Only ${formatNumber(coverage.established_sowerby_links)} catalog–Sowerby links are established by the bounded MARC assessment. Ownership and reconstruction status are not established unless directly sourced.${mediaSummary}`;
 }
 
+function activeLifeEvent() {
+  return state.insightGraph?.eventById?.get(state.eventId) || null;
+}
+
+function recordsForActiveEvent(records) {
+  const event = activeLifeEvent();
+  if (!event) return records;
+  const chapters = new Set(event.chapter_groups.flatMap(group => group.chapters));
+  return records.filter(record => chapters.has(record.chapter_number));
+}
+
+function filteredAndOrderedRecords() {
+  return orderedRecords(recordsForActiveEvent(filterRecords(state.records, state.filters)));
+}
+
+function insightSourceLinks(sourceIds = []) {
+  const wrapper = document.createElement("p");
+  wrapper.className = "insight-sources";
+  sourceIds.forEach((sourceId, index) => {
+    const source = state.insightGraph?.sourceById?.get(sourceId);
+    if (!source) return;
+    if (index) wrapper.append(document.createTextNode(" · "));
+    wrapper.append(sourceAnchor(`${source.label} ↗`, source.url));
+  });
+  return wrapper;
+}
+
+function insightUseLabel(relation) {
+  if (!relation || relation.event_use_status === "not_established") return "Use during this event: not established";
+  const label = titleCase(relation.event_use_status);
+  return `${label} · evidence confidence ${relation.use_confidence_score}/100`;
+}
+
+function renderLifeEventPanel(event) {
+  clear(dom.lifeEventPanel);
+  if (!event) {
+    dom.lifeEventPanel.append(textElement("p", "insight-loading", "No reviewed life-event lens is available."));
+    return;
+  }
+  const header = document.createElement("header");
+  const titleBlock = document.createElement("div");
+  titleBlock.append(
+    textElement("p", "section-index", `${event.phase} · ${event.date_label}`),
+    textElement("h3", "", event.title),
+    textElement("p", "life-event-summary", event.summary)
+  );
+  const score = Math.max(...event.chapter_groups.map(group => group.context_score));
+  const metric = document.createElement("div");
+  metric.className = "event-evidence-score";
+  metric.append(textElement("strong", "", String(score)), textElement("span", "", "strongest context score / 100"));
+  header.append(titleBlock, metric);
+
+  const context = document.createElement("p");
+  context.className = "event-critical-context";
+  context.append(textElement("strong", "", "Evidence boundary"), document.createTextNode(` ${event.critical_context}`));
+
+  const graph = document.createElement("div");
+  graph.className = "event-graph-grid";
+  const connections = document.createElement("section");
+  connections.append(textElement("h4", "", "Connected clusters"));
+  const clusterList = document.createElement("div");
+  clusterList.className = "event-cluster-list";
+  event.chapter_groups.forEach(group => {
+    group.chapters.forEach(chapterNumber => {
+      const chapter = state.insightGraph.chapterByNumber.get(chapterNumber);
+      if (!chapter) return;
+      const item = document.createElement("span");
+      item.className = "event-cluster-chip";
+      item.title = group.rationale;
+      item.textContent = `${String(chapter.chapter_number).padStart(2, "0")} · ${chapter.label} · ${formatNumber(chapter.record_count)}`;
+      clusterList.append(item);
+    });
+  });
+  connections.append(clusterList, textElement("p", "event-rationale", event.chapter_groups.map(group => group.rationale).join(" ")));
+
+  const network = document.createElement("section");
+  network.append(textElement("h4", "", "People, places, ideas"));
+  const networkList = document.createElement("dl");
+  networkList.className = "event-network-list";
+  [
+    ["People", event.people.join(" · ")],
+    ["Places", event.places.join(" · ")],
+    ["Themes", event.themes.join(" · ")]
+  ].forEach(([label, value]) => networkList.append(metadataRow(label, value)));
+  network.append(networkList);
+  graph.append(connections, network);
+
+  const relations = state.insightGraph.record_relations.filter(relation => relation.event_id === event.id);
+  const documentary = document.createElement("section");
+  documentary.className = "event-documentary-relations";
+  documentary.append(textElement("h4", "", "Specific documentary links"));
+  if (!relations.length) {
+    documentary.append(textElement("p", "event-rationale", "No record-level use or interaction claim is established for this event. Chapter connections remain contextual only."));
+  } else {
+    relations.forEach(relation => {
+      const item = document.createElement("article");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = relation.display_label;
+      button.addEventListener("click", () => openDetail(relation.record_id, true));
+      item.append(
+        button,
+        textElement("p", "documentary-claim", relation.claim),
+        textElement("p", "documentary-use", insightUseLabel(relation)),
+        textElement("p", "documentary-limit", relation.limits),
+        insightSourceLinks(relation.source_ids)
+      );
+      documentary.append(item);
+    });
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "event-actions";
+  const explore = document.createElement("button");
+  explore.type = "button";
+  explore.textContent = `${state.eventId === event.id ? "Viewing" : "Explore"} ${formatNumber(event.related_record_count)} contextual entries`;
+  explore.disabled = state.eventId === event.id;
+  explore.addEventListener("click", () => selectLifeEvent(event.id, { scroll: true, push: true }));
+  const clearButton = document.createElement("button");
+  clearButton.type = "button";
+  clearButton.textContent = "Show the full historical corpus";
+  clearButton.hidden = !state.eventId;
+  clearButton.addEventListener("click", () => selectLifeEvent("", { scroll: true, push: true }));
+  actions.append(explore, clearButton);
+
+  dom.lifeEventPanel.append(header, context, graph, documentary, actions, insightSourceLinks(event.source_ids));
+}
+
+function renderJeffersonInsights() {
+  if (!featureEnabled("life_events") || !state.insightGraph || state.insightGraph.rejected) return;
+  const graph = state.insightGraph;
+  dom.jeffersonInsightsSummary.textContent = `${formatNumber(graph.coverage.historical_entries)} entries connect through ${graph.coverage.historical_chapters} source-backed Sowerby chapter clusters to ${graph.coverage.events} dated event lenses. Only ${graph.coverage.direct_record_relations} record-level relationships currently carry specific documentary claims.`;
+  clear(dom.insightQuestions);
+  graph.questions.forEach(question => {
+    const article = document.createElement("article");
+    article.append(textElement("strong", "", question.label), textElement("p", "", question.prompt));
+    dom.insightQuestions.append(article);
+  });
+  clear(dom.lifeEventTimeline);
+  const displayed = activeLifeEvent() || graph.events[0];
+  graph.events.forEach(event => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "life-event-node";
+    const selected = event.id === displayed?.id;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", selected ? "true" : "false");
+    button.append(textElement("span", "", event.date_label), textElement("strong", "", event.short_title));
+    button.addEventListener("click", () => selectLifeEvent(event.id, { scroll: false, push: true }));
+    dom.lifeEventTimeline.append(button);
+  });
+  renderLifeEventPanel(displayed);
+  clear(dom.insightMethod);
+  dom.insightMethod.append(
+    textElement("strong", "", "How the scores work"),
+    textElement("p", "", graph.methodology.context_score),
+    textElement("p", "", graph.methodology.use_confidence_score)
+  );
+}
+
+function selectLifeEvent(eventId, { scroll = false, push = false } = {}) {
+  if (eventId && !state.insightGraph?.eventById?.has(eventId)) return;
+  state.eventId = eventId;
+  state.selectedId = "";
+  state.renderLimit = PAGE_SIZE;
+  state.filtered = filteredAndOrderedRecords();
+  renderJeffersonInsights();
+  renderCollection();
+  renderActiveFilters();
+  updateUrl({ replace: !push });
+  if (scroll) $("#collection").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+function renderRecordInsights(record) {
+  clear(dom.detailInsightsBody);
+  if (!featureEnabled("life_events") || !state.insightGraph || record.entity_type !== "sowerby_entry") {
+    dom.detailInsights.hidden = true;
+    return;
+  }
+  dom.detailInsights.hidden = false;
+  const contexts = eventContextForRecord(state.insightGraph, record)
+    .sort((left, right) => Number(Boolean(right.direct)) - Number(Boolean(left.direct)) || right.group.context_score - left.group.context_score);
+  const why = document.createElement("article");
+  why.className = "record-insight-answer";
+  why.append(
+    textElement("h4", "", "Why is it in this library?"),
+    textElement("p", "", `This is a source-backed Sowerby entry in ${record.faculty}, chapter ${record.chapter_number} (${record.chapter_label}). That establishes membership in the reconstructed 1815 catalog order; the particular acquisition reason is not established unless a documentary relation below says more.`)
+  );
+  const use = document.createElement("article");
+  use.className = "record-insight-answer";
+  use.append(textElement("h4", "", "Was it used?"));
+  const direct = state.insightGraph.relationsByRecord.get(record.id) || [];
+  if (!direct.length) {
+    use.append(textElement("p", "insight-not-established", "Not established. Collection membership, title, and chapter placement do not demonstrate reading or consultation."));
+  } else {
+    direct.forEach(relation => {
+      const event = state.insightGraph.eventById.get(relation.event_id);
+      const item = document.createElement("div");
+      item.append(
+        textElement("strong", "", `${event?.short_title || relation.event_id} — ${insightUseLabel(relation)}`),
+        textElement("p", "", relation.claim),
+        textElement("p", "documentary-limit", relation.limits),
+        insightSourceLinks(relation.source_ids)
+      );
+      use.append(item);
+    });
+  }
+  const events = document.createElement("article");
+  events.className = "record-insight-answer";
+  events.append(textElement("h4", "", "What was happening around this cluster?"));
+  const list = document.createElement("div");
+  list.className = "record-event-list";
+  contexts.forEach(({ event, group, direct: relation }) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.append(
+      textElement("strong", "", `${event.date_label} · ${event.short_title}`),
+      textElement("span", "", relation ? `documentary connection ${relation.connection_score}/100` : `context ${group.context_score}/100`),
+      textElement("small", "", relation?.claim || group.rationale)
+    );
+    button.addEventListener("click", () => {
+      closeDetail({ updateHistory: false });
+      selectLifeEvent(event.id, { push: true });
+      dom.jeffersonInsights.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    });
+    list.append(button);
+  });
+  events.append(list);
+  dom.detailInsightsBody.append(why, use, events);
+}
+
 function changeCollection(nextCollectionId) {
   const next = Object.hasOwn(COLLECTION_MANIFEST_URLS, nextCollectionId) ? nextCollectionId : DEFAULT_COLLECTION_ID;
   const url = new URL(location.href);
-  ["record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "view", "corpus", "order"].forEach(key => url.searchParams.delete(key));
+  ["record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "event", "view", "corpus", "order"].forEach(key => url.searchParams.delete(key));
   if (next === DEFAULT_COLLECTION_ID) url.searchParams.delete("collection");
   else url.searchParams.set("collection", next);
   url.hash = "";
@@ -663,7 +910,7 @@ function changeCorpus(nextCorpusId) {
   const next = resolveCollectionCorpus(state.collectionManifest, nextCorpusId);
   if (!next || next.id === state.corpus) return;
   const url = new URL(location.href);
-  ["record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "view", "order"].forEach(key => url.searchParams.delete(key));
+  ["record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "event", "view", "order"].forEach(key => url.searchParams.delete(key));
   url.searchParams.set("corpus", next.id);
   url.searchParams.set("order", next.default_order);
   url.hash = "";
@@ -1787,6 +2034,7 @@ function syncResponsiveFilters() {
 
 function resetFilters({ scroll = false } = {}) {
   state.filters = normalizeFilterState({ group: state.filters.group });
+  state.eventId = "";
   state.renderLimit = PAGE_SIZE;
   dom.heroSearchInput.value = "";
   syncFilterControls();
@@ -1803,6 +2051,7 @@ function updateUrl({ selectedId = state.selectedId, replace = true, scrollY = wi
     record: selectedId,
     journey: state.journeyId,
     cluster: state.clusterId,
+    event: state.eventId,
     view: state.view
   });
   history[replace ? "replaceState" : "pushState"]({ shelfsignals: true, scrollY }, "", url);
@@ -1811,7 +2060,7 @@ function updateUrl({ selectedId = state.selectedId, replace = true, scrollY = wi
 function applyFilters({ scroll = false, push = false } = {}) {
   state.filters = normalizeFiltersForActiveCorpus(state.filters);
   state.renderLimit = PAGE_SIZE;
-  state.filtered = orderedRecords(filterRecords(state.records, state.filters));
+  state.filtered = filteredAndOrderedRecords();
   renderCollection();
   renderActiveFilters();
   updateUrl({ replace: !push });
@@ -1850,6 +2099,8 @@ function activeFilterEntries() {
   });
   if (state.filters.photo) entries.push({ key: "photo", label: state.filters.photo });
   if (state.filters.placement) entries.push({ key: "placement", label: `Placement: ${placementDisplayLabel(state.filters.placement)}` });
+  const event = activeLifeEvent();
+  if (event) entries.push({ key: "event", label: `Life event: ${event.short_title}` });
   return entries;
 }
 
@@ -1857,6 +2108,7 @@ function removeActiveFilter(key) {
   const next = { ...state.filters, path: "" };
   if (key.startsWith("signal:")) next.signals = next.signals.filter(id => id !== key.slice(7));
   else if (key === "query") next.query = "";
+  else if (key === "event") state.eventId = "";
   else next[key] = "";
   state.filters = normalizeFilterState(next);
   syncFilterControls();
@@ -1979,7 +2231,8 @@ function renderCollection() {
   const count = state.filtered.length;
   const rendered = Math.min(state.renderLimit, count);
   const unit = activeUnitLabel();
-  dom.resultSummary.textContent = `${formatNumber(count)} of ${formatNumber(total)} ${unit}${state.filters.path ? ` · dynamic path “${state.pathMap.get(state.filters.path)?.title || state.filters.path}”` : ""}${state.filters.placement ? ` · recorded placement “${placementDisplayLabel(state.filters.placement)}”` : ""}`;
+  const event = activeLifeEvent();
+  dom.resultSummary.textContent = `${formatNumber(count)} of ${formatNumber(total)} ${unit}${event ? ` · contextual lens “${event.short_title}”` : ""}${state.filters.path ? ` · dynamic path “${state.pathMap.get(state.filters.path)?.title || state.filters.path}”` : ""}${state.filters.placement ? ` · recorded placement “${placementDisplayLabel(state.filters.placement)}”` : ""}`;
   dom.collectionGrid.className = `collection-grid ${state.view}-view`;
   dom.profileMethod.hidden = state.view !== "spines" || !featureEnabled("physical");
   dom.emptyState.hidden = count !== 0;
@@ -2570,6 +2823,7 @@ function renderDetail(record) {
   }
 
   if (featureEnabled("placement")) renderPlacementEvidence(record);
+  renderRecordInsights(record);
   void renderCoverEvidence(record);
   if (featureEnabled("physical")) renderPhysicalProfile(record);
   if (featureEnabled("provider_editions")) renderEditionEvidence(record);
@@ -2826,7 +3080,7 @@ function bindEvents() {
     if (!declared.has(dom.orderFilter.value)) return;
     state.order = dom.orderFilter.value;
     state.renderLimit = PAGE_SIZE;
-    state.filtered = orderedRecords(filterRecords(state.records, state.filters));
+    state.filtered = filteredAndOrderedRecords();
     renderCollection();
     updateUrl({ replace: false });
   });
@@ -2965,15 +3219,17 @@ function bindEvents() {
     state.view = ["covers", "list", ...(featureEnabled("physical") ? ["spines"] : [])].includes(restored.view) ? restored.view : "covers";
     state.selectedId = restored.record;
     state.clusterId = restored.cluster;
+    state.eventId = featureEnabled("life_events") && state.insightGraph?.eventById?.has(restored.event) ? restored.event : "";
     syncFilterControls();
     if (dom.orderFilter) dom.orderFilter.value = state.order;
-    state.filtered = orderedRecords(filterRecords(state.records, state.filters));
+    state.filtered = filteredAndOrderedRecords();
     if (state.view === "spines") {
       await ensureSpineIndex();
       if (!isCurrent()) return;
     }
     renderCollection();
     renderActiveFilters();
+    renderJeffersonInsights();
     $$(".view-button").forEach(button => {
       const active = button.dataset.view === state.view;
       button.classList.toggle("active", active);
@@ -3139,7 +3395,7 @@ async function init() {
       const url = manifestAssetUrl(field);
       return url ? fetchJson(url, fallback) : Promise.resolve(fallback);
     };
-    const [rawCoreCatalog, rawCovers, featuredConfig, pathConfig, rawJourneyIndex, rawHierarchy, rawPublicMedia, rawValidation] = await Promise.all([
+    const [rawCoreCatalog, rawCovers, featuredConfig, pathConfig, rawJourneyIndex, rawHierarchy, rawPublicMedia, rawValidation, rawInsights] = await Promise.all([
       fetchJson(manifestAssetUrl("core"), null),
       optionalJson("covers", {}),
       optionalJson("featured", {}),
@@ -3147,7 +3403,8 @@ async function init() {
       optionalJson("journeys", { schema: "shelfsignals-journey-index@1", journeys: [] }),
       optionalJson("hierarchy", null),
       optionalJson("public_media", null),
-      optionalJson("validation", null)
+      optionalJson("validation", null),
+      optionalJson("insights", null)
     ]);
     if (!rawCoreCatalog) throw new Error("The compact browser catalog is unavailable.");
     const coreCatalog = parseBrowserCatalog(rawCoreCatalog, {
@@ -3214,6 +3471,20 @@ async function init() {
       }
       state.validation = rawValidation;
     }
+    if (featureEnabled("life_events")) {
+      state.insightGraph = parseJeffersonInsightGraph(rawInsights, {
+        catalogSource: state.catalogSource,
+        recordIds: state.recordIds,
+        recordChapters: new Map(rawRecords.map(record => [record.id, record.chapter_number]))
+      });
+      if (state.insightGraph.rejected) {
+        throw new Error(`The Jefferson insight graph failed validation: ${state.insightGraph.errors.join(", ")}`);
+      }
+      if (state.eventId && !state.insightGraph.eventById.has(state.eventId)) state.eventId = "";
+    } else {
+      state.insightGraph = null;
+      state.eventId = "";
+    }
     if (rawPublicMedia) {
       state.publicMedia = decodeMediaManifest(rawPublicMedia, "public");
       if (state.publicMedia.rejected) throw new Error("The public-media manifest failed collection or audience validation.");
@@ -3225,13 +3496,14 @@ async function init() {
     state.recordMap = new Map(state.records.map(record => [record.id, record]));
     state.facets = collectionFacets(state.records);
     if (state.filters.query) await ensureCatalogSearchIndex();
-    state.filtered = orderedRecords(filterRecords(state.records, state.filters));
+    state.filtered = filteredAndOrderedRecords();
     if (state.view === "spines") await ensureSpineIndex();
 
     renderHero();
     renderHeroSignals();
     renderStats();
     updateJeffersonOverview();
+    renderJeffersonInsights();
     scheduleSecondarySections();
     initFacetControls();
     syncFilterControls();

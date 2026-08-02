@@ -886,6 +886,7 @@ def _manifest_payload(
             "reconstruction_status": True,
             "digital_surrogates": True,
             "evidence_ledger": True,
+            "life_events": False,
             "physical": False,
         },
         "coverage": {

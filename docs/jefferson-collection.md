@@ -17,6 +17,9 @@ ShelfSignals presents Thomas Jefferson's library as a second collection inside t
 | Aggregate scan-spine evidence | 253 | Entries supported by the audited LOC scan spine without an exact page assignment |
 | Historical physical volumes | 6,487 | Standard 1815 transfer count; not the grain of either browser corpus |
 | Sowerby chapters | 44 | Historical hierarchy preview across History, Philosophy, and Fine Arts |
+| Reviewed life-event lenses | 9 | Dated contextual routes through the historical chapter graph; not claims of reading or influence |
+| Chapter clusters | 44 | Every historical entry participates through its source-backed Sowerby chapter |
+| Direct documentary relationships | 5 | Record-to-event links with named LOC evidence and explicit limitations |
 | Public media | 0 | No item has yet passed the public media reuse gate |
 | Reviewer-mode media | 1 | Exact normalized-LCCN relation with item-level rights review still required |
 
@@ -49,6 +52,7 @@ Supported collection parameters are:
 - `order=title` is the catalog default. `order=lc` sorts catalog instances by modern classification/call number. `order=sowerby` is the historical default; historical title order is also available.
 - `record=jefferson-loc-…` opens a catalog-instance deep link.
 - `record=jefferson-sowerby-…` opens a historical-entry deep link and infers the historical corpus when an old URL omitted `corpus`.
+- `event=…` selects one of the reviewed life-event lenses only in the historical corpus; it is removed from catalog and Sekula URLs.
 - `evidence=sowerby_510_exact_bounded` limits the current beta to the 17 explicitly linked records.
 - Existing search, compatible facets, list/cover view, and paginated rendering continue to work.
 
@@ -75,10 +79,21 @@ The committed package is `docs/data/collections/jefferson/`. It contains two ide
 | `historical/catalog-details/000.json` through `063.json` | 64 deterministic historical detail shards |
 | `historical/catalog-details/index.json` | Hash-bound historical shard inventory |
 | `historical/validation.json` | Historical source, gap, provenance, title-coverage, and performance ledger |
+| `historical/insights.json` | Nine reviewed life-event lenses, 44 chapter clusters, five documentary record relations, source links, confidence rules, and limitations |
 
 Core, search, detail, hierarchy, validation, and media payloads carry collection/source identity and fail closed when those identities disagree. Search and details remain lazy; the browser never requests the raw research JSONL, SQLite database, cache, or whole research package. The committed core is 1,221,436 decoded bytes and 331,084 gzip bytes, within the 1.25 MB decoded and 350 KB gzip budgets.
 
 Detail records retain source-backed titles, explicit primary creators and other contributors, publication statements, languages, subjects, formats, classifications, modern call numbers, holdings, items, identifiers, source-supplied catalog URLs, Sowerby evidence, and field-level evidence. The five records without a validated LCCN or public record URL intentionally have no synthesized catalog link.
+
+## Life-event evidence graph
+
+The historical corpus adds a question-led discovery layer: **Why is it here?**, **What was happening?**, **Was it used?**, and **What connects it?** Nine dated lenses connect Jefferson's life to Sowerby's 44 source-backed chapter clusters. Selecting a lens filters the historical corpus to the related chapters while preserving the 4,928-entry corpus, the selected event, and the active record as separate URL state.
+
+Chapter-to-event edges are reviewed contextual associations. Their `context_score` is an ordinal navigation and evidence-strength score, not the probability that Jefferson read, consulted, endorsed, acquired, or was influenced by an entry. Membership, title words, and chapter placement never create a use claim.
+
+A `use_confidence_score` appears only when a named source documents a bounded interaction with a specific entry, such as receipt, correspondence, later commentary, or excerpting. The graph currently contains five such record-level relationships. Every one carries a claim, relationship type, source, score, and limitation; an event for which use is not documented displays **not established** instead of a numeric zero. The public graph accepts only allowlisted Library of Congress sources and is bound to the exact historical dataset and record-ID set.
+
+This completes the public membership-and-sequence projection, not full bibliographic metadata for every entry: 1,351 titles are source-backed by conservative LOC scan OCR and 3,577 remain visibly not established. Full title, edition, copy, holding, ownership, and use coverage still requires authoritative structured sources and curatorial review.
 
 ## Build and verification
 
@@ -103,9 +118,11 @@ Run the package and runtime contracts:
 python3 scripts/build_jefferson_browser_package_unit_tests.py
 python3 scripts/build_jefferson_historical_browser_package_unit_tests.py
 python3 scripts/build_jefferson_collection_package_unit_tests.py
+python3 scripts/build_jefferson_insight_graph_unit_tests.py
 node --test \
   scripts/collection_contract_unit_tests.mjs \
   scripts/collection_runtime_unit_tests.mjs \
+  scripts/jefferson_insight_unit_tests.mjs \
   scripts/jefferson_committed_package_tests.mjs
 ```
 
@@ -116,7 +133,7 @@ python3 -m http.server 8000 --directory docs
 node scripts/collection_browser_journey.mjs http://127.0.0.1:8000/
 ```
 
-The browser journey checks the default Sekula route, both Jefferson corpora, clean switching, canonical URL state, beta copy, 44-chapter hierarchy, source-number gaps, feature isolation, catalog and Sowerby ordering, entity-specific drawers, independent shelves, receipt boundaries, Back/Forward behavior, lazy reviewer media, invalid collection fallback, keyboard access, reduced motion, forced colors, and mobile overflow. It requires Playwright and a compatible Chrome/Chromium binary.
+The browser journey checks the default Sekula route, both Jefferson corpora, clean switching, canonical URL state, beta copy, 44-chapter hierarchy, source-number gaps, the nine-event evidence graph, contextual filtering, documentary confidence and limits, entity-specific drawers, independent shelves, receipt boundaries, Back/Forward behavior, lazy reviewer media, invalid collection fallback, keyboard access, reduced motion, forced colors, and mobile overflow. It requires Playwright and a compatible Chrome/Chromium binary.
 
 Use the extraction commands in [`research/jefferson/README.md`](../research/jefferson/README.md) only when deliberately refreshing the ignored research snapshot. Rebuilding the public package and refreshing external source evidence are separate operations.
 
@@ -183,7 +200,8 @@ Each `corpora[]` descriptor has exactly these fields:
     "search": "historical/catalog-search.json",
     "detail_template": "historical/catalog-details/{shard}.json",
     "detail_index": "historical/catalog-details/index.json",
-    "validation": "historical/validation.json"
+    "validation": "historical/validation.json",
+    "insights": "historical/insights.json"
   },
   "features": { "…": "all declared feature booleans" },
   "facets": ["evidence_status"],

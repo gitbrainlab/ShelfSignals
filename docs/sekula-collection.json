@@ -34,6 +34,7 @@
     "reconstruction_status": false,
     "digital_surrogates": false,
     "evidence_ledger": false,
+    "life_events": false,
     "physical": true
   },
   "coverage": {

@@ -64,6 +64,7 @@ function validJeffersonManifest() {
       reconstruction_status: true,
       digital_surrogates: true,
       evidence_ledger: true,
+      life_events: false,
       physical: false
     },
     coverage: {
@@ -120,6 +121,22 @@ test("collection, corpus, and order round-trip without disturbing unrelated URL 
   assert.equal(restored.order, "title");
   assert.equal(restored.evidence, "sowerby_510_exact_bounded");
   assert.equal(restored.record, "jefferson-loc-example");
+});
+
+test("life-event URL state is scoped to the Jefferson historical corpus", () => {
+  const historical = new URL(serializeUrlState({
+    collection: "jefferson",
+    corpus: "historical",
+    order: "sowerby",
+    event: "adams-homespun-1812"
+  }, "https://example.test/ShelfSignals/"), "https://example.test");
+  assert.equal(historical.searchParams.get("event"), "adams-homespun-1812");
+  assert.equal(parseUrlState(historical.href).event, "adams-homespun-1812");
+
+  const catalog = parseUrlState("https://example.test/ShelfSignals/?collection=jefferson&corpus=catalog&event=adams-homespun-1812");
+  assert.equal(catalog.event, "");
+  const sekula = parseUrlState("https://example.test/ShelfSignals/?event=adams-homespun-1812");
+  assert.equal(sekula.event, "");
 });
 
 test("URL state normalizes invalid collection dimensions and keeps Sekula canonical", () => {

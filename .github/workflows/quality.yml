@@ -51,6 +51,7 @@ jobs:
           scripts/association_promotion_tests.mjs
           scripts/collection_contract_unit_tests.mjs
           scripts/collection_runtime_unit_tests.mjs
+          scripts/jefferson_insight_unit_tests.mjs
           scripts/jefferson_committed_package_tests.mjs
 
       - name: Verify Python evidence pipelines
@@ -73,6 +74,7 @@ jobs:
           python3 scripts/harvest_jefferson_sowerby_unit_tests.py
           python3 scripts/build_jefferson_historical_browser_package_unit_tests.py
           python3 scripts/build_jefferson_collection_package_unit_tests.py
+          python3 scripts/build_jefferson_insight_graph_unit_tests.py
           python3 scripts/build_jefferson_private_media_bundle_unit_tests.py
           python3 scripts/build_jefferson_private_review_release_unit_tests.py
           python3 scripts/upload_jefferson_private_review_release_unit_tests.py

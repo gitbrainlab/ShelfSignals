@@ -235,10 +235,35 @@ try {
   check(await page.locator("#decadeFilter").locator("xpath=ancestor::fieldset").isHidden(), "undeclared decade facet is visible in the historical corpus");
   check(await page.locator("#openReviewerMode").isHidden(), "catalog-only public reviewer media leaked into the historical corpus");
   check(!(await page.locator('.view-button[data-view="spines"]').isVisible()), "physical reconstruction leaked into the historical corpus");
+  check(await page.locator("#jeffersonInsights").isVisible(), "historical life-event evidence graph is hidden");
+  check(await page.locator("#jeffersonInsightsNav").isVisible(), "life-event navigation is hidden");
+  check(await page.locator("#insightQuestions article").count() === 4, "question-driven evidence graph is incomplete");
+  check(await page.locator("#lifeEventTimeline .life-event-node").count() === 9, "life-event timeline is incomplete");
   const historicalRequests = requests.slice(historicalRequestStart);
   check(historicalRequests.some(url => url.includes("/historical/catalog-core.json")), "historical core was not requested from its namespace");
   check(historicalRequests.some(url => url.includes("/historical/validation.json")), "historical validation was not requested from its namespace");
+  check(historicalRequests.some(url => url.includes("/historical/insights.json")), "historical insight graph was not requested from its namespace");
   check(!historicalRequests.some(url => /(?:\.jsonl|\.sqlite(?:$|[?#])|\/research\/jefferson\/)/i.test(url)), "raw research data was requested by the historical browser");
+
+  const adamsEvent = page.locator("#lifeEventTimeline .life-event-node").filter({ hasText: "Adams's package" });
+  await adamsEvent.click();
+  await page.waitForFunction(() => new URL(location.href).searchParams.get("event") === "adams-homespun-1812");
+  await page.waitForFunction(() => document.querySelector("#resultSummary")?.textContent?.startsWith("50 of 4,928"));
+  const adamsEventPanel = await text(page, "#lifeEventPanel");
+  check(adamsEventPanel.includes("Lectures on Rhetoric and Oratory"), "documented Adams volume is absent from its event");
+  check(adamsEventPanel.toLocaleLowerCase().includes("evidence confidence 98/100"), `documented interaction confidence is not visible: ${JSON.stringify(adamsEventPanel)}`);
+  check(adamsEventPanel.includes("sustained reading or later consultation is not"), "documented receipt is overstated as reading");
+  await page.locator("#lifeEventPanel .event-documentary-relations button").click();
+  await page.locator("#detailLoading").waitFor({ state: "hidden" });
+  check(await page.locator("#detailInsights").isVisible(), "question-driven record insights are hidden");
+  const adamsRecordInsights = await text(page, "#detailInsightsBody");
+  check(adamsRecordInsights.includes("Why is it in this library?"), "record drawer does not answer the membership question");
+  check(adamsRecordInsights.toLocaleLowerCase().includes("evidence confidence 98/100"), "record drawer omits documentary confidence");
+  check(adamsRecordInsights.includes("sustained reading or later consultation is not"), "record drawer overstates documented interaction");
+  await page.locator("#closeDetail").click();
+  await page.locator("#activeFilters .active-filter").filter({ hasText: "Life event" }).click();
+  await page.waitForFunction(() => !new URL(location.href).searchParams.has("event") && document.querySelector("#resultSummary")?.textContent?.startsWith("4,928 of 4,928"));
+  report("life-event graph filters chapter clusters and keeps contextual, documentary, and use claims distinct");
 
   const staleHistoricalFacetUrl = new URL(page.url());
   staleHistoricalFacetUrl.searchParams.set("lc", "A");

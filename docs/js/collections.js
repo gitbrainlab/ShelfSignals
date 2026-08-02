@@ -36,7 +36,8 @@ export const COLLECTION_DATA_FIELDS = Object.freeze([
   "paths",
   "journeys",
   "spines",
-  "editions"
+  "editions",
+  "insights"
 ]);
 
 export const COLLECTION_FEATURE_FIELDS = Object.freeze([
@@ -50,6 +51,7 @@ export const COLLECTION_FEATURE_FIELDS = Object.freeze([
   "reconstruction_status",
   "digital_surrogates",
   "evidence_ledger",
+  "life_events",
   "physical"
 ]);
 
@@ -331,7 +333,8 @@ export function parseCollectionManifest(raw, { expectedId = "" } = {}) {
     ["provider_editions", "editions"],
     ["curated_paths", "paths"],
     ["historical_hierarchy", "hierarchy"],
-    ["digital_surrogates", "public_media"]
+    ["digital_surrogates", "public_media"],
+    ["life_events", "insights"]
   ];
   for (const [feature, dataField] of requiredFeaturePaths) {
     const enabled = dataField === "hierarchy" && isV2
