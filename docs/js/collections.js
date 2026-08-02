@@ -9,6 +9,7 @@
 // @ts-check
 
 export const COLLECTION_MANIFEST_SCHEMA = "shelfsignals-collection-manifest@1";
+export const COLLECTION_MANIFEST_SCHEMA_V2 = "shelfsignals-collection-manifest@2";
 
 export const COLLECTION_COPY_FIELDS = Object.freeze([
   "name",
@@ -60,6 +61,15 @@ export const COLLECTION_COVERAGE_FIELDS = Object.freeze([
   "historical_volume_count",
   "established_sowerby_links"
 ]);
+export const COLLECTION_COVERAGE_FIELDS_V2 = Object.freeze([
+  "status",
+  "entity_type",
+  "record_count",
+  "historical_entry_count",
+  "historical_position_count",
+  "historical_volume_count",
+  "established_sowerby_links"
+]);
 
 export const COLLECTION_FACET_IDS = Object.freeze([
   "classes",
@@ -79,8 +89,18 @@ export const COLLECTION_FACET_IDS = Object.freeze([
 ]);
 
 export const COLLECTION_ORDER_IDS = Object.freeze(["catalog", "title", "lc", "sowerby"]);
+export const COLLECTION_CORPUS_IDS = Object.freeze(["catalog", "historical"]);
+export const COLLECTION_ENTITY_TYPES = Object.freeze(["bibliographic_record", "catalog_instance", "sowerby_entry"]);
 
-const MANIFEST_FIELDS = Object.freeze([
+// Hierarchy is collection-level: the same Sowerby hierarchy can contextualize
+// both the catalog evidence layer and the historical corpus. Every other path
+// can contain record IDs or source identity and must therefore be routed by
+// corpus once a manifest declares more than one corpus.
+export const COLLECTION_CORPUS_DATA_FIELDS = Object.freeze(
+  COLLECTION_DATA_FIELDS.filter(field => field !== "hierarchy")
+);
+
+const MANIFEST_FIELDS_V1 = Object.freeze([
   "schema",
   "id",
   "copy",
@@ -93,15 +113,31 @@ const MANIFEST_FIELDS = Object.freeze([
   "defaults",
   "review"
 ]);
+const MANIFEST_FIELDS_V2 = Object.freeze([...MANIFEST_FIELDS_V1.slice(0, -1), "corpora", "review"]);
 const SHELF_FIELDS = Object.freeze(["storage_key", "receipt_name"]);
 const ORDER_FIELDS = Object.freeze(["id", "label"]);
 const DEFAULT_FIELDS = Object.freeze(["corpus", "order"]);
 const REVIEW_FIELDS = Object.freeze(["enabled", "code_sha256", "session_key", "warning"]);
 const REQUIRED_DATA_FIELDS = Object.freeze(["core", "search", "detail_template", "detail_index"]);
+const REQUIRED_CORPUS_DATA_FIELDS = Object.freeze([...REQUIRED_DATA_FIELDS, "validation"]);
+const CORPUS_COPY_FIELDS = Object.freeze(["status_label", "introduction", "coverage_statement", "source_label"]);
+const CORPUS_FIELDS = Object.freeze([
+  "id",
+  "label",
+  "record_id_prefix",
+  "copy",
+  "coverage",
+  "data",
+  "features",
+  "facets",
+  "orders",
+  "default_order"
+]);
 const SAFE_COLLECTION_ID = /^[a-z][a-z0-9-]{0,63}$/;
 const SAFE_STORAGE_KEY = /^[A-Za-z0-9_.:-]+$/;
 const SAFE_RECEIPT_NAME = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}\.json$/i;
 const SHA256 = /^sha256:[a-f0-9]{64}$/i;
+const SAFE_RECORD_PREFIX = /^[a-z][a-z0-9-]{2,63}-$/;
 
 /** @typedef {{path: string, code: string, message: string}} CollectionIssue */
 
@@ -179,10 +215,12 @@ export function collectionConfigUnknownFields(raw) {
 export function parseCollectionManifest(raw, { expectedId = "" } = {}) {
   /** @type {CollectionIssue[]} */
   const errors = [];
-  if (!requireExactKeys(raw, MANIFEST_FIELDS, "", errors, { optional: ["review"] })) {
+  const isV2 = raw?.schema === COLLECTION_MANIFEST_SCHEMA_V2;
+  const manifestFields = isV2 ? MANIFEST_FIELDS_V2 : MANIFEST_FIELDS_V1;
+  if (!requireExactKeys(raw, manifestFields, "", errors, { optional: ["review"] })) {
     return { rejected: true, errors, manifest: null };
   }
-  if (raw.schema !== COLLECTION_MANIFEST_SCHEMA) errors.push(issue("schema", "schema", "Unsupported collection manifest schema"));
+  if (![COLLECTION_MANIFEST_SCHEMA, COLLECTION_MANIFEST_SCHEMA_V2].includes(raw.schema)) errors.push(issue("schema", "schema", "Unsupported collection manifest schema"));
 
   const id = cleanString(raw.id);
   if (!SAFE_COLLECTION_ID.test(id)) errors.push(issue("id", "id", "Collection ID is missing or unsafe"));
@@ -216,7 +254,8 @@ export function parseCollectionManifest(raw, { expectedId = "" } = {}) {
     }
   }
 
-  if (requireExactKeys(raw.coverage, COLLECTION_COVERAGE_FIELDS, "coverage", errors)) {
+  const coverageFields = isV2 ? COLLECTION_COVERAGE_FIELDS_V2 : COLLECTION_COVERAGE_FIELDS;
+  if (requireExactKeys(raw.coverage, coverageFields, "coverage", errors)) {
     if (!["canonical", "beta", "complete"].includes(raw.coverage.status)) {
       errors.push(issue("coverage.status", "status", "Coverage status is invalid"));
     }
@@ -224,8 +263,12 @@ export function parseCollectionManifest(raw, { expectedId = "" } = {}) {
     if (!Number.isInteger(raw.coverage.record_count) || raw.coverage.record_count <= 0) {
       errors.push(issue("coverage.record_count", "count", "Coverage record count must be positive"));
     }
-    for (const field of ["historical_entry_count", "historical_volume_count", "established_sowerby_links"]) {
+    for (const field of ["historical_entry_count", ...(isV2 ? ["historical_position_count"] : []), "historical_volume_count", "established_sowerby_links"]) {
       if (!nonNegativeIntegerOrNull(raw.coverage[field])) errors.push(issue(`coverage.${field}`, "count", "Coverage count must be a non-negative integer or null"));
+    }
+    if (isV2 && Number.isInteger(raw.coverage.historical_entry_count) && Number.isInteger(raw.coverage.historical_position_count)
+      && raw.coverage.historical_position_count < raw.coverage.historical_entry_count) {
+      errors.push(issue("coverage.historical_position_count", "count", "Historical position count cannot be smaller than the source-backed entry count"));
     }
   }
 
@@ -268,6 +311,7 @@ export function parseCollectionManifest(raw, { expectedId = "" } = {}) {
     if (!declaredOrders.has(raw.defaults.order)) errors.push(issue("defaults.order", "order", "Default order must be declared by the manifest"));
   }
 
+  const corpora = Array.isArray(raw.corpora) ? raw.corpora : [];
   const review = raw.review;
   if (review !== undefined) {
     if (requireExactKeys(review, REVIEW_FIELDS, "review", errors)) {
@@ -275,9 +319,10 @@ export function parseCollectionManifest(raw, { expectedId = "" } = {}) {
       if (!SHA256.test(cleanString(review.code_sha256))) errors.push(issue("review.code_sha256", "sha256", "Review code digest is invalid"));
       if (cleanString(review.session_key) !== `shelfsignals_review:${id}`) errors.push(issue("review.session_key", "storage", "Review session key is unsafe or belongs to another collection"));
       if (!cleanString(review.warning)) errors.push(issue("review.warning", "string", "Review warning is required"));
-      if (!raw.data?.review_media) errors.push(issue("data.review_media", "path", "Review media path is required when review mode is enabled"));
+      const hasReviewMedia = raw.data?.review_media || (isV2 && corpora.some(corpus => corpus?.data?.review_media));
+      if (!hasReviewMedia) errors.push(issue("data.review_media", "path", "At least one review-media path is required when review mode is enabled"));
     }
-  } else if (raw.data?.review_media) {
+  } else if (raw.data?.review_media || (isV2 && corpora.some(corpus => corpus?.data?.review_media))) {
     errors.push(issue("data.review_media", "review", "Review media cannot be configured without review mode"));
   }
 
@@ -289,8 +334,140 @@ export function parseCollectionManifest(raw, { expectedId = "" } = {}) {
     ["digital_surrogates", "public_media"]
   ];
   for (const [feature, dataField] of requiredFeaturePaths) {
-    if (raw.features?.[feature] === true && !raw.data?.[dataField]) {
+    const enabled = dataField === "hierarchy" && isV2
+      ? corpora.some(corpus => corpus?.features?.[feature] === true)
+      : raw.features?.[feature] === true;
+    if (enabled && !raw.data?.[dataField]) {
       errors.push(issue(`data.${dataField}`, "feature", `Data path is required when features.${feature} is enabled`));
+    }
+  }
+
+  if (isV2) {
+    if (!Array.isArray(raw.corpora) || raw.corpora.length === 0) {
+      errors.push(issue("corpora", "array", "Version-2 manifests require a non-empty corpora array"));
+    } else {
+      const seenCorpusIds = new Set();
+      const corpusById = new Map();
+      const routedPaths = new Map();
+      const topLevelCorpusFields = COLLECTION_CORPUS_DATA_FIELDS.filter(field => Object.hasOwn(raw.data || {}, field));
+      const seenPrefixes = [];
+
+      raw.corpora.forEach((corpus, index) => {
+        const path = `corpora[${index}]`;
+        if (!requireExactKeys(corpus, CORPUS_FIELDS, path, errors)) return;
+        const corpusId = cleanString(corpus.id);
+        if (!COLLECTION_CORPUS_IDS.includes(corpusId) || seenCorpusIds.has(corpusId)) {
+          errors.push(issue(`${path}.id`, "corpus", "Corpus ID is unknown or duplicated"));
+        }
+        seenCorpusIds.add(corpusId);
+        corpusById.set(corpusId, corpus);
+
+        if (!cleanString(corpus.label)) errors.push(issue(`${path}.label`, "string", "Corpus label is required"));
+        const prefix = cleanString(corpus.record_id_prefix).toLocaleLowerCase();
+        if (!SAFE_RECORD_PREFIX.test(prefix)) errors.push(issue(`${path}.record_id_prefix`, "id", "Corpus record prefix is unsafe"));
+        if (seenPrefixes.some(previous => prefix.startsWith(previous) || previous.startsWith(prefix))) {
+          errors.push(issue(`${path}.record_id_prefix`, "duplicate", "Corpus record prefixes must be unique and non-overlapping"));
+        }
+        seenPrefixes.push(prefix);
+
+        if (requireExactKeys(corpus.copy, CORPUS_COPY_FIELDS, `${path}.copy`, errors)) {
+          for (const field of CORPUS_COPY_FIELDS) {
+            if (!cleanString(corpus.copy[field])) errors.push(issue(`${path}.copy.${field}`, "string", "Corpus copy must be a non-empty string"));
+          }
+        }
+
+        if (requireExactKeys(corpus.coverage, COLLECTION_COVERAGE_FIELDS_V2, `${path}.coverage`, errors)) {
+          if (!["canonical", "beta", "complete"].includes(corpus.coverage.status)) errors.push(issue(`${path}.coverage.status`, "status", "Corpus coverage status is invalid"));
+          if (!COLLECTION_ENTITY_TYPES.includes(corpus.coverage.entity_type)) errors.push(issue(`${path}.coverage.entity_type`, "entity", "Corpus entity type is invalid"));
+          if (id === "jefferson" && corpusId === "catalog" && corpus.coverage.entity_type !== "catalog_instance") errors.push(issue(`${path}.coverage.entity_type`, "entity", "The Jefferson catalog corpus must contain catalog instances"));
+          if (corpusId === "historical" && corpus.coverage.entity_type !== "sowerby_entry") errors.push(issue(`${path}.coverage.entity_type`, "entity", "The historical corpus must contain Sowerby entries"));
+          if (!Number.isInteger(corpus.coverage.record_count) || corpus.coverage.record_count <= 0) errors.push(issue(`${path}.coverage.record_count`, "count", "Corpus record count must be positive"));
+          for (const field of ["historical_entry_count", "historical_position_count", "historical_volume_count", "established_sowerby_links"]) {
+            if (!nonNegativeIntegerOrNull(corpus.coverage[field])) errors.push(issue(`${path}.coverage.${field}`, "count", "Corpus coverage count must be a non-negative integer or null"));
+          }
+          if (Number.isInteger(corpus.coverage.historical_entry_count) && Number.isInteger(corpus.coverage.historical_position_count)
+            && corpus.coverage.historical_position_count < corpus.coverage.historical_entry_count) {
+            errors.push(issue(`${path}.coverage.historical_position_count`, "count", "Historical position count cannot be smaller than the source-backed entry count"));
+          }
+        }
+
+        if (requireExactKeys(corpus.features, COLLECTION_FEATURE_FIELDS, `${path}.features`, errors)) {
+          for (const field of COLLECTION_FEATURE_FIELDS) {
+            if (typeof corpus.features[field] !== "boolean") errors.push(issue(`${path}.features.${field}`, "boolean", "Corpus feature flags must be booleans"));
+          }
+        }
+
+        if (requireExactKeys(corpus.data, COLLECTION_CORPUS_DATA_FIELDS, `${path}.data`, errors, {
+          optional: COLLECTION_CORPUS_DATA_FIELDS.filter(field => !REQUIRED_CORPUS_DATA_FIELDS.includes(field))
+        })) {
+          const localPaths = new Map();
+          for (const [field, value] of Object.entries(corpus.data)) {
+            const dataPath = safeRelativeDataPath(value, { template: field === "detail_template" });
+            if (!dataPath) {
+              errors.push(issue(`${path}.data.${field}`, "path", "Corpus data path must be safe and collection-relative"));
+              continue;
+            }
+            const normalized = field === "detail_template" ? dataPath.replace("{shard}", "000") : dataPath;
+            if (localPaths.has(normalized)) errors.push(issue(`${path}.data.${field}`, "duplicate", `Corpus data path duplicates ${localPaths.get(normalized)}`));
+            else localPaths.set(normalized, field);
+            if (routedPaths.has(normalized)) errors.push(issue(`${path}.data.${field}`, "duplicate", `Corpus data path duplicates ${routedPaths.get(normalized)}`));
+            else routedPaths.set(normalized, `${path}.data.${field}`);
+          }
+          for (const [feature, dataField] of requiredFeaturePaths) {
+            if (dataField !== "hierarchy" && corpus.features?.[feature] === true && !corpus.data?.[dataField]) {
+              errors.push(issue(`${path}.data.${dataField}`, "feature", `Corpus data path is required when features.${feature} is enabled`));
+            }
+          }
+        }
+
+        if (!Array.isArray(corpus.facets) || corpus.facets.length === 0) {
+          errors.push(issue(`${path}.facets`, "array", "At least one corpus facet is required"));
+        } else {
+          const seen = new Set();
+          corpus.facets.forEach((facet, facetIndex) => {
+            if (!COLLECTION_FACET_IDS.includes(facet) || seen.has(facet)) errors.push(issue(`${path}.facets[${facetIndex}]`, "facet", "Corpus facet is unknown or duplicated"));
+            seen.add(facet);
+          });
+        }
+
+        if (!Array.isArray(corpus.orders) || corpus.orders.length === 0) {
+          errors.push(issue(`${path}.orders`, "array", "At least one corpus order is required"));
+        } else {
+          const seen = new Set();
+          corpus.orders.forEach((order, orderIndex) => {
+            const orderPath = `${path}.orders[${orderIndex}]`;
+            if (!requireExactKeys(order, ORDER_FIELDS, orderPath, errors)) return;
+            if (!COLLECTION_ORDER_IDS.includes(order.id) || seen.has(order.id)) errors.push(issue(`${orderPath}.id`, "order", "Corpus order is unknown or duplicated"));
+            if (!cleanString(order.label)) errors.push(issue(`${orderPath}.label`, "string", "Corpus order label is required"));
+            seen.add(order.id);
+          });
+          if (!seen.has(corpus.default_order)) errors.push(issue(`${path}.default_order`, "order", "Corpus default order must be declared"));
+          if (corpusId === "historical" && (!seen.has("sowerby") || corpus.default_order !== "sowerby")) {
+            errors.push(issue(`${path}.default_order`, "order", "The historical corpus must declare and default to Sowerby order"));
+          }
+        }
+      });
+
+      const defaultCorpus = corpusById.get(raw.defaults?.corpus);
+      if (!defaultCorpus) {
+        errors.push(issue("defaults.corpus", "corpus", "Default corpus must have a declared corpus package"));
+      } else {
+        if (raw.defaults.order !== defaultCorpus.default_order) errors.push(issue("defaults.order", "order", "Default order must match the default corpus"));
+        if (JSON.stringify(raw.coverage) !== JSON.stringify(defaultCorpus.coverage)) errors.push(issue("coverage", "corpus", "Top-level coverage must describe the default corpus"));
+        for (const field of CORPUS_COPY_FIELDS) {
+          if (raw.copy?.[field] !== defaultCorpus.copy?.[field]) errors.push(issue(`copy.${field}`, "corpus", "Top-level corpus copy must match the default corpus"));
+        }
+        if (JSON.stringify(raw.facets) !== JSON.stringify(defaultCorpus.facets)
+          || JSON.stringify(raw.orders) !== JSON.stringify(defaultCorpus.orders)
+          || JSON.stringify(raw.features) !== JSON.stringify(defaultCorpus.features)) {
+          errors.push(issue("defaults", "corpus", "Top-level features, facets, and orders must match the default corpus"));
+        }
+        for (const field of topLevelCorpusFields) {
+          if (raw.data?.[field] !== defaultCorpus.data?.[field]) {
+            errors.push(issue(`data.${field}`, "corpus", "Top-level routed data must match the default corpus"));
+          }
+        }
+      }
     }
   }
 
@@ -298,12 +475,71 @@ export function parseCollectionManifest(raw, { expectedId = "" } = {}) {
   return { rejected: false, errors: [], manifest: structuredClone(raw) };
 }
 
+/** Return declared corpora, or a normalized single-corpus view of a legacy manifest. */
+export function collectionCorpusOptions(manifest) {
+  if (!isObject(manifest) || ![COLLECTION_MANIFEST_SCHEMA, COLLECTION_MANIFEST_SCHEMA_V2].includes(manifest.schema)) return [];
+  if (manifest.schema === COLLECTION_MANIFEST_SCHEMA_V2 && Array.isArray(manifest.corpora) && manifest.corpora.length) {
+    return manifest.corpora.map(corpus => structuredClone(corpus));
+  }
+  const corpusId = COLLECTION_CORPUS_IDS.includes(manifest.defaults?.corpus) ? manifest.defaults.corpus : "catalog";
+  return [{
+    id: corpusId,
+    label: corpusId === "historical" ? "Historical Sowerby corpus" : (manifest.id === "jefferson" ? "Current LOC catalog" : "Catalog"),
+    record_id_prefix: manifest.id === "jefferson" ? "jefferson-loc-" : "",
+    copy: {
+      status_label: manifest.copy?.status_label || "Collection",
+      introduction: manifest.copy?.introduction || "",
+      coverage_statement: manifest.copy?.coverage_statement || "",
+      source_label: manifest.copy?.source_label || "source catalog"
+    },
+    coverage: structuredClone(manifest.coverage || {}),
+    data: structuredClone(manifest.data || {}),
+    features: structuredClone(manifest.features || {}),
+    facets: [...(manifest.facets || [])],
+    orders: structuredClone(manifest.orders || []),
+    default_order: manifest.defaults?.order || manifest.orders?.[0]?.id || "catalog"
+  }];
+}
+
+/** Select a declared corpus, falling back only to the manifest's validated default. */
+export function resolveCollectionCorpus(manifest, requestedCorpus = "") {
+  const corpora = collectionCorpusOptions(manifest);
+  if (!corpora.length) return null;
+  const requested = cleanString(requestedCorpus).toLocaleLowerCase();
+  return corpora.find(corpus => corpus.id === requested)
+    || corpora.find(corpus => corpus.id === manifest.defaults?.corpus)
+    || corpora[0];
+}
+
+/**
+ * Resolve URL state without breaking pre-corpus record deep links. Prefix
+ * inference applies only when the URL omitted `corpus`; an explicit corpus is
+ * never silently changed to accommodate a foreign record ID.
+ */
+export function resolveCollectionCorpusForState(manifest, { requestedCorpus = "", recordId = "" } = {}) {
+  const requested = cleanString(requestedCorpus).toLocaleLowerCase();
+  if (requested) return resolveCollectionCorpus(manifest, requested);
+  const record = cleanString(recordId);
+  if (record) {
+    const matches = collectionCorpusOptions(manifest).filter(corpus => {
+      const prefix = cleanString(corpus.record_id_prefix).toLocaleLowerCase();
+      return prefix && record.startsWith(prefix);
+    });
+    if (matches.length === 1) return matches[0];
+  }
+  return resolveCollectionCorpus(manifest, "");
+}
+
 /** Resolve a validated manifest path relative to the manifest itself. */
-export function collectionDataUrl(manifest, field, manifestUrl, { shard } = {}) {
-  if (!isObject(manifest) || manifest.schema !== COLLECTION_MANIFEST_SCHEMA || !COLLECTION_DATA_FIELDS.includes(field)) {
+export function collectionDataUrl(manifest, field, manifestUrl, { shard, corpus = "" } = {}) {
+  if (!isObject(manifest) || ![COLLECTION_MANIFEST_SCHEMA, COLLECTION_MANIFEST_SCHEMA_V2].includes(manifest.schema) || !COLLECTION_DATA_FIELDS.includes(field)) {
     throw new TypeError("A validated collection manifest and known data field are required");
   }
-  let path = safeRelativeDataPath(manifest.data?.[field], { template: field === "detail_template" });
+  const selectedCorpus = resolveCollectionCorpus(manifest, corpus);
+  if (corpus && (!selectedCorpus || selectedCorpus.id !== corpus)) throw new TypeError(`Collection corpus is unavailable: ${corpus}`);
+  const corpusRouted = manifest.schema === COLLECTION_MANIFEST_SCHEMA_V2 && COLLECTION_CORPUS_DATA_FIELDS.includes(field);
+  const data = corpusRouted ? selectedCorpus?.data : manifest.data;
+  let path = safeRelativeDataPath(data?.[field], { template: field === "detail_template" });
   if (!path) throw new TypeError(`Collection data path is unavailable: ${field}`);
   if (field === "detail_template") {
     if (!Number.isInteger(shard) || shard < 0 || shard > 999) throw new TypeError("Detail shard must be an integer from 0 to 999");

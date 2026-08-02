@@ -115,6 +115,7 @@ export async function createReceipt(options = {}) {
     annotations = {},
     datasetId = 'sekula',
     datasetName = 'Allan Sekula Library',
+    datasetCorpus = '',
     datasetHash = null,
     datasetUrl = null,
     appVersion = '2.0.0',
@@ -131,6 +132,13 @@ export async function createReceipt(options = {}) {
   }
   
   // Build receipt payload (without hash yet)
+  const dataset = {
+    id: datasetId,
+    name: datasetName,
+    indexHash: indexHash
+  };
+  if (String(datasetCorpus || '').trim()) dataset.corpus = String(datasetCorpus).trim().toLowerCase();
+
   const payload = {
     schema: 'shelfsignals-receipt@2',
     createdAt: new Date().toISOString(),
@@ -139,11 +147,7 @@ export async function createReceipt(options = {}) {
       channel: appChannel,
       version: appVersion
     },
-    dataset: {
-      id: datasetId,
-      name: datasetName,
-      indexHash: indexHash
-    },
+    dataset,
     mode: mode,
     items: items.map(item => item.id || item),
     filters: filters,

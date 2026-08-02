@@ -36,12 +36,37 @@ export function resolveShelfRecords(ids = [], records = []) {
   return normalizeIds(ids).map(id => byId.get(id)).filter(Boolean);
 }
 
-export function restoreShelfFromReceipt(receipt = {}, records = [], { collectionId = "sekula" } = {}) {
+/** Replace one corpus slice while preserving IDs saved from sibling corpora. */
+export function mergeShelfIdsForCorpus(existingIds = [], restoredIds = [], records = [], { recordIdPrefix = "" } = {}) {
+  const activeIds = new Set(records.map(record => record?.id).filter(Boolean).map(String));
+  const prefix = typeof recordIdPrefix === "string" ? recordIdPrefix.trim() : "";
+  const belongsToActiveCorpus = id => prefix ? id.startsWith(prefix) : activeIds.has(id);
+  return normalizeIds([
+    ...normalizeIds(existingIds).filter(id => !belongsToActiveCorpus(id)),
+    ...normalizeIds(restoredIds).filter(id => activeIds.has(id))
+  ]);
+}
+
+export function restoreShelfFromReceipt(receipt = {}, records = [], {
+  collectionId = "sekula",
+  corpusId = "",
+  datasetHash = ""
+} = {}) {
   const isLegacySekulaReceipt = receipt?.schema === "shelfsignals-receipt@1" && collectionId === "sekula";
   const isMatchingCollectionReceipt = receipt?.schema === "shelfsignals-receipt@2"
     && receipt?.dataset?.id === collectionId;
   if ((!isLegacySekulaReceipt && !isMatchingCollectionReceipt) || !Array.isArray(receipt?.items)) {
     return { valid: false, ids: [], missing: [] };
+  }
+  if (isMatchingCollectionReceipt) {
+    const declaredCorpus = typeof receipt.dataset?.corpus === "string" ? receipt.dataset.corpus.trim().toLocaleLowerCase() : "";
+    const receiptCorpus = declaredCorpus || (collectionId === "jefferson" ? "catalog" : "");
+    if (corpusId && receiptCorpus !== corpusId) return { valid: false, ids: [], missing: [] };
+    const expectedHash = String(datasetHash || "").replace(/^sha256:/i, "").toLocaleLowerCase();
+    const receiptHash = String(receipt.dataset?.indexHash || "").replace(/^sha256:/i, "").toLocaleLowerCase();
+    if (expectedHash && (!/^[a-f0-9]{64}$/.test(receiptHash) || receiptHash !== expectedHash)) {
+      return { valid: false, ids: [], missing: [] };
+    }
   }
   const available = new Set(records.map(record => record.id));
   const requested = normalizeIds(receipt.items);

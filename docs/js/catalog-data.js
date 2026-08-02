@@ -21,6 +21,14 @@ export const CATALOG_SEARCH_SCHEMA_V2 = "shelfsignals-catalog-search@2";
 export const CATALOG_DETAIL_SCHEMA_V2 = "shelfsignals-catalog-detail-shard@2";
 export const CATALOG_DETAIL_INDEX_SCHEMA_V2 = "shelfsignals-catalog-detail-index@2";
 
+// Historical entries deliberately use a separate contract. The version-2
+// catalog contract above describes modern catalog instances and cannot safely
+// carry Sowerby-entry identity, ordering, or provenance semantics.
+export const HISTORICAL_CATALOG_SCHEMA = "shelfsignals-browser-historical@1";
+export const HISTORICAL_SEARCH_SCHEMA = "shelfsignals-historical-search@1";
+export const HISTORICAL_DETAIL_SCHEMA = "shelfsignals-historical-detail-shard@1";
+export const HISTORICAL_DETAIL_INDEX_SCHEMA = "shelfsignals-historical-detail-index@1";
+
 export const CORE_FIELDS = Object.freeze([
   "id",
   "title",
@@ -113,6 +121,50 @@ export const DETAIL_FIELDS_V2 = Object.freeze([
   "source"
 ]);
 
+export const HISTORICAL_CORE_FIELDS = Object.freeze([
+  "id",
+  "entity_type",
+  "sowerby_identifier",
+  "title",
+  "title_status",
+  "creators",
+  "date",
+  "material_type",
+  "formats",
+  "source_url",
+  "faculty",
+  "chapter_number",
+  "chapter_label",
+  "orders",
+  "evidence_status",
+  "detail_shard"
+]);
+export const HISTORICAL_SEARCH_FIELDS = Object.freeze(["id", "search_text"]);
+export const HISTORICAL_DETAIL_FIELDS = Object.freeze([
+  "id",
+  "entity_type",
+  "sowerby_identifier",
+  "full_title",
+  "title_status",
+  "alternative_titles",
+  "creators",
+  "contributors",
+  "publication",
+  "languages",
+  "subjects",
+  "formats",
+  "material_type",
+  "faculty",
+  "chapter_number",
+  "chapter_label",
+  "source_url",
+  "relationship_to_jefferson",
+  "ownership_or_reconstruction_status",
+  "links",
+  "assertions",
+  "source"
+]);
+
 const SOURCE_FIELDS_V2 = Object.freeze([
   "collection_id", "catalog", "dataset", "dataset_sha256", "record_count", "id_set_sha256"
 ]);
@@ -138,6 +190,31 @@ const FIELD_EVIDENCE_FIELDS_V2 = Object.freeze([
 ]);
 const ASSERTION_FIELDS_V2 = Object.freeze(["status", "assertion", "source"]);
 const DETAIL_SOURCE_FIELDS_V2 = Object.freeze(["authority", "catalog_entity_id", "record_sha256", "source_position"]);
+const HISTORICAL_SOURCE_FIELDS = Object.freeze([
+  "collection_id", "corpus_id", "authority", "publication_basis", "rights_statement_url", "rights_statement_sha256",
+  "dataset", "dataset_sha256", "record_count", "id_set_sha256"
+]);
+const HISTORICAL_CORE_CONTRACT_FIELDS = Object.freeze([
+  "core_fields", "detail_fields", "detail_shard_count", "detail_path_template", "search_path", "record_id_prefix"
+]);
+const HISTORICAL_ORDER_FIELDS = Object.freeze(["sowerby", "title"]);
+const HISTORICAL_CONTRIBUTOR_FIELDS = Object.freeze(["name", "role", "primary"]);
+const HISTORICAL_PUBLICATION_FIELDS = Object.freeze(["date", "places", "publishers"]);
+const HISTORICAL_LINK_FIELDS = Object.freeze([
+  "catalog_instances", "editions", "volumes", "physical_copies", "holdings", "digital_objects"
+]);
+const HISTORICAL_ASSERTION_FIELDS = Object.freeze([
+  "field", "status", "value", "source", "source_url", "evidence_sha256", "as_of"
+]);
+const HISTORICAL_DETAIL_SOURCE_FIELDS = Object.freeze([
+  "authority", "publication_basis", "rights_statement_url", "rights_statement_sha256", "sowerby_identifier",
+  "source_url", "record_sha256", "source_position"
+]);
+const HISTORICAL_PUBLICATION_BASES = Object.freeze(["loc_scan_ocr_factual_extraction", "loc_authorized_export"]);
+const HISTORICAL_EVIDENCE_STATUSES = Object.freeze(["sowerby_entry_page_resolved", "sowerby_entry_aggregate_spine"]);
+const LOC_SOURCE_HOSTS = new Set(["loc.gov", "www.loc.gov", "tile.loc.gov"]);
+const HISTORICAL_NUMBERING_FIELDS = Object.freeze(["max_source_serial", "source_backed_entry_count", "gaps"]);
+const HISTORICAL_NUMBERING_GAP_FIELDS = Object.freeze(["identifier", "status", "evidence", "source_url"]);
 
 const ARRAY_DETAIL_FIELDS = new Set([
   "alternative_titles", "contributors", "languages", "identifiers", "publishers", "places", "series",
@@ -148,6 +225,8 @@ const STRING_DETAIL_FIELDS = new Set(DETAIL_FIELDS.filter(field => field !== "id
 const SHA256 = /^sha256:[a-f0-9]{64}$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/;
 const SAFE_ID = /^[A-Za-z0-9._~-]+$/;
+const SAFE_RECORD_PREFIX = /^[a-z][a-z0-9-]{2,63}-$/;
+const SOWERBY_IDENTIFIER = /^[1-9][0-9]{0,4}(?:(?:[a-z])|(?:[.-][a-z0-9]+))*$/;
 
 /** @typedef {{path: string, code: string, message: string}} CatalogIssue */
 
@@ -235,6 +314,52 @@ function validGenericSource(source, {
     }
   }
   return true;
+}
+
+function validHistoricalSource(source, {
+  expectedSource = null,
+  collectionId = "",
+  corpusId = "historical",
+  datasetSha256 = "",
+  recordCount = 0
+} = {}) {
+  if (!exactObjectFields(source, HISTORICAL_SOURCE_FIELDS)) return false;
+  if (!validCollectionId(source.collection_id) || source.corpus_id !== "historical") return false;
+  if (source.authority !== "Library of Congress" || !HISTORICAL_PUBLICATION_BASES.includes(source.publication_basis)) return false;
+  if (!safeLocSourceUrl(source.rights_statement_url, { optional: false }) || !SHA256.test(cleanString(source.rights_statement_sha256))) return false;
+  if (!cleanString(source.dataset) || /[\0-\x1f\x7f]/.test(source.dataset) || /monticello/i.test(source.dataset)) return false;
+  if (!SHA256.test(cleanString(source.dataset_sha256)) || !SHA256.test(cleanString(source.id_set_sha256))) return false;
+  if (!Number.isInteger(source.record_count) || source.record_count <= 0) return false;
+  if (collectionId && source.collection_id !== collectionId) return false;
+  if (corpusId && source.corpus_id !== corpusId) return false;
+  if (datasetSha256 && source.dataset_sha256 !== datasetSha256) return false;
+  if (recordCount && source.record_count !== recordCount) return false;
+  if (isObject(expectedSource)) {
+    for (const field of HISTORICAL_SOURCE_FIELDS) {
+      if (source[field] !== expectedSource[field]) return false;
+    }
+  }
+  return true;
+}
+
+function safeRecordPrefix(value) {
+  const prefix = cleanString(value).toLocaleLowerCase();
+  return SAFE_RECORD_PREFIX.test(prefix) ? prefix : "";
+}
+
+function safeLocSourceUrl(value, { optional = false } = {}) {
+  const url = safeHttpsUrl(value, { optional });
+  if (url == null || (!url && optional)) return url;
+  try {
+    return LOC_SOURCE_HOSTS.has(new URL(url).hostname.toLocaleLowerCase()) ? url : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function validSowerbyIdentity(id, identifier, prefix) {
+  const normalizedIdentifier = cleanString(identifier).toLocaleLowerCase();
+  return Boolean(prefix && SOWERBY_IDENTIFIER.test(normalizedIdentifier) && id === `${prefix}${normalizedIdentifier}`);
 }
 
 function safeRelativeProjectionPath(value, { template = false } = {}) {
@@ -682,11 +807,158 @@ function parseBrowserCatalogV2(raw, { collectionId = "" } = {}) {
   };
 }
 
+function parseHistoricalCatalog(raw, {
+  collectionId = "",
+  corpusId = "",
+  entityType = "",
+  recordIdPrefix = "",
+  detailPathTemplate = "",
+  searchPath = ""
+} = {}) {
+  const errors = [];
+  const prefix = safeRecordPrefix(recordIdPrefix);
+  addUnknownFieldIssues(raw, ["schema", "generated_at", "source", "numbering", "contract", "items"], "historical", errors);
+  if (raw?.schema !== HISTORICAL_CATALOG_SCHEMA) errors.push(issue("schema", "schema", "Unsupported historical catalog schema"));
+  if (!ISO_DATE.test(cleanString(raw?.generated_at))) errors.push(issue("generated_at", "date", "A UTC generation time is required"));
+  if (corpusId !== "historical" || entityType !== "sowerby_entry" || !prefix) {
+    errors.push(issue("options", "corpus", "Historical parsing requires the selected corpus, entity type, and record prefix"));
+  }
+  if (!validHistoricalSource(raw?.source, { collectionId, corpusId })) {
+    errors.push(issue("source", "source", "Historical source identity does not match the selected corpus"));
+  }
+  addUnknownFieldIssues(raw?.numbering, HISTORICAL_NUMBERING_FIELDS, "numbering", errors);
+  const maxSourceSerial = Number(raw?.numbering?.max_source_serial);
+  if (!Number.isInteger(maxSourceSerial) || maxSourceSerial <= 0) errors.push(issue("numbering.max_source_serial", "count", "Historical max source serial must be positive"));
+  if (raw?.numbering?.source_backed_entry_count !== raw?.source?.record_count) errors.push(issue("numbering.source_backed_entry_count", "count", "Historical numbering count must match the projected source-backed entries"));
+  const numberingGaps = decodeExactObjectArrayV2(raw?.numbering?.gaps, HISTORICAL_NUMBERING_GAP_FIELDS, "numbering.gaps", errors, (entry, entryPath) => {
+    const identifier = cleanString(entry.identifier).toLocaleLowerCase();
+    const sourceUrl = safeLocSourceUrl(entry.source_url, { optional: false });
+    if (!SOWERBY_IDENTIFIER.test(identifier) || entry.status !== "source_number_absent" || !cleanString(entry.evidence) || !sourceUrl) {
+      errors.push(issue(entryPath, "numbering", "Historical numbering gaps require an identifier, absence status, evidence, and loc.gov source"));
+    }
+    return { identifier, status: String(entry.status || ""), evidence: String(entry.evidence || ""), source_url: sourceUrl || "" };
+  });
+  if (new Set(numberingGaps.map(gap => gap.identifier)).size !== numberingGaps.length) errors.push(issue("numbering.gaps", "duplicate", "Historical numbering gaps must be unique"));
+  addUnknownFieldIssues(raw?.contract, HISTORICAL_CORE_CONTRACT_FIELDS, "contract", errors);
+  if (!exactFields(raw?.contract?.core_fields, HISTORICAL_CORE_FIELDS)) errors.push(issue("contract.core_fields", "fields", "Historical core field order changed"));
+  if (!exactFields(raw?.contract?.detail_fields, HISTORICAL_DETAIL_FIELDS)) errors.push(issue("contract.detail_fields", "fields", "Historical detail field order changed"));
+  const shardCount = Number(raw?.contract?.detail_shard_count);
+  if (!Number.isInteger(shardCount) || shardCount < 1 || shardCount > 1000) errors.push(issue("contract.detail_shard_count", "range", "Historical detail shard count is invalid"));
+  const declaredDetailPath = safeRelativeProjectionPath(raw?.contract?.detail_path_template, { template: true });
+  const declaredSearchPath = safeRelativeProjectionPath(raw?.contract?.search_path);
+  if (!declaredDetailPath || (detailPathTemplate && declaredDetailPath !== detailPathTemplate)) errors.push(issue("contract.detail_path_template", "path", "Historical detail path does not match the selected corpus"));
+  if (!declaredSearchPath || (searchPath && declaredSearchPath !== searchPath)) errors.push(issue("contract.search_path", "path", "Historical search path does not match the selected corpus"));
+  if (safeRecordPrefix(raw?.contract?.record_id_prefix) !== prefix) errors.push(issue("contract.record_id_prefix", "id", "Historical record prefix does not match the selected corpus"));
+  if (!Array.isArray(raw?.items)) errors.push(issue("items", "array", "Historical items must be an array"));
+  if (errors.length) return { rejected: true, errors, source: null, records: [] };
+
+  const records = [];
+  const ids = new Set();
+  const identifiers = new Set();
+  const sowerbyRanks = new Set();
+  const titleRanks = new Set();
+  raw.items.forEach((row, index) => {
+    const path = `items[${index}]`;
+    if (!Array.isArray(row) || row.length !== HISTORICAL_CORE_FIELDS.length) {
+      errors.push(issue(path, "row", "Historical core row length is invalid"));
+      return;
+    }
+    const values = Object.fromEntries(HISTORICAL_CORE_FIELDS.map((field, fieldIndex) => [field, row[fieldIndex]]));
+    const id = cleanString(values.id);
+    const identifier = cleanString(values.sowerby_identifier).toLocaleLowerCase();
+    if (!SAFE_ID.test(id) || ids.has(id) || !validSowerbyIdentity(id, identifier, prefix)) errors.push(issue(`${path}.id`, "id", "Historical ID is unsafe, duplicated, or inconsistent with its Sowerby identifier"));
+    if (values.entity_type !== "sowerby_entry") errors.push(issue(`${path}.entity_type`, "entity", "Historical core rows must be Sowerby entries"));
+    const titleStatus = cleanString(values.title_status);
+    const sourceTitle = cleanString(values.title);
+    if (!["source_backed", "not_established"].includes(titleStatus)
+      || (titleStatus === "source_backed" && !sourceTitle)
+      || (titleStatus === "not_established" && sourceTitle)) {
+      errors.push(issue(`${path}.title_status`, "title", "Historical title and title status are inconsistent"));
+    }
+    const creators = decodeStringArrayV2(values.creators, `${path}.creators`, errors);
+    const formats = decodeStringArrayV2(values.formats, `${path}.formats`, errors);
+    for (const field of ["date", "material_type", "faculty", "chapter_label"]) {
+      if (typeof values[field] !== "string" || ((field === "faculty" || field === "chapter_label") && !cleanString(values[field]))) {
+        errors.push(issue(`${path}.${field}`, "string", "Historical scalar field is invalid"));
+      }
+    }
+    const chapterNumber = Number(values.chapter_number);
+    if (!Number.isInteger(chapterNumber) || chapterNumber < 1 || chapterNumber > 44) errors.push(issue(`${path}.chapter_number`, "chapter", "Historical chapter number must be from 1 to 44"));
+    const sourceUrl = safeLocSourceUrl(values.source_url, { optional: false });
+    if (!sourceUrl) errors.push(issue(`${path}.source_url`, "url", "Historical source URL must resolve to loc.gov"));
+    addUnknownFieldIssues(values.orders, HISTORICAL_ORDER_FIELDS, `${path}.orders`, errors);
+    const sowerbyOrder = Number(values.orders?.sowerby);
+    const titleOrder = Number(values.orders?.title);
+    if (!Number.isInteger(sowerbyOrder) || sowerbyOrder < 0 || sowerbyRanks.has(sowerbyOrder)) errors.push(issue(`${path}.orders.sowerby`, "order", "Historical Sowerby sequence rank is invalid or duplicated"));
+    if (!Number.isInteger(titleOrder) || titleOrder < 0 || titleRanks.has(titleOrder)) errors.push(issue(`${path}.orders.title`, "order", "Historical title rank is invalid or duplicated"));
+    sowerbyRanks.add(sowerbyOrder);
+    titleRanks.add(titleOrder);
+    if (!HISTORICAL_EVIDENCE_STATUSES.includes(values.evidence_status)) errors.push(issue(`${path}.evidence_status`, "evidence", "Historical evidence status is invalid"));
+    const detailShard = Number(values.detail_shard);
+    if (!Number.isInteger(detailShard) || detailShard < 0 || detailShard >= shardCount || stableCatalogShard(id, shardCount) !== detailShard) {
+      errors.push(issue(`${path}.detail_shard`, "shard", "Historical record is assigned to the wrong detail shard"));
+    }
+    ids.add(id);
+    identifiers.add(identifier);
+    records.push({
+      ...emptyDetailsV2(),
+      id,
+      entity_type: "sowerby_entry",
+      sowerby_identifier: identifier,
+      title: sourceTitle || `Sowerby entry ${identifier} — title not established`,
+      source_title: sourceTitle,
+      title_status: titleStatus,
+      authors: creators,
+      year: String(values.date || ""),
+      call_number: "",
+      material_type: String(values.material_type || ""),
+      formats,
+      record_url: sourceUrl || "",
+      catalogLink: sourceUrl || "",
+      faculty: String(values.faculty || ""),
+      chapter_number: chapterNumber,
+      chapter_label: String(values.chapter_label || ""),
+      facets: { lc: [], material: cleanString(values.material_type) ? [String(values.material_type)] : [], decade: [] },
+      orders: { title: titleOrder, lc: null, sowerby: sowerbyOrder },
+      evidence_status: String(values.evidence_status || ""),
+      detail_shard: detailShard,
+      placements: [],
+      signals: [],
+      photo_insert_bucket: "",
+      photo_insert_score: null,
+      searchText: "",
+      detail_hydrated: false
+    });
+  });
+
+  const expectedCount = raw.source.record_count;
+  if (records.length !== expectedCount) errors.push(issue("items", "count", "Historical core count does not match its source"));
+  if ([...identifiers].some(identifier => Number.parseInt(identifier, 10) > maxSourceSerial)) errors.push(issue("numbering.max_source_serial", "count", "Historical identifier exceeds the declared max source serial"));
+  for (const gap of numberingGaps) {
+    if (identifiers.has(gap.identifier)) errors.push(issue("numbering.gaps", "conflation", `Source numbering gap ${gap.identifier} cannot also be a source-backed entry`));
+  }
+  for (const [name, ranks] of [["sowerby", sowerbyRanks], ["title", titleRanks]]) {
+    if (ranks.size !== expectedCount || [...ranks].sort((a, b) => a - b).some((rank, index) => rank !== index)) {
+      errors.push(issue(`items.orders.${name}`, "order", `Historical ${name} ranks must be unique and dense from zero`));
+    }
+  }
+  if (errors.length) return { rejected: true, errors, source: null, records: [] };
+  return {
+    rejected: false,
+    errors: [],
+    source: { ...raw.source },
+    generated_at: raw.generated_at,
+    numbering: structuredClone(raw.numbering),
+    detailShardCount: shardCount,
+    detailFields: [...HISTORICAL_DETAIL_FIELDS],
+    records
+  };
+}
+
 /** Parse a compact first-load projection. Version 1 behavior is unchanged. */
 export function parseBrowserCatalog(raw, options = {}) {
-  return raw?.schema === BROWSER_CATALOG_SCHEMA_V2
-    ? parseBrowserCatalogV2(raw, options)
-    : parseBrowserCatalogV1(raw);
+  if (raw?.schema === HISTORICAL_CATALOG_SCHEMA) return parseHistoricalCatalog(raw, options);
+  return raw?.schema === BROWSER_CATALOG_SCHEMA_V2 ? parseBrowserCatalogV2(raw, options) : parseBrowserCatalogV1(raw);
 }
 
 /** Parse the full-field search projection. It is loaded only after a query. */
@@ -757,11 +1029,51 @@ function parseCatalogSearchIndexV2(raw, {
     : { rejected: false, errors: [], source: { ...raw.source }, searchById };
 }
 
+function parseHistoricalSearchIndex(raw, {
+  datasetSha256 = "",
+  catalogIds = [],
+  collectionId = "",
+  corpusId = "",
+  recordIdPrefix = "",
+  catalogSource = null
+} = {}) {
+  const errors = [];
+  const ids = asCatalogIdSet(catalogIds);
+  const prefix = safeRecordPrefix(recordIdPrefix);
+  if (!ids.size || corpusId !== "historical" || !prefix) errors.push(issue("options", "corpus", "Validated historical IDs, corpus, and prefix are required"));
+  addUnknownFieldIssues(raw, ["schema", "generated_at", "source", "fields", "items"], "search", errors);
+  if (raw?.schema !== HISTORICAL_SEARCH_SCHEMA) errors.push(issue("schema", "schema", "Unsupported historical search schema"));
+  if (!ISO_DATE.test(cleanString(raw?.generated_at))) errors.push(issue("generated_at", "date", "A UTC generation time is required"));
+  if (!validHistoricalSource(raw?.source, {
+    expectedSource: catalogSource,
+    collectionId,
+    corpusId,
+    datasetSha256,
+    recordCount: ids.size
+  })) errors.push(issue("source", "source", "Historical search source does not match the active corpus"));
+  if (!exactFields(raw?.fields, HISTORICAL_SEARCH_FIELDS)) errors.push(issue("fields", "fields", "Historical search field order changed"));
+  if (!Array.isArray(raw?.items)) errors.push(issue("items", "array", "Historical search items must be an array"));
+  if (errors.length) return { rejected: true, errors, searchById: new Map() };
+
+  const searchById = new Map();
+  raw.items.forEach((row, index) => {
+    const id = cleanString(row?.[0]);
+    const searchText = typeof row?.[1] === "string" ? row[1] : "";
+    if (!Array.isArray(row) || row.length !== HISTORICAL_SEARCH_FIELDS.length || !id.startsWith(prefix)
+      || !ids.has(id) || searchById.has(id) || !searchText) {
+      errors.push(issue(`items[${index}]`, "record", "Historical search row is unknown, duplicated, malformed, or empty"));
+    } else searchById.set(id, searchText);
+  });
+  if (searchById.size !== ids.size) errors.push(issue("items", "count", "Historical search does not cover the complete corpus"));
+  return errors.length
+    ? { rejected: true, errors, searchById: new Map() }
+    : { rejected: false, errors: [], source: { ...raw.source }, searchById };
+}
+
 /** Parse a full-field search projection and enforce same-collection identity. */
 export function parseCatalogSearchIndex(raw, options = {}) {
-  return raw?.schema === CATALOG_SEARCH_SCHEMA_V2
-    ? parseCatalogSearchIndexV2(raw, options)
-    : parseCatalogSearchIndexV1(raw, options);
+  if (raw?.schema === HISTORICAL_SEARCH_SCHEMA) return parseHistoricalSearchIndex(raw, options);
+  return raw?.schema === CATALOG_SEARCH_SCHEMA_V2 ? parseCatalogSearchIndexV2(raw, options) : parseCatalogSearchIndexV1(raw, options);
 }
 
 function decodeDetailRow(row, path, errors) {
@@ -788,6 +1100,145 @@ function decodeDetailRow(row, path, errors) {
     }
   });
   return detail;
+}
+
+function decodeHistoricalDetailRow(row, path, errors, { collectionId = "", recordIdPrefix = "" } = {}) {
+  if (!Array.isArray(row) || row.length !== HISTORICAL_DETAIL_FIELDS.length) {
+    errors.push(issue(path, "row", "Historical detail row length is invalid"));
+    return null;
+  }
+  const raw = Object.fromEntries(HISTORICAL_DETAIL_FIELDS.map((field, index) => [field, row[index]]));
+  const id = cleanString(raw.id);
+  const identifier = cleanString(raw.sowerby_identifier).toLocaleLowerCase();
+  const prefix = safeRecordPrefix(recordIdPrefix);
+  if (!validSowerbyIdentity(id, identifier, prefix)) errors.push(issue(`${path}.id`, "id", "Historical detail identity does not match its Sowerby identifier"));
+  if (raw.entity_type !== "sowerby_entry") errors.push(issue(`${path}.entity_type`, "entity", "Historical detail rows must be Sowerby entries"));
+  const titleStatus = cleanString(raw.title_status);
+  const fullTitle = cleanString(raw.full_title);
+  if (!["source_backed", "not_established"].includes(titleStatus)
+    || (titleStatus === "source_backed" && !fullTitle)
+    || (titleStatus === "not_established" && fullTitle)) {
+    errors.push(issue(`${path}.title_status`, "title", "Historical full title and title status are inconsistent"));
+  }
+  const alternativeTitles = decodeStringArrayV2(raw.alternative_titles, `${path}.alternative_titles`, errors);
+  const creators = decodeStringArrayV2(raw.creators, `${path}.creators`, errors);
+  const contributors = decodeExactObjectArrayV2(raw.contributors, HISTORICAL_CONTRIBUTOR_FIELDS, `${path}.contributors`, errors, (entry, entryPath) => {
+    if (!cleanString(entry.name) || typeof entry.role !== "string" || typeof entry.primary !== "boolean") errors.push(issue(entryPath, "contributor", "Historical contributor identity is invalid"));
+    return { name: String(entry.name || ""), role: String(entry.role || ""), primary: entry.primary === true };
+  });
+  addUnknownFieldIssues(raw.publication, HISTORICAL_PUBLICATION_FIELDS, `${path}.publication`, errors);
+  if (typeof raw.publication?.date !== "string") errors.push(issue(`${path}.publication.date`, "string", "Historical publication date must be a string"));
+  const publicationPlaces = decodeStringArrayV2(raw.publication?.places, `${path}.publication.places`, errors);
+  const publishers = decodeStringArrayV2(raw.publication?.publishers, `${path}.publication.publishers`, errors);
+  const languages = decodeStringArrayV2(raw.languages, `${path}.languages`, errors);
+  const subjects = decodeStringArrayV2(raw.subjects, `${path}.subjects`, errors);
+  const formats = decodeStringArrayV2(raw.formats, `${path}.formats`, errors);
+  for (const field of ["material_type", "faculty", "chapter_label"]) {
+    if (typeof raw[field] !== "string" || ((field === "faculty" || field === "chapter_label") && !cleanString(raw[field]))) errors.push(issue(`${path}.${field}`, "string", "Historical scalar field is invalid"));
+  }
+  const chapterNumber = Number(raw.chapter_number);
+  if (!Number.isInteger(chapterNumber) || chapterNumber < 1 || chapterNumber > 44) errors.push(issue(`${path}.chapter_number`, "chapter", "Historical chapter number must be from 1 to 44"));
+  const sourceUrl = safeLocSourceUrl(raw.source_url, { optional: false });
+  if (!sourceUrl) errors.push(issue(`${path}.source_url`, "url", "Historical source URL must resolve to loc.gov"));
+  if (raw.relationship_to_jefferson !== "historical_catalog_membership") errors.push(issue(`${path}.relationship_to_jefferson`, "relationship", "Historical entries must state catalog membership"));
+  const allowedStatuses = new Set(["not_established", "original", "period_replacement", "loc_surrogate", "missing"]);
+  if (!allowedStatuses.has(raw.ownership_or_reconstruction_status)) errors.push(issue(`${path}.ownership_or_reconstruction_status`, "status", "Historical reconstruction status is invalid"));
+
+  addUnknownFieldIssues(raw.links, HISTORICAL_LINK_FIELDS, `${path}.links`, errors);
+  const linkPrefixes = {
+    catalog_instances: `${collectionId}-loc-`,
+    editions: `${collectionId}-edition-`,
+    volumes: `${collectionId}-volume-`,
+    physical_copies: `${collectionId}-copy-`,
+    holdings: `${collectionId}-holding-`,
+    digital_objects: `${collectionId}-digital-`
+  };
+  const links = {};
+  const linkedIds = new Set();
+  for (const field of HISTORICAL_LINK_FIELDS) {
+    links[field] = decodeStringArrayV2(raw.links?.[field], `${path}.links.${field}`, errors);
+    for (const linkedId of links[field]) {
+      if (!SAFE_ID.test(linkedId) || !linkedId.startsWith(linkPrefixes[field]) || linkedIds.has(linkedId)) {
+        errors.push(issue(`${path}.links.${field}`, "relationship", "Historical relationship IDs must be typed, safe, and unique"));
+      }
+      linkedIds.add(linkedId);
+    }
+  }
+
+  const assertions = decodeExactObjectArrayV2(raw.assertions, HISTORICAL_ASSERTION_FIELDS, `${path}.assertions`, errors, (entry, entryPath) => {
+    const assertionSourceUrl = safeLocSourceUrl(entry.source_url, { optional: false });
+    if (!/^[a-z][a-z0-9_]*$/.test(cleanString(entry.field)) || !cleanString(entry.status)
+      || typeof entry.value !== "string" || !cleanString(entry.source) || /monticello/i.test(entry.source)
+      || !assertionSourceUrl || !SHA256.test(cleanString(entry.evidence_sha256))
+      || !/^\d{4}-\d{2}-\d{2}$/.test(cleanString(entry.as_of))) {
+      errors.push(issue(entryPath, "assertion", "Historical assertions require a field, status, value string, LOC source URL, evidence SHA-256, and as-of date"));
+    }
+    return {
+      field: String(entry.field || ""), status: String(entry.status || ""), value: String(entry.value || ""),
+      source: String(entry.source || ""), source_url: assertionSourceUrl || "",
+      evidence_sha256: String(entry.evidence_sha256 || ""), as_of: String(entry.as_of || "")
+    };
+  });
+  const assertionFields = new Set(assertions.map(assertion => assertion.field));
+  for (const field of ["title", "historical_catalog_membership", "historical_chapter", "historical_sequence"]) {
+    if (!assertionFields.has(field)) errors.push(issue(`${path}.assertions`, "provenance", `Historical assertion is missing required provenance for ${field}`));
+  }
+  if (raw.ownership_or_reconstruction_status !== "not_established" && !assertionFields.has("ownership_or_reconstruction_status")) {
+    errors.push(issue(`${path}.assertions`, "provenance", "Established reconstruction status requires its own evidence assertion"));
+  }
+  const titleAssertion = assertions.find(assertion => assertion.field === "title");
+  if (!titleAssertion || (titleStatus === "not_established" && (titleAssertion.status !== "not_established" || titleAssertion.value !== ""))
+    || (titleStatus === "source_backed" && (titleAssertion.status === "not_established" || titleAssertion.value !== fullTitle))) {
+    errors.push(issue(`${path}.assertions`, "provenance", "Title assertion must agree with the historical title status and value"));
+  }
+
+  addUnknownFieldIssues(raw.source, HISTORICAL_DETAIL_SOURCE_FIELDS, `${path}.source`, errors);
+  const detailSourceUrl = safeLocSourceUrl(raw.source?.source_url, { optional: false });
+  if (raw.source?.authority !== "Library of Congress" || !HISTORICAL_PUBLICATION_BASES.includes(raw.source?.publication_basis)
+    || !safeLocSourceUrl(raw.source?.rights_statement_url, { optional: false }) || !SHA256.test(cleanString(raw.source?.rights_statement_sha256))
+    || cleanString(raw.source?.sowerby_identifier).toLocaleLowerCase() !== identifier
+    || !detailSourceUrl || !SHA256.test(cleanString(raw.source?.record_sha256))
+    || !Number.isInteger(raw.source?.source_position) || raw.source.source_position <= 0) {
+    errors.push(issue(`${path}.source`, "source", "Historical detail source identity is incomplete or inconsistent"));
+  }
+
+  return {
+    id,
+    entity_type: "sowerby_entry",
+    sowerby_identifier: identifier,
+    full_title: fullTitle,
+    title_status: titleStatus,
+    alternative_titles: alternativeTitles,
+    creators,
+    contributors,
+    publication: {
+      date: String(raw.publication?.date || ""),
+      places: publicationPlaces,
+      publishers
+    },
+    languages,
+    subjects,
+    formats,
+    material_type: String(raw.material_type || ""),
+    faculty: String(raw.faculty || ""),
+    chapter_number: chapterNumber,
+    chapter_label: String(raw.chapter_label || ""),
+    source_url: sourceUrl || "",
+    relationship_to_jefferson: "historical_catalog_membership",
+    ownership_or_reconstruction_status: String(raw.ownership_or_reconstruction_status || ""),
+    historical_links: links,
+    historical_assertions: assertions,
+    source: {
+      authority: String(raw.source?.authority || ""),
+      publication_basis: String(raw.source?.publication_basis || ""),
+      rights_statement_url: String(raw.source?.rights_statement_url || ""),
+      rights_statement_sha256: String(raw.source?.rights_statement_sha256 || ""),
+      sowerby_identifier: identifier,
+      source_url: detailSourceUrl || "",
+      record_sha256: String(raw.source?.record_sha256 || ""),
+      source_position: Number(raw.source?.source_position || 0)
+    }
+  };
 }
 
 /** Parse one deterministic detail shard and reject cross-catalog content. */
@@ -871,15 +1322,66 @@ function parseCatalogDetailShardV2(raw, {
     : { rejected: false, errors: [], source: { ...raw.source }, shard, shardCount, detailsById };
 }
 
+function parseHistoricalDetailShard(raw, {
+  datasetSha256 = "",
+  catalogIds = [],
+  collectionId = "",
+  corpusId = "",
+  entityType = "",
+  recordIdPrefix = "",
+  catalogSource = null,
+  expectedShard
+} = {}) {
+  const errors = [];
+  const ids = asCatalogIdSet(catalogIds);
+  const prefix = safeRecordPrefix(recordIdPrefix);
+  if (!ids.size || corpusId !== "historical" || entityType !== "sowerby_entry" || !prefix) {
+    errors.push(issue("options", "corpus", "Validated historical IDs, corpus, entity type, and prefix are required"));
+  }
+  addUnknownFieldIssues(raw, ["schema", "generated_at", "source", "shard", "shard_count", "item_count", "fields", "items"], "detail", errors);
+  if (raw?.schema !== HISTORICAL_DETAIL_SCHEMA) errors.push(issue("schema", "schema", "Unsupported historical detail schema"));
+  if (!ISO_DATE.test(cleanString(raw?.generated_at))) errors.push(issue("generated_at", "date", "A UTC generation time is required"));
+  if (!validHistoricalSource(raw?.source, {
+    expectedSource: catalogSource,
+    collectionId,
+    corpusId,
+    datasetSha256,
+    recordCount: ids.size
+  })) errors.push(issue("source", "source", "Historical detail source does not match the active corpus"));
+  if (!exactFields(raw?.fields, HISTORICAL_DETAIL_FIELDS)) errors.push(issue("fields", "fields", "Historical detail field order changed"));
+  const shard = Number(raw?.shard);
+  const shardCount = Number(raw?.shard_count);
+  if (!Number.isInteger(shard) || !Number.isInteger(shardCount) || shard < 0 || shard >= shardCount
+    || (Number.isInteger(expectedShard) && shard !== expectedShard)) errors.push(issue("shard", "shard", "Historical detail shard identity is invalid"));
+  if (!Number.isInteger(raw?.item_count) || raw.item_count < 0) errors.push(issue("item_count", "count", "Historical detail item count is invalid"));
+  if (!Array.isArray(raw?.items)) errors.push(issue("items", "array", "Historical detail items must be an array"));
+  if (errors.length) return { rejected: true, errors, detailsById: new Map() };
+
+  const detailsById = new Map();
+  raw.items.forEach((row, index) => {
+    const detail = decodeHistoricalDetailRow(row, `items[${index}]`, errors, { collectionId, recordIdPrefix: prefix });
+    if (!detail) return;
+    const id = detail.id;
+    if (!ids.has(id) || detailsById.has(id) || stableCatalogShard(id, shardCount) !== shard) {
+      errors.push(issue(`items[${index}].id`, "record", "Historical detail record is unknown, duplicated, or assigned to the wrong shard"));
+      return;
+    }
+    detailsById.set(id, detail);
+  });
+  if (raw.item_count !== detailsById.size) errors.push(issue("item_count", "count", "Historical detail item count does not match the shard"));
+  return errors.length
+    ? { rejected: true, errors, detailsById: new Map() }
+    : { rejected: false, errors: [], source: { ...raw.source }, shard, shardCount, detailsById };
+}
+
 /** Parse one deterministic detail shard and reject cross-collection content. */
 export function parseCatalogDetailShard(raw, options = {}) {
-  return raw?.schema === CATALOG_DETAIL_SCHEMA_V2
-    ? parseCatalogDetailShardV2(raw, options)
-    : parseCatalogDetailShardV1(raw, options);
+  if (raw?.schema === HISTORICAL_DETAIL_SCHEMA) return parseHistoricalDetailShard(raw, options);
+  return raw?.schema === CATALOG_DETAIL_SCHEMA_V2 ? parseCatalogDetailShardV2(raw, options) : parseCatalogDetailShardV1(raw, options);
 }
 
 /** Parse the version-2 detail index and reject duplicate or missing shards. */
-export function parseCatalogDetailIndex(raw, {
+function parseCatalogDetailIndexV2(raw, {
   datasetSha256 = "",
   catalogIds = [],
   collectionId = "",
@@ -932,9 +1434,93 @@ export function parseCatalogDetailIndex(raw, {
     : { rejected: false, errors: [], source: { ...raw.source }, shardCount, shards };
 }
 
+function parseHistoricalDetailIndex(raw, {
+  datasetSha256 = "",
+  catalogIds = [],
+  collectionId = "",
+  corpusId = "",
+  entityType = "",
+  recordIdPrefix = "",
+  catalogSource = null,
+  expectedShardCount
+} = {}) {
+  const errors = [];
+  const ids = asCatalogIdSet(catalogIds);
+  const prefix = safeRecordPrefix(recordIdPrefix);
+  if (!ids.size || corpusId !== "historical" || entityType !== "sowerby_entry" || !prefix
+    || [...ids].some(id => !id.startsWith(prefix))) errors.push(issue("options", "corpus", "Validated historical corpus identity is required"));
+  addUnknownFieldIssues(raw, ["schema", "generated_at", "source", "shard_count", "fields", "shards"], "detail_index", errors);
+  if (raw?.schema !== HISTORICAL_DETAIL_INDEX_SCHEMA) errors.push(issue("schema", "schema", "Unsupported historical detail-index schema"));
+  if (!ISO_DATE.test(cleanString(raw?.generated_at))) errors.push(issue("generated_at", "date", "A UTC generation time is required"));
+  if (!validHistoricalSource(raw?.source, {
+    expectedSource: catalogSource,
+    collectionId,
+    corpusId,
+    datasetSha256,
+    recordCount: ids.size
+  })) errors.push(issue("source", "source", "Historical detail-index source does not match the active corpus"));
+  if (!exactFields(raw?.fields, HISTORICAL_DETAIL_FIELDS)) errors.push(issue("fields", "fields", "Historical detail-index fields changed"));
+  const shardCount = Number(raw?.shard_count);
+  if (!Number.isInteger(shardCount) || shardCount < 1 || shardCount > 1000
+    || (Number.isInteger(expectedShardCount) && shardCount !== expectedShardCount)) errors.push(issue("shard_count", "shard", "Historical detail shard count is invalid"));
+  if (!Array.isArray(raw?.shards)) errors.push(issue("shards", "array", "Historical detail shards must be an array"));
+  if (errors.length) return { rejected: true, errors, shards: [] };
+
+  const seen = new Set();
+  let itemCount = 0;
+  const shards = [];
+  raw.shards.forEach((entry, index) => {
+    const path = `shards[${index}]`;
+    addUnknownFieldIssues(entry, ["shard", "file", "item_count", "bytes", "sha256"], path, errors);
+    const shard = Number(entry?.shard);
+    if (!Number.isInteger(shard) || shard < 0 || shard >= shardCount || seen.has(shard)) errors.push(issue(`${path}.shard`, "shard", "Historical shard is invalid or duplicated"));
+    if (Number.isInteger(shard) && entry?.file !== detailShardName(shard)) errors.push(issue(`${path}.file`, "path", "Historical shard filename does not match its identity"));
+    if (!Number.isInteger(entry?.item_count) || entry.item_count < 0) errors.push(issue(`${path}.item_count`, "count", "Historical shard item count is invalid"));
+    if (!Number.isInteger(entry?.bytes) || entry.bytes <= 0) errors.push(issue(`${path}.bytes`, "count", "Historical shard byte count is invalid"));
+    if (!SHA256.test(cleanString(entry?.sha256))) errors.push(issue(`${path}.sha256`, "sha256", "Historical shard checksum is invalid"));
+    seen.add(shard);
+    itemCount += Number.isInteger(entry?.item_count) ? entry.item_count : 0;
+    shards.push({ ...entry });
+  });
+  if (seen.size !== shardCount || shards.length !== shardCount) errors.push(issue("shards", "count", "Historical detail index must declare every shard exactly once"));
+  if (itemCount !== raw.source.record_count) errors.push(issue("shards", "count", "Historical shard counts do not cover the complete corpus"));
+  return errors.length
+    ? { rejected: true, errors, shards: [] }
+    : { rejected: false, errors: [], source: { ...raw.source }, shardCount, shards };
+}
+
+/** Parse a source-bound detail index for either modern catalog instances or historical entries. */
+export function parseCatalogDetailIndex(raw, options = {}) {
+  return raw?.schema === HISTORICAL_DETAIL_INDEX_SCHEMA
+    ? parseHistoricalDetailIndex(raw, options)
+    : parseCatalogDetailIndexV2(raw, options);
+}
+
 /** Merge a validated detail projection into an existing in-memory record. */
 export function hydrateCatalogRecord(record, details) {
   if (!isObject(record) || !cleanString(record.id) || !isObject(details) || details.id !== record.id) return record;
+  if (details.entity_type === "sowerby_entry") {
+    for (const field of HISTORICAL_DETAIL_FIELDS) {
+      if (["id", "entity_type", "creators", "publication", "source_url", "links", "assertions"].includes(field)) continue;
+      record[field] = structuredClone(details[field]);
+    }
+    record.title = details.full_title || `Sowerby entry ${details.sowerby_identifier} — title not established`;
+    record.source_title = details.full_title;
+    record.title_status = details.title_status;
+    record.entity_type = "sowerby_entry";
+    record.authors = [...details.creators];
+    record.contributors = details.contributors.map(contributor => ({ ...contributor }));
+    record.year = details.publication.date;
+    record.publishers = [...details.publication.publishers];
+    record.places = [...details.publication.places];
+    record.record_url = details.source_url;
+    record.catalogLink = details.source_url || record.catalogLink || "";
+    record.historical_links = structuredClone(details.historical_links);
+    record.historical_assertions = structuredClone(details.historical_assertions);
+    record.source = structuredClone(details.source);
+    record.detail_hydrated = true;
+    return record;
+  }
   if (details.entity_type === "catalog_instance") {
     for (const field of DETAIL_FIELDS_V2) {
       if (field === "id" || field === "entity_type") continue;

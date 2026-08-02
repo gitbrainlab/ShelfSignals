@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "shelfsignals-private-review",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": true,
+  "preview_urls": false,
+  "r2_buckets": [
+    {
+      "binding": "PRIVATE_REVIEW",
+      "bucket_name": "shelfsignals-private-review"
+    }
+  ],
+  "vars": {
+    "ACTIVE_RELEASE": "replace-with-64-lowercase-hex-release-id",
+    "TEAM_DOMAIN": "https://replace-with-team.cloudflareaccess.com",
+    "POLICY_AUD": "replace-with-access-application-audience-tag",
+    "ALLOWED_EMAILS": "reviewer@example.org"
+  }
+}

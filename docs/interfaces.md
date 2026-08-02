@@ -1,13 +1,14 @@
 # ShelfSignals interfaces
 
-ShelfSignals `2.0.0` makes the GitHub Pages root the canonical collection-aware browser. With no collection parameter it remains the Allan Sekula Library experience; `?collection=jefferson` loads the explicitly labeled Thomas Jefferson catalog beta. Earlier interfaces remain available at explicit compatibility routes; none of the routes redirect to one another.
+ShelfSignals `2.0.0` makes the GitHub Pages root the canonical collection-aware browser. With no collection parameter it remains the Allan Sekula Library experience; `?collection=jefferson` loads the explicitly labeled Thomas Jefferson current-catalog beta, and `?collection=jefferson&corpus=historical&order=sowerby` loads the separate historical beta. Earlier interfaces remain available at explicit compatibility routes; none of the routes redirect to one another.
 
 ## Route map
 
 | Route | File | Status | Purpose |
 |---|---|---|---|
 | `/ShelfSignals/` | `docs/index.html` | Primary, `2.0.0` | Default Sekula cinematic entry, full catalog browser, details, filters, and My Shelf |
-| `/ShelfSignals/?collection=jefferson` | `docs/index.html` | Catalog beta | Jefferson's 2,748 current LOC catalog instances, with historical-coverage preview and evidence-led details |
+| `/ShelfSignals/?collection=jefferson` | `docs/index.html` | Catalog beta | Jefferson's 2,748 current LOC catalog instances, with historical-coverage context and evidence-led details |
+| `/ShelfSignals/?collection=jefferson&corpus=historical&order=sowerby` | `docs/index.html` | Historical beta | 4,928 source-backed Sowerby entries in historical intellectual order, with explicit source gaps and unresolved titles |
 | `/ShelfSignals/legacy/` | `docs/legacy/index.html` | Archived | Preserved v1 interface with known large-DOM performance limitations |
 | `/ShelfSignals/preview/` | `docs/preview/index.html` | Compatibility | Earlier research UI and spatial experiments |
 | `/ShelfSignals/preview/exhibit/` | `docs/preview/exhibit/index.html` | Compatibility | Exhibit cycles, paths, kiosk, and receipt experiments |
@@ -18,7 +19,7 @@ The root no longer needs the redirect proposed in PR #20. Its intent—preventin
 
 ## Collection-aware runtime
 
-The primary route loads a strict `shelfsignals-collection-manifest@1` manifest before it loads catalog data. The manifest supplies collection identity, editorial copy, relative data paths, facets, order choices, feature flags, coverage counts, shelf storage, and optional reviewer-mode configuration. It does not itself establish bibliographic or historical evidence. Catalog projections validate their shared collection ID, source identity, record count, ID-set hash, and dataset hash; hierarchy and media payloads apply their own evidence-specific contracts.
+The primary route loads a strict collection manifest before it loads catalog data. Sekula uses `shelfsignals-collection-manifest@1`; Jefferson uses `@2` with disjoint, source-bound catalog and historical corpus descriptors. The manifest supplies collection identity, editorial copy, relative data paths, facets, order choices, feature flags, coverage counts, shelf storage, and optional reviewer-mode configuration. It does not itself establish bibliographic or historical evidence. Projections validate their collection/corpus identity, record count, ID-set hash, and dataset hash; hierarchy and media payloads apply their own evidence-specific contracts.
 
 | Selection | Manifest | Default corpus/order | Shelf key |
 |---|---|---|---|
@@ -45,11 +46,13 @@ The primary interface is a zero-build static application composed of semantic HT
 - Provider-edition cover references remain remote-only and visibly scoped. They never establish the cover, binding, texture, wear, or side profile of the Clark copy.
 - Motion is limited and disabled by `prefers-reduced-motion`.
 
-### Jefferson catalog beta
+### Jefferson catalog and historical betas
 
-The Phase 1 Jefferson view contains **2,748 current Library of Congress catalog instances** carrying the exact Jefferson collection heading. It is not the complete **4,931-entry Sowerby corpus** or the **6,487 physical volumes** transferred in 1815. Only **17 Sowerby links** are established by the current bounded 25-record source-MARC sample. The coverage statement remains visible in the interface, and title order is the default because historical sequence coverage is incomplete.
+The default Jefferson view contains **2,748 current Library of Congress catalog instances** carrying the exact Jefferson collection heading. It is not the historical spine of **4,931 ordered catalog positions**, its **4,928 source-backed entries plus three non-book numbering gaps**, or the **6,487 physical volumes** transferred in 1815. Only **17 Sowerby links** are established by the current bounded 25-record source-MARC sample. The coverage statement remains visible, and title order is the catalog default.
 
-The three-faculty, 44-chapter Sowerby hierarchy is a coverage preview built from LOC reference data. It does not supply complete Sowerby titles and does not reconstruct a physical room, shelf, volume sequence, or adjacency. Modern classifications, holding call numbers, catalog instances, candidate Sowerby entries, physical copies, holdings, and digital objects remain separately labeled. Missing ownership or reconstruction evidence is shown as **not established**, not treated as absence.
+The historical corpus selector loads all **4,928 source-backed base Sowerby entries** and defaults to Sowerby order. It publishes only titles that pass conservative Library of Congress scan-OCR rules; every other entry remains visible under a qualified “title not established” label. The three absent source numbers—2323, 4707, and 4708—are a separate gap ledger, never fabricated records. This layer is historical catalog membership and intellectual order, not a copy, holding, survival-status, or physical-shelf reconstruction.
+
+The three-faculty, 44-chapter Sowerby hierarchy is a coverage preview in the catalog corpus and the intellectual-order structure in the historical corpus. It does not reconstruct a physical room, shelf, volume sequence, or adjacency. Modern classifications, holding call numbers, catalog instances, Sowerby entries, physical copies, holdings, and digital objects remain separately labeled. Missing ownership or reconstruction evidence is shown as **not established**, not treated as absence.
 
 Public mode currently includes no approved media. Reviewer mode can expose one exact-LCCN-linked LOC preview and its rights metadata, but the asset remains rights-pending. See [Jefferson collection](jefferson-collection.md) for the package contract, build commands, reviewer-mode limits, and full-corpus gates.
 
@@ -88,6 +91,7 @@ Stable query parameters include:
 
 - `?collection=jefferson&corpus=catalog&order=title`
 - `?collection=jefferson&corpus=catalog&order=lc`
+- `?collection=jefferson&corpus=historical&order=sowerby`
 - `?collection=jefferson&evidence=sowerby_510_exact_bounded`
 - `?record=alma…`
 - `?journey=aerospace-folktales`
@@ -99,13 +103,13 @@ Stable query parameters include:
 - `?lc=TR`, `?material=book`, `?decade=1970`, `?photo=Likely`
 - `?group=decade`, `?view=list`
 
-`collection`, `corpus`, and `order` are collection-scoped. Phase 1 Jefferson supports only the `catalog` corpus and the `title` and `lc` orders; a requested historical corpus or Sowerby order is normalized back to the Phase 1 defaults. Sekula keeps its existing catalog order and does not add a collection parameter to its canonical URL.
+`collection`, `corpus`, and `order` are collection-scoped. Jefferson catalog supports `title` and `lc`; Jefferson historical supports `sowerby` and `title`. Changing corpus reloads cleanly and drops incompatible record/filter/order state. Sekula keeps its existing catalog order and does not add a collection parameter to its canonical URL.
 
 History state restores the collection/filter/view state, selected record, journey, and saved scroll position. Unknown record or journey IDs are removed without crashing the page. Existing `?path=` routes retain their prior meaning and serialization; placement and journey support do not rewrite them.
 
 ### My Shelf and Digital Receipts
 
-My Shelf persists only de-duplicated record IDs. Sekula retains the existing `shelfsignals_shelf` localStorage key, preserving earlier Preview selections, while Jefferson uses `shelfsignals_shelf:jefferson`. Switching collections therefore never imports one shelf into the other.
+My Shelf persists only de-duplicated record IDs. Sekula retains the existing `shelfsignals_shelf` localStorage key, preserving earlier Preview selections, while Jefferson uses `shelfsignals_shelf:jefferson`. Catalog and historical Jefferson IDs may coexist under that collection key; the UI resolves only the active corpus and preserves its sibling IDs. Switching collections never imports one shelf into the other.
 
 Users can:
 
@@ -151,6 +155,7 @@ Open:
 
 - `http://localhost:8000/`
 - `http://localhost:8000/?collection=jefferson`
+- `http://localhost:8000/?collection=jefferson&corpus=historical&order=sowerby`
 - `http://localhost:8000/?journey=aerospace-folktales`
 - `http://localhost:8000/legacy/`
 - `http://localhost:8000/preview/`
@@ -161,8 +166,8 @@ Open:
 ## Data and modules
 
 - `docs/sekula-collection.json`: default collection manifest; points at the existing Sekula projections and enables Sekula-native features without duplicating data.
-- `docs/data/collections/jefferson/manifest.json`: Jefferson beta collection manifest and entry point for all Jefferson public projections.
-- `docs/data/collections/jefferson/`: compact Jefferson core, lazy search, 64 lazy detail shards plus index, hierarchy preview, featured records, public/review media manifests, and validation/source identity.
+- `docs/data/collections/jefferson/manifest.json`: dual-corpus Jefferson manifest and entry point for all Jefferson public projections.
+- `docs/data/collections/jefferson/`: compact current-catalog projections plus the disjoint `historical/` core, lazy search, 64 detail shards, index, and validation; shared hierarchy, featured records, and public/review media remain collection-level or catalog-scoped as declared.
 - `docs/js/collections.js`: strict collection-manifest validation and safe collection-relative asset resolution.
 - `docs/data/sekula_index.json`: canonical 11,176-record research source and projection input; the primary browser no longer downloads it at first paint.
 - `docs/data/catalog-core.json`: compact all-record first-load projection, bound to the canonical dataset SHA-256.
@@ -195,7 +200,7 @@ Open:
 - `photo_insert_*` values currently come from a mock heuristic dataset. The UI labels them experimental and does not claim edition inspection.
 - The current signal registry is keyword-based. Counts are reproducible, not curatorial endorsements.
 - Preview and Exhibit remain historical experiments and may render more DOM than the primary interface.
-- Jefferson Phase 1 is a current-catalog beta, not a complete historical library. Ownership, survival/replacement/surrogate/missing status, and historical physical placement remain unresolved; its 44-chapter hierarchy is a coverage preview only.
+- Jefferson's catalog and historical corpora remain betas, not a complete physical-library reconstruction. Ownership, survival/replacement/surrogate/missing status, and historical physical placement remain unresolved; the 44-chapter hierarchy expresses intellectual catalog order only.
 - Jefferson reviewer mode is not access control. Its code and assets are shipped on a public static site; the interface delays its rights-pending media request and preserves Rights and Access evidence, but cannot make that public URL confidential.
 
 ## Regeneration and verification
@@ -214,15 +219,17 @@ python3 scripts/build_spine_index.py --self-test
 python3 scripts/build_spine_index.py
 node scripts/build_browser_catalog.mjs --self-test
 node scripts/build_browser_catalog.mjs --check
-python3 scripts/build_jefferson_browser_package.py --self-test
-python3 scripts/build_jefferson_browser_package.py --check
+python3 scripts/build_jefferson_collection_package.py --self-test
+python3 scripts/build_jefferson_collection_package.py --check
+python3 scripts/build_jefferson_collection_package_unit_tests.py
 python3 scripts/build_jefferson_browser_package_unit_tests.py
+python3 scripts/build_jefferson_historical_browser_package_unit_tests.py
 python3 scripts/cover_source_pipeline.py self-test
-node --test scripts/browser_catalog_unit_tests.mjs scripts/cinematic_unit_tests.mjs scripts/phase_one_unit_tests.mjs scripts/review_unit_tests.mjs scripts/spine_index_unit_tests.mjs scripts/aerospace_review_queue_tests.mjs scripts/association_promotion_tests.mjs scripts/collection_contract_unit_tests.mjs scripts/collection_runtime_unit_tests.mjs
+node --test scripts/browser_catalog_unit_tests.mjs scripts/cinematic_unit_tests.mjs scripts/phase_one_unit_tests.mjs scripts/review_unit_tests.mjs scripts/spine_index_unit_tests.mjs scripts/aerospace_review_queue_tests.mjs scripts/association_promotion_tests.mjs scripts/collection_contract_unit_tests.mjs scripts/collection_runtime_unit_tests.mjs scripts/jefferson_committed_package_tests.mjs
 node scripts/preview_acceptance_tests.mjs
 python3 scripts/browser_smoke_test.py --start-server --browser-channel chrome
 # With `docs/` already served and Playwright installed:
 node scripts/collection_browser_journey.mjs http://127.0.0.1:8000/
 ```
 
-The cover generator is deterministic apart from its generation timestamp and makes no network requests. The Jefferson browser-package builder is deterministic for its hashed source snapshot and `--check` compares every generated byte with the committed 73-file package. The cover-source pipeline writes discovery and review state beneath ignored `.cache/cover-review/` by default. The final two browser commands are optional and require Playwright plus an installed compatible browser.
+The cover generator is deterministic apart from its generation timestamp and makes no network requests. The aggregate Jefferson builder performs a double build for determinism and `--check` compares every generated byte across both committed corpus namespaces. The cover-source pipeline writes discovery and review state beneath ignored `.cache/cover-review/` by default. The final two browser commands are optional and require Playwright plus an installed compatible browser.

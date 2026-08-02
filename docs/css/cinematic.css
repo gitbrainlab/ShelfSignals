@@ -620,7 +620,7 @@ kbd {
 
 .collection-overview-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
   border-top: 1px solid var(--line-strong);
   border-bottom: 1px solid var(--line-strong);
 }
@@ -902,9 +902,10 @@ button.placement-badge { cursor: pointer; }
 }
 
 .view-controls { display: flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-.order-control { display: flex; align-items: center; gap: 8px; padding: 5px 9px; border-right: 1px solid var(--line); color: var(--ink-faint); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
-.order-control[hidden] { display: none !important; }
-.order-control select { min-height: 30px; border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; background: var(--black-2); color: var(--ink-soft); cursor: pointer; font-size: 9px; letter-spacing: normal; text-transform: none; }
+.corpus-control, .order-control { display: flex; align-items: center; gap: 8px; padding: 5px 9px; border-right: 1px solid var(--line); color: var(--ink-faint); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.corpus-control[hidden], .order-control[hidden] { display: none !important; }
+.corpus-control select, .order-control select { min-height: 30px; border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; background: var(--black-2); color: var(--ink-soft); cursor: pointer; font-size: 9px; letter-spacing: normal; text-transform: none; }
+.corpus-control select:disabled { cursor: default; opacity: .72; }
 .view-button { padding: 9px 13px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--ink-faint); cursor: pointer; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
 .view-button:last-child { border-right: 0; }
 .view-button.active { background: var(--ink); color: var(--black); }
@@ -1459,7 +1460,7 @@ button.placement-badge { cursor: pointer; }
   .path-grid { grid-template-columns: 1fr; }
   .path-card { min-height: 260px; }
   .view-controls { align-self: stretch; flex-wrap: wrap; }
-  .order-control { flex: 1 0 100%; justify-content: space-between; border-right: 0; border-bottom: 1px solid var(--line); }
+  .corpus-control, .order-control { flex: 1 0 100%; justify-content: space-between; border-right: 0; border-bottom: 1px solid var(--line); }
   .view-button { flex: 1; }
   .filters-panel { grid-template-columns: 1fr; padding: 12px; }
   .filter-heading .filter-toggle { display: inline; }
@@ -1494,6 +1495,7 @@ button.placement-badge { cursor: pointer; }
 
 @media (forced-colors: active) {
   .collection-switcher select,
+  .corpus-control select,
   .order-control select,
   .collection-status-banner,
   .reviewer-mode-banner,

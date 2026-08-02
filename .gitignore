@@ -20,6 +20,14 @@ dist/
 # Reproducible Jefferson/LOC research harvests (large; see research/jefferson/README.md)
 research/jefferson/work/cache/
 research/jefferson/work/data/
+research/jefferson/work/private-media/
+research/jefferson/work/private-review/
+
+# Local Cloudflare deployment values and installed gateway dependencies
+infrastructure/private-review/cloudflare/wrangler.local.jsonc
+infrastructure/private-review/cloudflare/.dev.vars*
+infrastructure/private-review/cloudflare/.env*
+infrastructure/private-review/cloudflare/.wrangler/
 
 # Editor/IDE
 .vscode/

@@ -2,9 +2,10 @@
 
 import fs from "node:fs";
 
-const baseUrl = new URL(process.argv[2] || "http://127.0.0.1:8000/");
-const playwrightModule = process.env.SHELFSIGNALS_PLAYWRIGHT_MODULE || "playwright";
-const chromeExecutable = process.env.SHELFSIGNALS_CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const runtimeProcess = typeof process === "undefined" ? { argv: [], env: {} } : process;
+const baseUrl = new URL(runtimeProcess.argv?.[2] || "http://127.0.0.1:8000/");
+const playwrightModule = runtimeProcess.env.SHELFSIGNALS_PLAYWRIGHT_MODULE || "playwright";
+const chromeExecutable = runtimeProcess.env.SHELFSIGNALS_CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 function check(condition, message) {
   if (!condition) throw new Error(message);
@@ -78,8 +79,15 @@ try {
   check(jeffersonUrl.searchParams.get("corpus") === "catalog", "Jefferson Phase 1 corpus was not canonicalized to catalog");
   check(jeffersonUrl.searchParams.get("order") === "title", "Jefferson Phase 1 order was not canonicalized to title");
   check((await page.title()).includes("Thomas Jefferson's Library"), "Jefferson title did not load");
+  check(await page.locator("#corpusSwitcher").isVisible(), "Jefferson corpus selector is hidden");
+  check(await page.locator("#corpusSwitcher").inputValue() === "catalog", "Phase 1 corpus selector is not on catalog");
+  check(!(await page.locator("#corpusSwitcher").isDisabled()), "dual-corpus Jefferson selector is unexpectedly read-only");
   check(await text(page, "#collectionCount") === "2,748", "Jefferson catalog-instance count is wrong");
-  check((await text(page, "#collectionStatusText")).includes("not the complete 4,931-entry Sowerby corpus"), "beta coverage warning is incomplete");
+  const coverageWarning = await text(page, "#collectionStatusText");
+  check(coverageWarning.includes("4,928 source-backed Sowerby entries") && coverageWarning.includes("4,931 historical source positions"), "beta coverage warning is incomplete or conflates positions with entries");
+  check(await text(page, "#jeffersonHistoricalCount") === "4,928", "source-backed Sowerby entry count is wrong");
+  check(await text(page, "#jeffersonPositionCount") === "4,931", "historical catalog-position count is wrong");
+  check((await text(page, "#jeffersonEvidenceSummary")).includes("2323, 4707, 4708"), "source-numbering gaps are not visible");
   check(await page.locator("#collectionStatusBanner").isVisible(), "beta coverage warning is not unavoidable");
   check(await page.locator("#jeffersonOverview").isVisible(), "Jefferson evidence overview is hidden");
   check(await page.locator("#jeffersonHierarchyContent details").count() === 3, "faculty hierarchy is incomplete");
@@ -194,6 +202,74 @@ try {
   await page.locator("#exitReviewerMode").click();
   check(!(await page.locator("#reviewerModeBanner").isVisible()), "review mode did not exit");
   report("review media stays lazy, tab-local, warned, and evidence-scoped");
+
+  const historicalRequestStart = requests.length;
+  await page.locator("#corpusSwitcher").selectOption("historical");
+  await page.waitForURL(url => url.searchParams.get("corpus") === "historical" && url.searchParams.get("order") === "sowerby");
+  await ready(page);
+  check(await page.locator("#corpusSwitcher").inputValue() === "historical", "historical corpus selection did not survive reload");
+  check(await page.locator("#orderFilter").inputValue() === "sowerby", "historical corpus did not default to Sowerby order");
+  check(await text(page, "#collectionCount") === "4,928", "historical source-backed entry count is wrong");
+  check((await text(page, "#collectionStatusText")).includes("4,928 source-backed entries"), "historical beta coverage warning is incomplete");
+  check((await text(page, "#jeffersonEvidenceSummary")).includes("2323, 4707, 4708"), "historical source-number gaps are not visible");
+  check((await text(page, "#jeffersonEvidenceSummary")).includes("short titles passed")
+    && (await text(page, "#jeffersonEvidenceSummary")).includes("remain explicitly not established"), "historical title coverage is not explicit");
+  check((await text(page, "#jeffersonEvidenceSummary")).includes("exact LOC PDF page")
+    && (await text(page, "#jeffersonEvidenceSummary")).includes("aggregate scan-spine support"), "historical identifier evidence levels are collapsed");
+  const historicalOverviewKicker = await text(page, ".collection-overview-header .section-index");
+  const historicalCollectionKicker = (await page.locator(".collection-header .section-index").textContent() || "").trim();
+  check(historicalOverviewKicker.toLocaleLowerCase() === "jefferson historical beta", `historical overview is mislabeled as a catalog beta: ${historicalOverviewKicker}`);
+  check(historicalCollectionKicker.toLocaleLowerCase() === "04 / historical corpus beta", `historical browser is mislabeled as complete: ${historicalCollectionKicker}`);
+  const historicalClassCount = await text(page, "#classCount");
+  const historicalClassUnit = (await page.locator("#classCount + dd").textContent() || "").trim();
+  const historicalYearSpan = await text(page, "#yearSpan");
+  const historicalYearUnit = (await page.locator("#yearSpan + dd").textContent() || "").trim();
+  check(historicalClassCount === "44" && historicalClassUnit.toLocaleLowerCase() === "historical chapters", `historical stats imply LC classes: ${historicalClassCount} / ${historicalClassUnit}`);
+  check(historicalYearSpan === "Not established" && historicalYearUnit.toLocaleLowerCase() === "publication dates", `historical stats imply cataloged dates: ${historicalYearSpan} / ${historicalYearUnit}`);
+  const historicalCardMeta = (await page.locator(".book-card .book-card-meta").first().textContent() || "").trim();
+  const historicalCardEvidence = (await page.locator(".book-card .book-card-cover-scope").first().textContent() || "").trim();
+  check(historicalCardMeta.toLocaleLowerCase().includes("creator not established") && historicalCardMeta.toLocaleLowerCase().includes("date not established"), `historical cards imply absent creator/date facts: ${historicalCardMeta}`);
+  check(historicalCardEvidence.toLocaleLowerCase().includes("no digital object relation established"), `historical cards imply unavailable digital-object evidence exists: ${historicalCardEvidence}`);
+  check(await page.locator("#lcFilter").locator("xpath=ancestor::fieldset").isHidden(), "undeclared LC facet is visible in the historical corpus");
+  check(await page.locator("#materialFilter").locator("xpath=ancestor::fieldset").isHidden(), "undeclared material facet is visible in the historical corpus");
+  check(await page.locator("#decadeFilter").locator("xpath=ancestor::fieldset").isHidden(), "undeclared decade facet is visible in the historical corpus");
+  check(await page.locator("#openReviewerMode").isHidden(), "catalog-only public reviewer media leaked into the historical corpus");
+  check(!(await page.locator('.view-button[data-view="spines"]').isVisible()), "physical reconstruction leaked into the historical corpus");
+  const historicalRequests = requests.slice(historicalRequestStart);
+  check(historicalRequests.some(url => url.includes("/historical/catalog-core.json")), "historical core was not requested from its namespace");
+  check(historicalRequests.some(url => url.includes("/historical/validation.json")), "historical validation was not requested from its namespace");
+  check(!historicalRequests.some(url => /(?:\.jsonl|\.sqlite(?:$|[?#])|\/research\/jefferson\/)/i.test(url)), "raw research data was requested by the historical browser");
+
+  const staleHistoricalFacetUrl = new URL(page.url());
+  staleHistoricalFacetUrl.searchParams.set("lc", "A");
+  staleHistoricalFacetUrl.searchParams.set("material", "book");
+  staleHistoricalFacetUrl.searchParams.set("decade", "1800");
+  await page.goto(staleHistoricalFacetUrl.href, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  check(!new URL(page.url()).searchParams.has("lc") && !new URL(page.url()).searchParams.has("material") && !new URL(page.url()).searchParams.has("decade"), "undeclared historical facets survived URL normalization");
+  const historicalResultSummary = (await page.locator("#resultSummary").textContent() || "").trim();
+  check(historicalResultSummary.includes("4,928") && !historicalResultSummary.includes("0 of"), `stale catalog facets silently emptied the historical corpus: ${historicalResultSummary}`);
+
+  const historicalDeepLink = new URL(page.url());
+  historicalDeepLink.searchParams.set("record", "jefferson-sowerby-4931");
+  await page.goto(historicalDeepLink.href, { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await page.locator("#detailDrawer.open").waitFor();
+  await page.locator("#detailLoading").waitFor({ state: "hidden" });
+  const historicalDetail = await text(page, "#detailMetadata");
+  check(historicalDetail.includes("ENTITY\nSowerby entry"), "historical drawer does not identify its entity grain");
+  check(historicalDetail.includes("SOWERBY NUMBER\n4931"), "historical deep link opened the wrong Sowerby entry");
+  check(historicalDetail.includes("SOURCE-BACKED ORDER RANK\n4,928"), "historical dense ordering is not labeled separately from the source serial");
+  check(historicalDetail.includes("IDENTIFIER EVIDENCE\n") && !historicalDetail.includes("Source-backed historical Sowerby entry"), "historical identifier evidence is collapsed in the drawer");
+  check(historicalDetail.includes("FORMAT\nNot established"), "historical entity type leaked into the material/format field");
+  check(historicalDetail.includes("RECONSTRUCTION STATUS\nNot established"), "historical drawer implies a reconstruction status");
+  check(await page.locator('#notesList a[href^="https://"][href*="loc.gov"]').count() >= 4, "historical assertion sources are not inspectable LOC links");
+  check((await text(page, "#notesList")).includes("Evidence SHA-256: sha256:"), "historical assertion digests are not visible");
+  await page.locator("#detailShelfButton").click();
+  await page.locator("#closeDetail").click();
+  const mixedJeffersonShelf = JSON.parse(await page.evaluate(() => localStorage.getItem("shelfsignals_shelf:jefferson")) || "[]");
+  check(mixedJeffersonShelf.includes("jefferson-sowerby-4931") && mixedJeffersonShelf.some(id => id.startsWith("jefferson-loc-")), "Jefferson shelf did not preserve separate corpus IDs");
+  report("historical corpus loads 4,928 source-backed entries with gaps, provenance, deep links, and isolated relations");
 
   const invalidUrl = new URL(baseUrl.href);
   invalidUrl.searchParams.set("collection", "invalid-collection");

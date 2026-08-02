@@ -306,6 +306,12 @@ class JeffersonBrowserPackageTests(unittest.TestCase):
             with self.assertRaisesRegex(builder.BuildError, "stale: catalog-core.json"):
                 builder.check_package(files, output)
             builder.write_package(files, output)
+            historical = output / "historical/catalog-core.json"
+            historical.parent.mkdir(parents=True)
+            historical.write_text("{\"preserved\":true}\n", encoding="utf-8")
+            builder.write_package(files, output)
+            self.assertEqual(historical.read_text(encoding="utf-8"), "{\"preserved\":true}\n")
+            builder.check_package(files, output)
             (output / "catalog-details/stray.txt").write_text("unexpected\n", encoding="utf-8")
             with self.assertRaisesRegex(builder.BuildError, "unexpected: catalog-details/stray.txt"):
                 builder.check_package(files, output)

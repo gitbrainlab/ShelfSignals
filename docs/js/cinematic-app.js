@@ -56,13 +56,20 @@ import {
 import { profileFromRecord } from "./physical.js";
 import {
   loadShelfIds,
+  mergeShelfIdsForCorpus,
   resolveShelfRecords,
   restoreShelfFromReceipt,
   saveShelfIds,
   toggleShelfId
 } from "./shelf.js";
 import { createReceipt, downloadReceipt, verifyReceipt } from "./receipt.js";
-import { collectionDataUrl, parseCollectionManifest } from "./collections.js";
+import {
+  collectionCorpusOptions,
+  collectionDataUrl,
+  parseCollectionManifest,
+  resolveCollectionCorpus,
+  resolveCollectionCorpusForState
+} from "./collections.js";
 
 // Each collection owns its data paths and feature switches. Only these small,
 // versioned manifests are selected by application code.
@@ -74,6 +81,9 @@ const DEFAULT_COLLECTION_ID = "sekula";
 const PAGE_SIZE = 72;
 const SEARCH_SUGGESTION_LIMIT = 8;
 const APP_VERSION = "2.0.0";
+const JEFFERSON_HISTORICAL_POSITION_COUNT = 4931;
+const JEFFERSON_SOURCE_BACKED_ENTRY_COUNT = 4928;
+const JEFFERSON_SOURCE_NUMBERING_GAPS = Object.freeze(["2323", "4707", "4708"]);
 
 const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -83,6 +93,7 @@ const dom = {
   retryApp: $("#retryApp"),
   pageRegions: $$(".site-header, main, .site-footer"),
   collectionSwitcher: $("#collectionSwitcher"),
+  corpusSwitcher: $("#corpusSwitcher"),
   modeBanners: $("#modeBanners"),
   collectionStatusBanner: $("#collectionStatusBanner"),
   collectionStatusLabel: $("#collectionStatusLabel"),
@@ -90,6 +101,7 @@ const dom = {
   jeffersonOverview: $("#jeffersonOverview"),
   jeffersonCoverageCount: $("#jeffersonCoverageCount"),
   jeffersonHistoricalCount: $("#jeffersonHistoricalCount"),
+  jeffersonPositionCount: $("#jeffersonPositionCount"),
   jeffersonVolumeCount: $("#jeffersonVolumeCount"),
   jeffersonHierarchySummary: $("#jeffersonHierarchySummary"),
   jeffersonHierarchyContent: $("#jeffersonHierarchyContent"),
@@ -217,11 +229,13 @@ const requestedCollectionId = Object.hasOwn(COLLECTION_MANIFEST_URLS, initialUrl
 const state = {
   collectionId: requestedCollectionId,
   collectionManifest: null,
+  activeCorpus: null,
   collectionManifestUrl: COLLECTION_MANIFEST_URLS[requestedCollectionId],
   assetUrls: {},
   corpus: requestedCollectionId === "jefferson" ? (initialUrl.corpus || "catalog") : "",
   order: requestedCollectionId === "jefferson" ? (initialUrl.order || "title") : "",
   hierarchy: null,
+  historicalNumbering: null,
   validation: null,
   publicMedia: null,
   reviewMedia: null,
@@ -300,7 +314,72 @@ function naturalList(values) {
 }
 
 function featureEnabled(name) {
-  return state.collectionManifest?.features?.[name] === true;
+  return (state.activeCorpus?.features || state.collectionManifest?.features)?.[name] === true;
+}
+
+function activeFacetIds() {
+  return state.activeCorpus?.facets || state.collectionManifest?.facets || [];
+}
+
+function normalizeFiltersForActiveCorpus(rawState = {}) {
+  const facets = activeFacetIds();
+  return normalizeFilterState({
+    ...rawState,
+    signals: facets.includes("signals") ? rawState.signals : [],
+    signalMode: facets.includes("signals") ? rawState.signalMode : "any",
+    lc: facets.includes("classes") ? rawState.lc : "",
+    material: facets.includes("materials") ? rawState.material : "",
+    decade: facets.includes("decades") ? rawState.decade : "",
+    evidence: facets.includes("evidence_status") ? rawState.evidence : "",
+    photo: featureEnabled("photo_likelihood") ? rawState.photo : "",
+    placement: featureEnabled("placement") ? rawState.placement : "",
+    path: featureEnabled("curated_paths") ? rawState.path : "",
+    group: featureEnabled("physical") ? rawState.group : "lc"
+  });
+}
+
+function activeEntityType() {
+  return state.activeCorpus?.coverage?.entity_type || state.collectionManifest?.coverage?.entity_type || "bibliographic_record";
+}
+
+function activeCoverage() {
+  return state.activeCorpus?.coverage || state.collectionManifest?.coverage || {};
+}
+
+function historicalCoverageCounts() {
+  const coverage = activeCoverage();
+  const explicitPositions = Number(coverage.historical_position_count);
+  const legacyPositions = Number(coverage.historical_entry_count) === JEFFERSON_HISTORICAL_POSITION_COUNT;
+  return {
+    entries: explicitPositions > 0
+      ? Number(coverage.historical_entry_count)
+      : (legacyPositions ? JEFFERSON_SOURCE_BACKED_ENTRY_COUNT : Number(coverage.historical_entry_count || 0)),
+    positions: explicitPositions > 0
+      ? explicitPositions
+      : (legacyPositions ? JEFFERSON_HISTORICAL_POSITION_COUNT : Number(coverage.historical_entry_count || 0)),
+    gaps: state.historicalNumbering?.gaps?.map(gap => gap.identifier) || [...JEFFERSON_SOURCE_NUMBERING_GAPS]
+  };
+}
+
+function activeCorpusCopy() {
+  const copy = state.activeCorpus?.copy || state.collectionManifest?.copy || {};
+  const coverage = state.activeCorpus?.coverage || state.collectionManifest?.coverage || {};
+  if (state.collectionId === "jefferson" && !coverage.historical_position_count
+    && Number(coverage.historical_entry_count) === JEFFERSON_HISTORICAL_POSITION_COUNT) {
+    return {
+      ...copy,
+      coverage_statement: String(copy.coverage_statement || "")
+        .replace("the complete 4,931-entry Sowerby corpus", "the 4,931-position Sowerby spine (4,928 source-backed entries plus 3 non-book gaps)")
+    };
+  }
+  return copy;
+}
+
+function activeUnitLabel({ singular = false } = {}) {
+  const entityType = activeEntityType();
+  if (entityType === "sowerby_entry") return singular ? "Sowerby entry" : "Sowerby entries";
+  if (entityType === "catalog_instance") return singular ? "catalog instance" : "catalog instances";
+  return singular ? "catalog record" : "catalog records";
 }
 
 function collectionShelfKey() {
@@ -308,16 +387,20 @@ function collectionShelfKey() {
 }
 
 function manifestAssetUrl(name) {
-  if (state.assetUrls[name]) return state.assetUrls[name];
-  if (!state.collectionManifest?.data?.[name] || !state.collectionManifestUrl) return null;
-  const url = collectionDataUrl(state.collectionManifest, name, state.collectionManifestUrl);
-  state.assetUrls[name] = url;
+  const corpusData = state.activeCorpus?.data || state.collectionManifest?.data || {};
+  const multiCorpus = Array.isArray(state.collectionManifest?.corpora);
+  const path = multiCorpus && name !== "hierarchy" ? corpusData[name] : state.collectionManifest?.data?.[name];
+  if (!path || !state.collectionManifestUrl) return null;
+  const cacheKey = `${state.corpus || "catalog"}:${name}`;
+  if (state.assetUrls[cacheKey]) return state.assetUrls[cacheKey];
+  const url = collectionDataUrl(state.collectionManifest, name, state.collectionManifestUrl, { corpus: state.corpus });
+  state.assetUrls[cacheKey] = url;
   return url;
 }
 
 function catalogDetailUrl(shard) {
-  if (!state.collectionManifest?.data?.detail_template) return null;
-  return collectionDataUrl(state.collectionManifest, "detail_template", state.collectionManifestUrl, { shard });
+  if (!state.activeCorpus?.data?.detail_template && !state.collectionManifest?.data?.detail_template) return null;
+  return collectionDataUrl(state.collectionManifest, "detail_template", state.collectionManifestUrl, { shard, corpus: state.corpus });
 }
 
 function orderedRecords(records = []) {
@@ -390,10 +473,13 @@ function decodeMediaManifest(raw, expectedAudience) {
 function setCollectionSpecificCopy() {
   const manifest = state.collectionManifest;
   const isJefferson = state.collectionId === "jefferson";
+  const corpus = state.activeCorpus;
+  const corpusCopy = activeCorpusCopy();
+  const facets = activeFacetIds();
   const name = manifest.copy.name;
   document.title = `ShelfSignals — ${name}`;
   const description = document.querySelector('meta[name="description"]');
-  if (description) description.content = `${manifest.copy.introduction} ${manifest.copy.coverage_statement}`;
+  if (description) description.content = `${corpusCopy.introduction} ${corpusCopy.coverage_statement}`;
   const loadingCopy = dom.loading?.querySelector("p");
   if (loadingCopy) loadingCopy.textContent = `Opening ${name}`;
   dom.collectionSwitcher.value = state.collectionId;
@@ -409,37 +495,65 @@ function setCollectionSpecificCopy() {
     heroTitle.replaceChildren(document.createTextNode("Explore the"), document.createElement("br"), emphasis);
   }
   const heroIntro = $(".hero-intro");
-  if (heroIntro) heroIntro.textContent = manifest.copy.introduction;
+  if (heroIntro) heroIntro.textContent = corpusCopy.introduction;
   const heroSearchLabel = document.querySelector('label[for="heroSearchInput"]');
   if (heroSearchLabel) heroSearchLabel.textContent = `Search ${name}`;
   if (dom.heroSearchInput) dom.heroSearchInput.placeholder = `Search ${manifest.copy.short_name}…`;
   const introductionCopy = $(".introduction-copy > p");
-  if (introductionCopy) introductionCopy.textContent = manifest.copy.coverage_statement;
+  if (introductionCopy) introductionCopy.textContent = corpusCopy.coverage_statement;
   const collectionUnit = dom.collectionCount?.nextElementSibling;
-  if (collectionUnit) collectionUnit.textContent = isJefferson ? "catalog instances" : "catalog records";
+  if (collectionUnit) collectionUnit.textContent = activeUnitLabel();
   const collectionHeading = $("#collectionTitle");
-  if (collectionHeading) collectionHeading.textContent = isJefferson ? "Browse catalog instances" : "Browse the shelves";
+  if (collectionHeading) collectionHeading.textContent = activeEntityType() === "sowerby_entry" ? "Browse historical entries" : (isJefferson ? "Browse catalog instances" : "Browse the shelves");
+  const collectionKicker = $(".collection-header .section-index");
+  if (collectionKicker && isJefferson) collectionKicker.textContent = activeEntityType() === "sowerby_entry" ? "04 / Historical corpus beta" : "04 / Catalog corpus beta";
+  const overviewKicker = $(".collection-overview-header .section-index");
+  if (overviewKicker && isJefferson) overviewKicker.textContent = activeEntityType() === "sowerby_entry" ? "Jefferson historical beta" : "Jefferson catalog beta";
   const catalogAction = dom.catalogLink;
-  if (catalogAction) catalogAction.textContent = `View in ${manifest.copy.source_label} ↗`;
+  if (catalogAction) catalogAction.textContent = `View in ${corpusCopy.source_label} ↗`;
   const aboutCopy = $(".about-section > div:last-child > p:first-child");
-  if (aboutCopy) aboutCopy.textContent = `ShelfSignals presents ${name} through ${manifest.copy.source_label}. ${manifest.copy.coverage_statement}`;
+  if (aboutCopy) aboutCopy.textContent = `ShelfSignals presents ${name} through ${corpusCopy.source_label}. ${corpusCopy.coverage_statement}`;
   const footerScope = $(".site-footer span:nth-child(2)");
   if (footerScope) footerScope.textContent = isJefferson
     ? "Catalog instances, historical entries, physical copies, holdings, and digital objects remain distinct."
     : "Clark catalog facts and external provider-edition evidence are kept visibly distinct.";
 
   dom.collectionStatusBanner.hidden = !isJefferson;
-  dom.collectionStatusLabel.textContent = manifest.copy.status_label;
-  dom.collectionStatusText.textContent = manifest.copy.coverage_statement;
+  dom.collectionStatusLabel.textContent = corpusCopy.status_label;
+  dom.collectionStatusText.textContent = corpusCopy.coverage_statement;
   syncModeBannerHeight();
   dom.jeffersonOverview.hidden = !isJefferson;
-  dom.openReviewerMode.hidden = !manifest.review?.enabled;
+  if (isJefferson) {
+    const historical = activeEntityType() === "sowerby_entry";
+    const overviewTitle = $("#jeffersonOverviewTitle");
+    const overviewSummary = $("#jeffersonOverviewSummary");
+    const coverageSummary = $("#jeffersonCoverageSummary");
+    if (overviewTitle) {
+      const emphasis = document.createElement("em");
+      emphasis.textContent = historical ? "linked with care." : "with historical limits.";
+      overviewTitle.replaceChildren(
+        document.createTextNode(historical ? "Historical entries," : "A catalog view"),
+        document.createElement("br"),
+        emphasis
+      );
+    }
+    if (overviewSummary) overviewSummary.textContent = historical
+      ? "Historical Sowerby entries remain distinct from modern catalog instances, editions, physical copies, holdings, and digital objects."
+      : "This beta keeps modern Library of Congress catalog records, Sowerby’s reconstructed historical order, physical copies, holdings, and digital objects distinct.";
+    if (coverageSummary) coverageSummary.textContent = historical
+      ? "This corpus represents source-backed Sowerby entries; linked modern records and custodial objects remain separate evidence entities."
+      : "The current view is a modern catalog extraction, not a complete reconstruction of Jefferson’s 1815 library.";
+  }
+  dom.openReviewerMode.hidden = !manifest.review?.enabled || !corpus?.data?.review_media;
   $("#journeys").hidden = !featureEnabled("journeys");
   $("#paths").hidden = !featureEnabled("curated_paths");
-  $("#signals").hidden = !manifest.facets.includes("signals");
-  dom.heroSignals.hidden = !manifest.facets.includes("signals");
+  $("#signals").hidden = !facets.includes("signals");
+  dom.heroSignals.hidden = !facets.includes("signals");
+  dom.lcFilter.closest("fieldset").hidden = !facets.includes("classes");
+  dom.materialFilter.closest("fieldset").hidden = !facets.includes("materials");
+  dom.decadeFilter.closest("fieldset").hidden = !facets.includes("decades");
   dom.photoFilter.closest("fieldset").hidden = !featureEnabled("photo_likelihood");
-  dom.evidenceFilter.closest("fieldset").hidden = !manifest.facets.includes("evidence_status");
+  dom.evidenceFilter.closest("fieldset").hidden = !facets.includes("evidence_status");
   dom.groupFilter.closest("fieldset").hidden = !featureEnabled("physical");
   const spineButton = $('.view-button[data-view="spines"]');
   if (spineButton) spineButton.hidden = !featureEnabled("physical");
@@ -453,7 +567,7 @@ function setCollectionSpecificCopy() {
   if (notesHeading && isJefferson) notesHeading.textContent = "Evidence ledger";
   dom.detailCoverEvidence.hidden = isJefferson ? !featureEnabled("digital_surrogates") : false;
   $$('.primary-nav a[href="#journeys"]').forEach(link => { link.hidden = !featureEnabled("journeys"); });
-  $$('.primary-nav a[href="#signals"]').forEach(link => { link.hidden = !manifest.facets.includes("signals"); });
+  $$('.primary-nav a[href="#signals"]').forEach(link => { link.hidden = !facets.includes("signals"); });
   $$('.primary-nav a[href="#paths"]').forEach(link => { link.hidden = !featureEnabled("curated_paths"); });
   if (isJefferson) {
     const resources = $(".about-section > div:last-child > p:last-child");
@@ -469,23 +583,38 @@ function setCollectionSpecificCopy() {
     }
   }
 
+  if (dom.corpusSwitcher) {
+    clear(dom.corpusSwitcher);
+    const corpusOptions = collectionCorpusOptions(manifest);
+    corpusOptions.forEach(option => addOption(dom.corpusSwitcher, option.id, option.label));
+    dom.corpusSwitcher.value = state.corpus;
+    dom.corpusSwitcher.closest("label").hidden = !isJefferson;
+    dom.corpusSwitcher.disabled = corpusOptions.length < 2;
+    dom.corpusSwitcher.setAttribute("aria-description", corpusOptions.length < 2 ? "Only one corpus is currently available" : "Changing corpus reloads the collection");
+  }
   if (dom.orderFilter) {
     clear(dom.orderFilter);
-    manifest.orders.forEach(option => addOption(dom.orderFilter, option.id, option.label));
+    (corpus?.orders || manifest.orders).forEach(option => addOption(dom.orderFilter, option.id, option.label));
     dom.orderFilter.value = state.order;
-    dom.orderFilter.closest("label").hidden = manifest.orders.length < 2;
+    dom.orderFilter.closest("label").hidden = (corpus?.orders || manifest.orders).length < 2;
   }
 }
 
 function updateJeffersonOverview() {
   if (state.collectionId !== "jefferson") return;
-  const coverage = state.collectionManifest.coverage;
+  const coverage = activeCoverage();
+  const historicalCounts = historicalCoverageCounts();
   dom.jeffersonCoverageCount.textContent = formatNumber(coverage.record_count);
-  dom.jeffersonHistoricalCount.textContent = formatNumber(coverage.historical_entry_count);
+  const coverageUnit = dom.jeffersonCoverageCount?.nextElementSibling;
+  if (coverageUnit) coverageUnit.textContent = activeUnitLabel();
+  dom.jeffersonHistoricalCount.textContent = formatNumber(historicalCounts.entries);
+  dom.jeffersonPositionCount.textContent = formatNumber(historicalCounts.positions);
   dom.jeffersonVolumeCount.textContent = formatNumber(coverage.historical_volume_count);
   const chapters = state.hierarchy?.chapters?.length || 44;
   const faculties = state.hierarchy?.faculties?.map(item => item.name).filter(Boolean) || ["History", "Philosophy", "Fine Arts"];
-  dom.jeffersonHierarchySummary.textContent = `${chapters} Sowerby chapters across ${naturalList(faculties)} are available only as a coverage preview. This view does not reconstruct physical shelving or adjacency.`;
+  dom.jeffersonHierarchySummary.textContent = activeEntityType() === "sowerby_entry"
+    ? `${chapters} Sowerby chapters across ${naturalList(faculties)} organize this historical intellectual-order view. It does not reconstruct physical shelving or adjacency.`
+    : `${chapters} Sowerby chapters across ${naturalList(faculties)} are available only as a coverage preview. This view does not reconstruct physical shelving or adjacency.`;
   clear(dom.jeffersonHierarchyContent);
   if (state.hierarchy?.chapters?.length) {
     faculties.forEach((faculty, index) => {
@@ -509,7 +638,15 @@ function updateJeffersonOverview() {
   const mediaSummary = Number.isInteger(validationCounts.public_media_items) && Number.isInteger(validationCounts.review_media_items)
     ? ` Public mode includes ${formatNumber(validationCounts.public_media_items)} approved media; ${formatNumber(validationCounts.review_media_items)} exact-linked preview remains rights-pending in reviewer mode.`
     : "";
-  dom.jeffersonEvidenceSummary.textContent = `Only ${formatNumber(coverage.established_sowerby_links)} catalog–Sowerby links are established by the bounded MARC assessment. Ownership and reconstruction status are not established unless directly sourced.${mediaSummary}`;
+  const titleSummary = Number.isInteger(validationCounts.source_backed_titles) && Number.isInteger(validationCounts.titles_not_established)
+    ? ` ${formatNumber(validationCounts.source_backed_titles)} short titles passed the conservative LOC scan-OCR publication rules; ${formatNumber(validationCounts.titles_not_established)} remain explicitly not established pending bibliographic review.`
+    : "";
+  const identifierSummary = Number.isInteger(validationCounts.page_resolved_identifiers) && Number.isInteger(validationCounts.aggregate_spine_identifiers)
+    ? ` ${formatNumber(validationCounts.page_resolved_identifiers)} identifiers are tied to an exact LOC PDF page; ${formatNumber(validationCounts.aggregate_spine_identifiers)} retain aggregate scan-spine support without an exact page assignment.`
+    : "";
+  dom.jeffersonEvidenceSummary.textContent = activeEntityType() === "sowerby_entry"
+    ? `The ${historicalCounts.positions.toLocaleString()} ordered positions contain ${historicalCounts.entries.toLocaleString()} source-backed entries and ${historicalCounts.gaps.length} explicit non-book numbering gaps (${historicalCounts.gaps.join(", ")}). Every published assertion retains source and as-of evidence; linked entities remain typed and unresolved links stay explicit.${identifierSummary}${titleSummary}${mediaSummary}`
+    : `The historical spine has ${historicalCounts.positions.toLocaleString()} positions: ${historicalCounts.entries.toLocaleString()} source-backed entries plus explicit non-book gaps ${historicalCounts.gaps.join(", ")}. Only ${formatNumber(coverage.established_sowerby_links)} catalog–Sowerby links are established by the bounded MARC assessment. Ownership and reconstruction status are not established unless directly sourced.${mediaSummary}`;
 }
 
 function changeCollection(nextCollectionId) {
@@ -518,6 +655,17 @@ function changeCollection(nextCollectionId) {
   ["record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "view", "corpus", "order"].forEach(key => url.searchParams.delete(key));
   if (next === DEFAULT_COLLECTION_ID) url.searchParams.delete("collection");
   else url.searchParams.set("collection", next);
+  url.hash = "";
+  location.assign(`${url.pathname}${url.search}`);
+}
+
+function changeCorpus(nextCorpusId) {
+  const next = resolveCollectionCorpus(state.collectionManifest, nextCorpusId);
+  if (!next || next.id === state.corpus) return;
+  const url = new URL(location.href);
+  ["record", "q", "signals", "signalMode", "lc", "material", "decade", "evidence", "photo", "placement", "group", "path", "journey", "cluster", "view", "order"].forEach(key => url.searchParams.delete(key));
+  url.searchParams.set("corpus", next.id);
+  url.searchParams.set("order", next.default_order);
   url.hash = "";
   location.assign(`${url.pathname}${url.search}`);
 }
@@ -541,6 +689,13 @@ async function loadReviewMedia() {
 async function setReviewerMode(unlocked) {
   const review = state.collectionManifest?.review;
   if (!review?.enabled) return;
+  if (unlocked && !state.activeCorpus?.data?.review_media) {
+    state.reviewUnlocked = false;
+    state.reviewMedia = null;
+    try { sessionStorage.removeItem(review.session_key); } catch (_) { /* Session storage may be unavailable. */ }
+    dom.reviewerModeBanner.hidden = true;
+    return;
+  }
   state.reviewUnlocked = Boolean(unlocked);
   if (unlocked) {
     try { sessionStorage.setItem(review.session_key, "unlocked"); } catch (_) { /* Review remains tab-local in memory. */ }
@@ -585,15 +740,22 @@ async function submitReviewerCode(event) {
 }
 
 function authorLabel(record) {
-  return record.authors.length ? record.authors.join(", ") : "Creator not recorded";
+  return record.authors.length
+    ? record.authors.join(", ")
+    : (state.collectionId === "jefferson" ? "Creator not established" : "Creator not recorded");
 }
 
 function compactMeta(record) {
+  if (state.collectionId === "jefferson") {
+    return [record.authors[0] || "Creator not established", record.yearPrimary || record.year || "Date not established"].join(" · ");
+  }
   return [record.authors[0], record.yearPrimary, record.call_number].filter(Boolean).join(" · ");
 }
 
 function coverLabel(cover = {}) {
-  if (state?.collectionId === "jefferson") return "Metadata-derived form · digital-object status is evidence-scoped";
+  if (state?.collectionId === "jefferson") return featureEnabled("digital_surrogates")
+    ? "Metadata-derived form · digital-object status is evidence-scoped"
+    : "Metadata-derived form · no digital object relation established";
   if (cover.status === "verified") return REVIEWED_COVER_LABEL;
   if (cover.status === "provider_reference") return PROVIDER_REFERENCE_LABEL;
   return UNRESOLVED_COVER_LABEL;
@@ -610,7 +772,9 @@ function setApplicationBusy(busy) {
 }
 
 function compactCoverEvidence(cover = {}) {
-  if (state.collectionId === "jefferson") return "Metadata-derived form · open the record for digital-object evidence";
+  if (state.collectionId === "jefferson") return featureEnabled("digital_surrogates")
+    ? "Metadata-derived form · open the record for digital-object evidence"
+    : "Metadata-derived form · no digital object relation established";
   if (!canDisplayCover(cover)) return UNRESOLVED_COVER_LABEL;
   const provider = cover.provider === "openlibrary" ? "Open Library" : titleCase(cover.provider || "provider");
   const review = cover.status === "verified" ? "human reviewed" : "visual review pending";
@@ -744,6 +908,8 @@ async function ensureCatalogSearchIndex() {
         datasetSha256: state.catalogSha256,
         catalogIds: state.recordIds,
         collectionId: state.collectionId,
+        corpusId: state.activeCorpus?.id || "",
+        recordIdPrefix: state.activeCorpus?.record_id_prefix || "",
         catalogSource: state.catalogSource
       });
       if (parsed.rejected) throw new Error(parsed.errors.map(error => `${error.path}: ${error.message}`).join(", "));
@@ -806,6 +972,9 @@ async function ensureCatalogDetailShard(shard) {
         catalogIds: state.recordIds,
         expectedShard: shard,
         collectionId: state.collectionId,
+        corpusId: state.activeCorpus?.id || "",
+        entityType: activeEntityType(),
+        recordIdPrefix: state.activeCorpus?.record_id_prefix || "",
         catalogSource: state.catalogSource
       });
       if (parsed.rejected) throw new Error(parsed.errors.map(error => `${error.path}: ${error.message}`).join(", "));
@@ -927,8 +1096,8 @@ function makeBookObject(record, { eager = false } = {}) {
     (() => {
       const meta = document.createElement("span");
       meta.className = "book-cover-meta";
-      meta.append(textElement("span", "", record.authors[0] || "Creator not recorded"));
-      meta.append(textElement("span", "", record.yearPrimary || record.year || "Date unknown"));
+      meta.append(textElement("span", "", authorLabel(record)));
+      meta.append(textElement("span", "", record.yearPrimary || record.year || (state.collectionId === "jefferson" ? "Date not established" : "Date unknown")));
       return meta;
     })(),
     textElement("span", "cover-state-label", coverLabel(cover))
@@ -996,9 +1165,14 @@ function renderHeroSignals() {
 
 function renderStats() {
   const facets = state.facets || collectionFacets(state.records);
+  const historical = activeEntityType() === "sowerby_entry";
   dom.collectionCount.textContent = formatNumber(state.records.length);
-  dom.classCount.textContent = formatNumber(facets.classes.length);
-  dom.yearSpan.textContent = facets.minYear && facets.maxYear ? `${facets.minYear}–${facets.maxYear}` : "Cataloged dates";
+  dom.classCount.textContent = historical ? formatNumber(state.hierarchy?.chapters?.length || 44) : formatNumber(facets.classes.length);
+  dom.yearSpan.textContent = historical
+    ? "Not established"
+    : (facets.minYear && facets.maxYear ? `${facets.minYear}–${facets.maxYear}` : "Cataloged dates");
+  if (dom.classCount.nextElementSibling) dom.classCount.nextElementSibling.textContent = historical ? "historical chapters" : "LC classes";
+  if (dom.yearSpan.nextElementSibling) dom.yearSpan.nextElementSibling.textContent = historical ? "publication dates" : "publication span";
 }
 
 function sourceAnchor(label, url, className = "") {
@@ -1524,22 +1698,27 @@ function addOption(select, value, label) {
   select.append(option);
 }
 
+function evidenceStatusLabel(value) {
+  if (value === "sowerby_510_exact_bounded") return "Bounded Sowerby link established";
+  if (value === "sowerby_entry_page_resolved") return "Exact LOC scan page resolved";
+  if (value === "sowerby_entry_aggregate_spine") return "LOC aggregate scan-spine support";
+  return "Collection-heading membership only";
+}
+
 function initFacetControls() {
   const facets = state.facets || collectionFacets(state.records);
-  facets.classes.forEach(value => addOption(dom.lcFilter, value, value));
-  facets.materials.forEach(value => addOption(dom.materialFilter, value, titleCase(value)));
-  facets.decades.forEach(value => addOption(dom.decadeFilter, String(value), `${value}s`));
-  if (state.collectionManifest.facets.includes("evidence_status")) {
+  if (activeFacetIds().includes("classes")) facets.classes.forEach(value => addOption(dom.lcFilter, value, value));
+  if (activeFacetIds().includes("materials")) facets.materials.forEach(value => addOption(dom.materialFilter, value, titleCase(value)));
+  if (activeFacetIds().includes("decades")) facets.decades.forEach(value => addOption(dom.decadeFilter, String(value), `${value}s`));
+  if (activeFacetIds().includes("evidence_status")) {
     [...new Set(state.records.map(record => record.evidence_status).filter(Boolean))]
       .sort()
-      .forEach(value => addOption(dom.evidenceFilter, value, value === "sowerby_510_exact_bounded"
-        ? "Bounded Sowerby link established"
-        : "Collection-heading membership only"));
+      .forEach(value => addOption(dom.evidenceFilter, value, evidenceStatusLabel(value)));
   }
   if (featureEnabled("photo_likelihood")) ["Strongly Likely", "Likely", "Plausible", "Unlikely"].forEach(value => addOption(dom.photoFilter, value, value));
 
   clear(dom.signalFilters);
-  if (!state.collectionManifest.facets.includes("signals")) return;
+  if (!activeFacetIds().includes("signals")) return;
   SIGNALS.forEach(signal => {
     const label = document.createElement("label");
     label.style.setProperty("--signal-color", signal.color);
@@ -1630,6 +1809,7 @@ function updateUrl({ selectedId = state.selectedId, replace = true, scrollY = wi
 }
 
 function applyFilters({ scroll = false, push = false } = {}) {
+  state.filters = normalizeFiltersForActiveCorpus(state.filters);
   state.renderLimit = PAGE_SIZE;
   state.filtered = orderedRecords(filterRecords(state.records, state.filters));
   renderCollection();
@@ -1666,7 +1846,7 @@ function activeFilterEntries() {
   if (state.filters.decade) entries.push({ key: "decade", label: `${state.filters.decade}s` });
   if (state.filters.evidence) entries.push({
     key: "evidence",
-    label: `Evidence: ${state.filters.evidence === "sowerby_510_exact_bounded" ? "Bounded Sowerby link established" : "Collection-heading membership only"}`
+    label: `Evidence: ${evidenceStatusLabel(state.filters.evidence)}`
   });
   if (state.filters.photo) entries.push({ key: "photo", label: state.filters.photo });
   if (state.filters.placement) entries.push({ key: "placement", label: `Placement: ${placementDisplayLabel(state.filters.placement)}` });
@@ -1724,8 +1904,8 @@ function createListBook(record, index) {
   button.append(textElement("span", "list-book-index", String(index + 1).padStart(3, "0")));
   button.append(textElement("span", "list-book-title", record.title));
   button.append(textElement("span", "list-book-author", authorLabel(record)));
-  button.append(textElement("span", "list-book-year", record.yearPrimary || record.year || "—"));
-  button.append(textElement("span", "list-book-call", record.call_number || "—"));
+  button.append(textElement("span", "list-book-year", record.yearPrimary || record.year || (state.collectionId === "jefferson" ? "Date not established" : "—")));
+  button.append(textElement("span", "list-book-call", record.call_number || (state.collectionId === "jefferson" ? "Call number not established" : "—")));
   button.append(textElement("span", "", "→"));
   button.addEventListener("click", () => openDetail(record.id, true));
   article.append(button, placementControl(record));
@@ -1798,7 +1978,7 @@ function renderCollection() {
   const total = state.records.length;
   const count = state.filtered.length;
   const rendered = Math.min(state.renderLimit, count);
-  const unit = state.collectionId === "jefferson" ? "catalog instances" : "records";
+  const unit = activeUnitLabel();
   dom.resultSummary.textContent = `${formatNumber(count)} of ${formatNumber(total)} ${unit}${state.filters.path ? ` · dynamic path “${state.pathMap.get(state.filters.path)?.title || state.filters.path}”` : ""}${state.filters.placement ? ` · recorded placement “${placementDisplayLabel(state.filters.placement)}”` : ""}`;
   dom.collectionGrid.className = `collection-grid ${state.view}-view`;
   dom.profileMethod.hidden = state.view !== "spines" || !featureEnabled("physical");
@@ -2165,7 +2345,7 @@ async function renderCoverEvidence(record) {
     const list = document.createElement("dl");
     list.className = "edition-metadata";
     [
-      metadataRow("Entity", "Digital object linked to this catalog instance"),
+      metadataRow("Entity", `Digital object linked to this ${record.entity_type === "sowerby_entry" ? "Sowerby entry" : "catalog instance"}`),
       metadataRow("Match basis", media.match_basis || "Not established"),
       metadataRow("Sowerby candidate", Array.isArray(media.sowerby_numbers) ? media.sowerby_numbers.join(" · ") : media.sowerby_numbers),
       metadataRow("Rights & Access", rights),
@@ -2173,7 +2353,7 @@ async function renderCoverEvidence(record) {
     ].filter(Boolean).forEach(row => list.append(row));
     dom.detailCoverEvidenceBody.append(textElement("p", "cover-evidence-status provider_reference", "Review media—not cleared for reuse"), list);
     if (media.url) dom.detailCoverEvidenceBody.append(sourceAnchor("View LOC item and Rights & Access ↗", media.url, "edition-evidence-link"));
-    dom.detailCoverEvidenceBody.append(textElement("p", "evidence-scope", "The linked digital object, catalog instance, Sowerby candidate, edition, and physical copy remain separate evidence entities. Review mode is interface friction, not access control or rights clearance."));
+    dom.detailCoverEvidenceBody.append(textElement("p", "evidence-scope", `The linked digital object, ${record.entity_type === "sowerby_entry" ? "Sowerby entry" : "catalog instance"}, edition, and physical copy remain separate evidence entities. Review mode is interface friction, not access control or rights clearance.`));
     return;
   }
   const cover = coverStateForRecord(record);
@@ -2262,7 +2442,7 @@ function setDetailLoadState(status, record) {
     return;
   }
   dom.detailLoading.hidden = false;
-  const source = state.collectionManifest?.copy?.source_label || "source catalog";
+  const source = activeCorpusCopy().source_label || "source catalog";
   dom.detailLoading.textContent = status === "failed"
     ? `Complete catalog detail could not be loaded. Core source-backed fields from ${source} remain available; empty detail fields are not asserted as absent.`
     : `Loading the complete ${source} detail for ${record?.displayTitle || record?.title || "this record"}…`;
@@ -2270,10 +2450,13 @@ function setDetailLoadState(status, record) {
 
 function renderDetail(record) {
   const position = state.filtered.findIndex(item => item.id === record.id);
-  dom.detailPosition.textContent = position >= 0 ? `Record ${formatNumber(position + 1)} of ${formatNumber(state.filtered.length)}` : "Collection record";
+  const positionUnit = record.entity_type === "sowerby_entry" ? "Entry" : "Record";
+  dom.detailPosition.textContent = position >= 0 ? `${positionUnit} ${formatNumber(position + 1)} of ${formatNumber(state.filtered.length)}` : `Collection ${positionUnit.toLocaleLowerCase()}`;
   clear(dom.detailVisual);
   dom.detailVisual.append(makeBookObject(record, { eager: true }));
-  dom.detailKicker.textContent = [record.material_type, record.call_number].filter(Boolean).join(" · ");
+  dom.detailKicker.textContent = record.entity_type === "sowerby_entry"
+    ? ["Sowerby entry", record.sowerby_identifier ? `No. ${record.sowerby_identifier}` : ""].filter(Boolean).join(" · ")
+    : [record.material_type, record.call_number].filter(Boolean).join(" · ");
   dom.detailTitle.textContent = record.title;
   dom.detailByline.textContent = [record.authors.length ? `By ${record.authors.join(", ")}` : "", record.year].filter(Boolean).join(" · ");
   dom.catalogLink.href = record.catalogLink;
@@ -2286,56 +2469,86 @@ function renderDetail(record) {
   clear(dom.detailMetadata);
   if (state.collectionId === "jefferson") {
     const values = value => Array.isArray(value) ? value.filter(Boolean).join(" · ") : String(value || "");
-    const holdingCalls = [
-      ...(Array.isArray(record.holdings) ? record.holdings : []),
-      ...(Array.isArray(record.items) ? record.items : [])
-    ].flatMap(item => [item?.call_number, item?.callNumber, item?.shelving_location]).filter(Boolean);
-    const classifications = Array.isArray(record.classifications)
-      ? record.classifications.map(item => item?.value || item).filter(Boolean).join(" · ")
-      : values(record.classifications || record.facets?.classifications || record.call_number);
     const sowerby = values(record.sowerby_candidates || record.sowerby_numbers);
-    const holdingIds = (Array.isArray(record.holdings) ? record.holdings : []).map(item => item?.hrid || item?.id).filter(Boolean);
-    const itemIds = (Array.isArray(record.items) ? record.items : []).map(item => item?.hrid || item?.id).filter(Boolean);
-    const itemStatusCounts = new Map();
-    (Array.isArray(record.items) ? record.items : []).forEach(item => {
-      const status = String(item?.status || "").trim();
-      if (status) itemStatusCounts.set(status, (itemStatusCounts.get(status) || 0) + 1);
-    });
-    const itemStatuses = [...itemStatusCounts].map(([status, count]) => `${status}${count > 1 ? ` (${count})` : ""}`).join(" · ");
-    const itemLocations = [...new Set((Array.isArray(record.items) ? record.items : []).map(item => String(item?.effective_location || "").trim()).filter(Boolean))];
-    const holdingLocations = [...new Set((Array.isArray(record.holdings) ? record.holdings : []).map(item => String(item?.permanent_location || "").trim()).filter(Boolean))];
-    const evidenceLabel = record.evidence_status === "sowerby_510_exact_bounded"
-      ? "Exact LOC collection-heading membership with a bounded source-MARC Sowerby link"
-      : "Exact LOC collection-heading membership; Sowerby link not established";
-    const relationshipLabel = record.relationship_to_jefferson === "exact_collection_heading_membership"
-      ? "Exact LOC collection-heading match; ownership not established"
-      : "Not established";
-    const reconstructionLabel = !record.ownership_or_reconstruction_status || record.ownership_or_reconstruction_status === "unresolved"
+    const reconstructionLabel = !record.ownership_or_reconstruction_status || ["unresolved", "not_established"].includes(record.ownership_or_reconstruction_status)
       ? "Not established"
       : record.ownership_or_reconstruction_status;
-    [
-      metadataRow("Entity", record.entity_type || "catalog_instance"),
-      metadataRow("Catalog instance ID", record.id),
-      metadataRow("Evidence", evidenceLabel),
-      metadataRow("Other contributors", record.other_contributors?.length ? record.other_contributors.join(" · ") : "Not established"),
-      metadataRow("Publication", record.year || "Not established"),
-      metadataRow("Place", values(record.publication_places) || "Not established"),
-      metadataRow("Publisher", record.publishers.length ? record.publishers.join(" · ") : "Not established"),
-      metadataRow("Languages", values(record.languages) || "Not established"),
-      metadataRow("Format", record.formats.length ? record.formats.join(" · ") : (record.material_type || "Not established")),
-      metadataRow("Modern classification", classifications || "Not established"),
-      metadataRow("Holding call number", [...new Set(holdingCalls)].join(" · ") || "Not established"),
-      metadataRow("Holdings", holdingIds.length ? `${holdingIds.length} current LOC holding${holdingIds.length === 1 ? "" : "s"} · ${holdingIds.join(" · ")}` : "Not established"),
-      metadataRow("Catalog items", itemIds.length ? `${itemIds.length} current LOC item${itemIds.length === 1 ? "" : "s"} · ${itemIds.join(" · ")}` : "Not established"),
-      metadataRow("Current LOC item status", itemStatuses || "Not established"),
-      metadataRow("Current LOC item location", itemLocations.join(" · ") || "Not established"),
-      metadataRow("Current LOC holding location", holdingLocations.join(" · ") || "Not established"),
-      metadataRow("Historical Sowerby order", sowerby ? `Candidate ${sowerby} · bounded evidence only` : "Not established"),
-      metadataRow("Edition relation", "Not established"),
-      metadataRow("Physical copy identity", "Not established"),
-      metadataRow("Collection membership", relationshipLabel),
-      metadataRow("Reconstruction status", reconstructionLabel)
-    ].forEach(row => dom.detailMetadata.append(row));
+    if (record.entity_type === "sowerby_entry") {
+      const sowerbyNumber = record.sowerby_identifier || sowerby;
+      const historicalLinks = record.historical_links || {};
+      const linkValue = field => values(historicalLinks[field]) || "Not established";
+      const sequence = Number.isInteger(record.orders?.sowerby) ? formatNumber(record.orders.sowerby + 1) : "Not established";
+      [
+        metadataRow("Entity", "Sowerby entry"),
+        metadataRow("Sowerby entry ID", record.id),
+        metadataRow("Sowerby number", sowerbyNumber || "Not established"),
+        metadataRow("Source-backed order rank", sequence),
+        metadataRow("Faculty", record.faculty || "Not established"),
+        metadataRow("Chapter", [record.chapter_number, record.chapter_label].filter(Boolean).join(" · ") || "Not established"),
+        metadataRow("Identifier evidence", evidenceStatusLabel(record.evidence_status)),
+        metadataRow("Primary creators", record.authors.length ? record.authors.join(" · ") : "Not established"),
+        metadataRow("Other contributors", record.other_contributors?.length ? record.other_contributors.join(" · ") : "Not established"),
+        metadataRow("Publication", record.year || "Not established"),
+        metadataRow("Place", values(record.publication_places) || "Not established"),
+        metadataRow("Publisher", record.publishers.length ? record.publishers.join(" · ") : "Not established"),
+        metadataRow("Languages", values(record.languages) || "Not established"),
+        metadataRow("Format", record.formats.length ? record.formats.join(" · ") : "Not established"),
+        metadataRow("Current LOC catalog relation", linkValue("catalog_instances")),
+        metadataRow("Edition relation", linkValue("editions")),
+        metadataRow("Volume relation", linkValue("volumes")),
+        metadataRow("Physical copy identity", linkValue("physical_copies")),
+        metadataRow("Holding relation", linkValue("holdings")),
+        metadataRow("Digital object relation", linkValue("digital_objects")),
+        metadataRow("Reconstruction status", reconstructionLabel)
+      ].forEach(row => dom.detailMetadata.append(row));
+    } else {
+      const holdingCalls = [
+        ...(Array.isArray(record.holdings) ? record.holdings : []),
+        ...(Array.isArray(record.items) ? record.items : [])
+      ].flatMap(item => [item?.call_number, item?.callNumber, item?.shelving_location]).filter(Boolean);
+      const classifications = Array.isArray(record.classifications)
+        ? record.classifications.map(item => item?.value || item).filter(Boolean).join(" · ")
+        : values(record.classifications || record.facets?.classifications || record.call_number);
+      const holdingIds = (Array.isArray(record.holdings) ? record.holdings : []).map(item => item?.hrid || item?.id).filter(Boolean);
+      const itemIds = (Array.isArray(record.items) ? record.items : []).map(item => item?.hrid || item?.id).filter(Boolean);
+      const itemStatusCounts = new Map();
+      (Array.isArray(record.items) ? record.items : []).forEach(item => {
+        const status = String(item?.status || "").trim();
+        if (status) itemStatusCounts.set(status, (itemStatusCounts.get(status) || 0) + 1);
+      });
+      const itemStatuses = [...itemStatusCounts].map(([status, count]) => `${status}${count > 1 ? ` (${count})` : ""}`).join(" · ");
+      const itemLocations = [...new Set((Array.isArray(record.items) ? record.items : []).map(item => String(item?.effective_location || "").trim()).filter(Boolean))];
+      const holdingLocations = [...new Set((Array.isArray(record.holdings) ? record.holdings : []).map(item => String(item?.permanent_location || "").trim()).filter(Boolean))];
+      const evidenceLabel = record.evidence_status === "sowerby_510_exact_bounded"
+        ? "Exact LOC collection-heading membership with a bounded source-MARC Sowerby link"
+        : "Exact LOC collection-heading membership; Sowerby link not established";
+      const relationshipLabel = record.relationship_to_jefferson === "exact_collection_heading_membership"
+        ? "Exact LOC collection-heading match; ownership not established"
+        : "Not established";
+      [
+        metadataRow("Entity", "Catalog instance"),
+        metadataRow("Catalog instance ID", record.id),
+        metadataRow("Evidence", evidenceLabel),
+        metadataRow("Other contributors", record.other_contributors?.length ? record.other_contributors.join(" · ") : "Not established"),
+        metadataRow("Publication", record.year || "Not established"),
+        metadataRow("Place", values(record.publication_places) || "Not established"),
+        metadataRow("Publisher", record.publishers.length ? record.publishers.join(" · ") : "Not established"),
+        metadataRow("Languages", values(record.languages) || "Not established"),
+        metadataRow("Format", record.formats.length ? record.formats.join(" · ") : (record.material_type || "Not established")),
+        metadataRow("Modern classification", classifications || "Not established"),
+        metadataRow("Holding call number", [...new Set(holdingCalls)].join(" · ") || "Not established"),
+        metadataRow("Holdings", holdingIds.length ? `${holdingIds.length} current LOC holding${holdingIds.length === 1 ? "" : "s"} · ${holdingIds.join(" · ")}` : "Not established"),
+        metadataRow("Catalog items", itemIds.length ? `${itemIds.length} current LOC item${itemIds.length === 1 ? "" : "s"} · ${itemIds.join(" · ")}` : "Not established"),
+        metadataRow("Current LOC item status", itemStatuses || "Not established"),
+        metadataRow("Current LOC item location", itemLocations.join(" · ") || "Not established"),
+        metadataRow("Current LOC holding location", holdingLocations.join(" · ") || "Not established"),
+        metadataRow("Historical Sowerby order", sowerby ? `Candidate ${sowerby} · bounded evidence only` : "Not established"),
+        metadataRow("Edition relation", "Not established"),
+        metadataRow("Physical copy identity", "Not established"),
+        metadataRow("Collection membership", relationshipLabel),
+        metadataRow("Reconstruction status", reconstructionLabel)
+      ].forEach(row => dom.detailMetadata.append(row));
+    }
   } else {
   const publisher = record.publishers.join(" · ");
   const format = record.formats.join(" · ");
@@ -2374,10 +2587,24 @@ function renderDetail(record) {
   const sowerbyNotes = Array.isArray(record.sowerby_evidence)
     ? record.sowerby_evidence.map(assertion => `Sowerby ${assertion.sowerby_number} — ${assertion.status}: ${assertion.evidence} (${assertion.assessment_scope?.selected_catalog_entity_count || 0} records assessed; ${assertion.assessment_scope?.catalog_entities_not_assessed || 0} not assessed).`)
     : [];
+  const historicalNotes = Array.isArray(record.historical_assertions)
+    ? record.historical_assertions.map(assertion => {
+      const paragraph = textElement("p", "", `${titleCase(assertion.field)} — ${assertion.status}: ${assertion.value || "No value asserted"}. Source: ${assertion.source}. `);
+      const source = document.createElement("a");
+      source.href = assertion.source_url;
+      source.target = "_blank";
+      source.rel = "noopener noreferrer";
+      source.textContent = "Evidence page ↗";
+      paragraph.append(source, document.createTextNode(` Evidence SHA-256: ${assertion.evidence_sha256}. As of: ${assertion.as_of}.`));
+      return paragraph;
+    })
+    : [];
   const evidenceNotes = state.collectionId === "jefferson"
-    ? [...record.notes, ...assertionNotes, ...sowerbyNotes]
+    ? [...record.notes, ...assertionNotes, ...sowerbyNotes, ...historicalNotes]
     : [...record.notes, ...record.sekula_notes, ...record.provenance_notes];
-  evidenceNotes.slice(0, 16).forEach(note => dom.notesList.append(textElement("p", "", typeof note === "string" ? note : JSON.stringify(note))));
+  evidenceNotes.slice(0, 16).forEach(note => dom.notesList.append(note instanceof Node
+    ? note
+    : textElement("p", "", typeof note === "string" ? note : JSON.stringify(note))));
   dom.detailNotes.hidden = !dom.notesList.childElementCount;
 }
 
@@ -2488,6 +2715,7 @@ async function exportShelfReceipt() {
     filters: state.filters,
     datasetId: state.collectionId,
     datasetName: state.collectionManifest.copy.name,
+    datasetCorpus: state.corpus,
     datasetHash: state.catalogSha256.replace(/^sha256:/, ""),
     appVersion: APP_VERSION
   });
@@ -2511,10 +2739,16 @@ function restoreReceiptFile(file) {
       const receipt = JSON.parse(text);
       const verification = await verifyReceipt(receipt);
       if (!verification.valid) throw new Error(verification.reason);
-      const restored = restoreShelfFromReceipt(receipt, state.records, { collectionId: state.collectionId });
-      if (!restored.valid) throw new Error("Receipt belongs to another collection or uses an unsupported schema");
-      state.shelfIds = restored.ids;
-      saveShelfIds(restored.ids, globalThis.localStorage, collectionShelfKey());
+      const restored = restoreShelfFromReceipt(receipt, state.records, {
+        collectionId: state.collectionId,
+        corpusId: state.corpus,
+        datasetHash: state.catalogSha256
+      });
+      if (!restored.valid) throw new Error("Receipt belongs to another collection, corpus, or dataset version");
+      state.shelfIds = mergeShelfIdsForCorpus(state.shelfIds, restored.ids, state.records, {
+        recordIdPrefix: state.activeCorpus?.record_id_prefix || ""
+      });
+      saveShelfIds(state.shelfIds, globalThis.localStorage, collectionShelfKey());
       renderShelf();
       showToast(`Restored ${restored.ids.length} records${restored.missing.length ? ` · ${restored.missing.length} unavailable` : ""}`);
     } catch (error) {
@@ -2586,8 +2820,9 @@ async function renderSearchSuggestions(query) {
 
 function bindEvents() {
   dom.collectionSwitcher?.addEventListener("change", event => changeCollection(event.currentTarget.value));
+  dom.corpusSwitcher?.addEventListener("change", event => changeCorpus(event.currentTarget.value));
   dom.orderFilter?.addEventListener("change", () => {
-    const declared = new Set(state.collectionManifest.orders.map(option => option.id));
+    const declared = new Set((state.activeCorpus?.orders || state.collectionManifest.orders).map(option => option.id));
     if (!declared.has(dom.orderFilter.value)) return;
     state.order = dom.orderFilter.value;
     state.renderLimit = PAGE_SIZE;
@@ -2714,22 +2949,19 @@ function bindEvents() {
       return;
     }
     state.syncingHistory = true;
-    const declaredOrders = new Set(state.collectionManifest.orders.map(option => option.id));
-    state.order = declaredOrders.has(restored.order) ? restored.order : state.collectionManifest.defaults.order;
-    const historicalAvailable = state.collectionManifest.defaults.corpus === "historical";
-    state.corpus = state.collectionId === "jefferson"
-      ? (restored.corpus === "historical" && historicalAvailable ? "historical" : "catalog")
-      : "";
-    state.filters = normalizeFilterState({
-      ...restored,
-      signals: state.collectionManifest.facets.includes("signals") ? restored.signals : [],
-      signalMode: state.collectionManifest.facets.includes("signals") ? restored.signalMode : "any",
-      photo: featureEnabled("photo_likelihood") ? restored.photo : "",
-      placement: featureEnabled("placement") ? restored.placement : "",
-      evidence: state.collectionManifest.facets.includes("evidence_status") ? restored.evidence : "",
-      path: featureEnabled("curated_paths") ? restored.path : "",
-      group: featureEnabled("physical") ? restored.group : "lc"
+    const restoredCorpus = resolveCollectionCorpusForState(state.collectionManifest, {
+      requestedCorpus: restored.corpus,
+      recordId: restored.record
     });
+    if (!restoredCorpus || restoredCorpus.id !== state.activeCorpus?.id) {
+      location.reload();
+      return;
+    }
+    state.activeCorpus = restoredCorpus;
+    const declaredOrders = new Set(restoredCorpus.orders.map(option => option.id));
+    state.order = declaredOrders.has(restored.order) ? restored.order : restoredCorpus.default_order;
+    state.corpus = state.collectionId === "jefferson" ? restoredCorpus.id : "";
+    state.filters = normalizeFiltersForActiveCorpus(restored);
     state.view = ["covers", "list", ...(featureEnabled("physical") ? ["spines"] : [])].includes(restored.view) ? restored.view : "covers";
     state.selectedId = restored.record;
     state.clusterId = restored.cluster;
@@ -2748,7 +2980,11 @@ function bindEvents() {
       button.setAttribute("aria-pressed", active ? "true" : "false");
     });
     if (state.selectedId && state.recordMap.has(state.selectedId)) openDetail(state.selectedId);
-    else if (state.activeDrawer === dom.detailDrawer) closeDetail({ updateHistory: false });
+    else if (state.selectedId) {
+      state.selectedId = "";
+      if (state.activeDrawer === dom.detailDrawer) closeDetail({ updateHistory: false });
+      updateUrl({ selectedId: "", replace: true });
+    } else if (state.activeDrawer === dom.detailDrawer) closeDetail({ updateHistory: false });
     if (featureEnabled("journeys") && restored.journey && journeyById(state.journeyIndex, restored.journey)) {
       await openJourney(restored.journey, { updateHistory: false, scroll: false, guard: isCurrent });
       if (!isCurrent()) return;
@@ -2882,27 +3118,20 @@ async function init() {
       throw new Error(`The selected collection manifest failed validation: ${parsedManifest.errors.map(error => `${error.path}: ${error.message}`).join(", ")}`);
     }
     state.collectionManifest = parsedManifest.manifest;
-    const declaredOrders = new Set(state.collectionManifest.orders.map(option => option.id));
-    state.order = declaredOrders.has(initialUrl.order) ? initialUrl.order : state.collectionManifest.defaults.order;
-    const historicalAvailable = state.collectionManifest.defaults.corpus === "historical";
-    state.corpus = state.collectionId === "jefferson"
-      ? (initialUrl.corpus === "historical" && historicalAvailable ? "historical" : "catalog")
-      : "";
+    state.activeCorpus = resolveCollectionCorpusForState(state.collectionManifest, {
+      requestedCorpus: initialUrl.corpus,
+      recordId: initialUrl.record
+    });
+    if (!state.activeCorpus) throw new Error("The selected collection has no available corpus package.");
+    state.corpus = state.collectionId === "jefferson" ? state.activeCorpus.id : "";
+    const declaredOrders = new Set(state.activeCorpus.orders.map(option => option.id));
+    state.order = declaredOrders.has(initialUrl.order) ? initialUrl.order : state.activeCorpus.default_order;
     if (!featureEnabled("physical") && state.view === "spines") state.view = "covers";
     if (!featureEnabled("journeys")) {
       state.journeyId = "";
       state.clusterId = "";
     }
-    state.filters = normalizeFilterState({
-      ...state.filters,
-      signals: state.collectionManifest.facets.includes("signals") ? state.filters.signals : [],
-      signalMode: state.collectionManifest.facets.includes("signals") ? state.filters.signalMode : "any",
-      photo: featureEnabled("photo_likelihood") ? state.filters.photo : "",
-      placement: featureEnabled("placement") ? state.filters.placement : "",
-      evidence: state.collectionManifest.facets.includes("evidence_status") ? state.filters.evidence : "",
-      path: featureEnabled("curated_paths") ? state.filters.path : "",
-      group: featureEnabled("physical") ? state.filters.group : "lc"
-    });
+    state.filters = normalizeFiltersForActiveCorpus(state.filters);
     state.shelfIds = loadShelfIds(globalThis.localStorage, collectionShelfKey());
     setCollectionSpecificCopy();
 
@@ -2921,13 +3150,31 @@ async function init() {
       optionalJson("validation", null)
     ]);
     if (!rawCoreCatalog) throw new Error("The compact browser catalog is unavailable.");
-    const coreCatalog = parseBrowserCatalog(rawCoreCatalog, { collectionId: state.collectionId });
+    const coreCatalog = parseBrowserCatalog(rawCoreCatalog, {
+      collectionId: state.collectionId,
+      corpusId: state.activeCorpus.id,
+      entityType: activeEntityType(),
+      recordIdPrefix: state.activeCorpus.record_id_prefix || "",
+      detailPathTemplate: state.activeCorpus.data?.detail_template || "",
+      searchPath: state.activeCorpus.data?.search || ""
+    });
     if (coreCatalog.rejected) throw new Error(`The compact browser catalog failed validation: ${coreCatalog.errors.map(error => `${error.path}: ${error.message}`).join(", ")}`);
-    if (coreCatalog.source.record_count !== state.collectionManifest.coverage.record_count) {
-      throw new Error("The compact catalog count does not match the selected collection manifest.");
+    if (coreCatalog.source.record_count !== activeCoverage().record_count) {
+      throw new Error("The compact catalog count does not match the selected corpus manifest.");
     }
     state.catalogSource = coreCatalog.source;
     state.catalogSha256 = coreCatalog.source.dataset_sha256;
+    state.historicalNumbering = coreCatalog.numbering || null;
+    if (activeEntityType() === "sowerby_entry") {
+      const historicalCounts = historicalCoverageCounts();
+      const gapIds = state.historicalNumbering?.gaps?.map(gap => gap.identifier) || [];
+      if (state.historicalNumbering?.max_source_serial !== historicalCounts.positions
+        || state.historicalNumbering?.source_backed_entry_count !== activeCoverage().record_count
+        || historicalCounts.positions - historicalCounts.entries !== gapIds.length
+        || gapIds.join("\u241f") !== JEFFERSON_SOURCE_NUMBERING_GAPS.join("\u241f")) {
+        throw new Error("The historical numbering ledger does not match the selected corpus coverage.");
+      }
+    }
     const rawRecords = coreCatalog.records;
     if (!rawRecords.length) throw new Error("The collection dataset is empty or unavailable.");
     state.recordIds = new Set(rawRecords.map(record => String(record.id || "")).filter(Boolean));
@@ -2941,11 +3188,12 @@ async function init() {
       if (state.journeyIndex.rejected) console.warn("ShelfSignals rejected the journey index:", state.journeyIndex.errors);
     }
     if (featureEnabled("historical_hierarchy")) {
+      const historicalCounts = historicalCoverageCounts();
       const chapterNumbers = Array.isArray(rawHierarchy?.chapters) ? rawHierarchy.chapters.map(chapter => chapter?.chapter_number) : [];
       const facultyNames = Array.isArray(rawHierarchy?.faculties) ? new Set(rawHierarchy.faculties.map(faculty => faculty?.name)) : new Set();
       const hierarchyValid = rawHierarchy?.schema === "shelfsignals-jefferson-hierarchy@1"
         && rawHierarchy.collection_id === state.collectionId
-        && rawHierarchy.base_integer_identifier_count === state.collectionManifest.coverage.historical_entry_count
+        && rawHierarchy.base_integer_identifier_count === historicalCounts.positions
         && chapterNumbers.length === 44 && new Set(chapterNumbers).size === 44
         && chapterNumbers.every((number, index) => number === index + 1)
         && facultyNames.size === 3
@@ -2954,9 +3202,15 @@ async function init() {
       state.hierarchy = rawHierarchy;
     }
     if (rawValidation) {
-      const sameValidationSource = rawValidation.source && Object.keys(state.catalogSource).every(key => rawValidation.source[key] === state.catalogSource[key]);
-      if (rawValidation.schema !== "shelfsignals-jefferson-browser-validation@1" || rawValidation.collection_id !== state.collectionId || !sameValidationSource) {
-        throw new Error("The collection validation summary does not match the active catalog source.");
+      const sameValidationSource = rawValidation.source
+        && Object.keys(state.catalogSource).length === Object.keys(rawValidation.source).length
+        && Object.keys(state.catalogSource).every(key => rawValidation.source[key] === state.catalogSource[key]);
+      const expectedValidationSchema = activeEntityType() === "sowerby_entry"
+        ? "shelfsignals-jefferson-historical-validation@1"
+        : "shelfsignals-jefferson-browser-validation@1";
+      if (rawValidation.schema !== expectedValidationSchema || rawValidation.collection_id !== state.collectionId
+        || (activeEntityType() === "sowerby_entry" && rawValidation.corpus_id !== "historical") || !sameValidationSource) {
+        throw new Error("The collection validation summary does not match the active corpus source.");
       }
       state.validation = rawValidation;
     }
@@ -2983,7 +3237,7 @@ async function init() {
     syncFilterControls();
     bindEvents();
     addRestoreReceiptControl();
-    if (state.collectionManifest.review?.enabled) {
+    if (state.collectionManifest.review?.enabled && state.activeCorpus?.data?.review_media) {
       let persistedUnlock = false;
       try { persistedUnlock = sessionStorage.getItem(state.collectionManifest.review.session_key) === "unlocked"; } catch (_) { /* Session storage may be unavailable. */ }
       if (persistedUnlock) {

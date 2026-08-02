@@ -1,0 +1,16 @@
+{
+  "name": "shelfsignals-private-review-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "dev": "wrangler dev --config wrangler.local.jsonc",
+    "deploy": "wrangler deploy --config wrangler.local.jsonc"
+  },
+  "dependencies": {
+    "jose": "6.2.7"
+  },
+  "devDependencies": {
+    "wrangler": "4.118.0"
+  }
+}

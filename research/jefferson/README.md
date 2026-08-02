@@ -90,13 +90,70 @@ item requests. The broad SRU phrase query is opt-in and never defines the corpus
 python3 scripts/jefferson_loc_extractor.py sru
 ```
 
-Monticello is not included in the present snapshot. Do not enable it for public
-reuse without separate permission evidence and a validated completeness model.
+Monticello is not included in the LOC extractor's present snapshot. Do not
+enable it for public reuse without separate permission evidence and a validated
+completeness model.
 The option below is self-attestation only:
 
 ```bash
 python3 scripts/jefferson_loc_extractor.py sowerby \
   --acknowledge-monticello-terms
+```
+
+The separate focused harvester can create and validate a complete private
+research snapshot of the five-volume HTML transcription. Its outputs remain
+under the same ignored workspace and must not be copied to `docs/` unless reuse
+permission is recorded:
+
+```bash
+python3 scripts/harvest_jefferson_sowerby.py crawl \
+  --acknowledge-monticello-terms
+python3 scripts/harvest_jefferson_sowerby.py build \
+  --generated-at 2026-08-02T02:01:25Z
+python3 scripts/harvest_jefferson_sowerby_unit_tests.py -v
+```
+
+The focused build publishes only bibliographic facts to its private derivative:
+base identifier/order, faculty/chapter, explicit J marker, short title, author,
+bibliographic title/imprint, explicit language/edition/format spans, Sowerby
+call number, and source links. It excludes notes, annotations, bibliography,
+`AltTitleLoc`, quotations, and other editorial prose. Validation distinguishes
+source-backed entries, inferred HTML omissions, explicit ranges, suffixed or
+unnumbered exceptions, source BID corrections, repeated aggregate pages, and
+non-book placeholders for independently verified gaps. A contiguous numeric
+spine is never represented as 4,931 source-backed books.
+
+Focused outputs are `sowerby_entries.jsonl`,
+`sowerby_entry_exceptions.jsonl`, `sowerby_source_pages.jsonl`,
+`sowerby_validation.json`, and `sowerby_manifest.json` under
+`research/jefferson/work/data/`.
+
+Public historical display text is built independently from the official five
+Library of Congress Sowerby PDFs. The OCR pipeline hashes the source PDFs and
+every rendered/text/TSV page sidecar, resolves a conservative marker spine,
+publishes a short title only when a strict layout rule passes, and retains all
+other source-backed identifiers with `title_status: not_established`:
+
+```bash
+python3 scripts/extract_jefferson_sowerby_loc_ocr.py audit
+python3 scripts/extract_jefferson_sowerby_loc_ocr.py all --workers 8
+python3 scripts/extract_jefferson_sowerby_loc_ocr_unit_tests.py -v
+python3 scripts/build_loc_sowerby_chapter_ranges.py --check
+```
+
+The tracked `research/jefferson/loc-sowerby-chapter-ranges.json` is a separate
+44-row, scan-audited LOC hierarchy artifact. Its entry ranges and exact heading
+page hashes drive the public chapter mapping. The private transcript is used
+only afterward as an equality check; its text, identifiers, hashes, and source
+labels never enter the public validation or browser package.
+
+The aggregate writer then builds both public Jefferson corpora and the combined
+manifest without making a network request:
+
+```bash
+python3 scripts/build_jefferson_collection_package.py --self-test
+python3 scripts/build_jefferson_collection_package.py
+python3 scripts/build_jefferson_collection_package.py --check
 ```
 
 ## Generated evidence

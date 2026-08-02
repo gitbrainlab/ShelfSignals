@@ -12,6 +12,7 @@ import {
   JEFFERSON_SHELF_STORAGE_KEY,
   SHELF_STORAGE_KEY,
   loadShelfIds,
+  mergeShelfIdsForCorpus,
   restoreShelfFromReceipt,
   saveShelfIds
 } from "../docs/js/shelf.js";
@@ -226,6 +227,63 @@ test("receipt@2 carries its dataset ID and rejects cross-collection restore with
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("Jefferson receipts are corpus- and dataset-bound without erasing sibling-corpus shelf IDs", async () => {
+  const catalogHash = `sha256:${"b".repeat(64)}`;
+  const receipt = await createReceipt({
+    items: ["jefferson-loc-one"],
+    datasetId: "jefferson",
+    datasetName: "Thomas Jefferson Library",
+    datasetCorpus: "catalog",
+    datasetHash: catalogHash
+  });
+  assert.equal(receipt.dataset.corpus, "catalog");
+  const records = [{ id: "jefferson-loc-one" }, { id: "jefferson-loc-two" }];
+  assert.equal(restoreShelfFromReceipt(receipt, records, {
+    collectionId: "jefferson",
+    corpusId: "historical",
+    datasetHash: catalogHash
+  }).valid, false);
+  assert.equal(restoreShelfFromReceipt(receipt, records, {
+    collectionId: "jefferson",
+    corpusId: "catalog",
+    datasetHash: `sha256:${"c".repeat(64)}`
+  }).valid, false);
+  const restored = restoreShelfFromReceipt(receipt, records, {
+    collectionId: "jefferson",
+    corpusId: "catalog",
+    datasetHash: catalogHash
+  });
+  assert.equal(restored.valid, true);
+  assert.deepEqual(
+    mergeShelfIdsForCorpus(
+      ["jefferson-loc-two", "jefferson-sowerby-3259a"],
+      restored.ids,
+      records,
+      { recordIdPrefix: "jefferson-loc-" }
+    ),
+    ["jefferson-sowerby-3259a", "jefferson-loc-one"]
+  );
+});
+
+test("legacy Jefferson receipt@2 without corpus remains catalog-only", () => {
+  const receipt = {
+    schema: "shelfsignals-receipt@2",
+    dataset: { id: "jefferson", name: "Thomas Jefferson Library", indexHash: "b".repeat(64) },
+    items: ["jefferson-loc-one"]
+  };
+  const records = [{ id: "jefferson-loc-one" }];
+  assert.equal(restoreShelfFromReceipt(receipt, records, {
+    collectionId: "jefferson",
+    corpusId: "catalog",
+    datasetHash: `sha256:${"b".repeat(64)}`
+  }).valid, true);
+  assert.equal(restoreShelfFromReceipt(receipt, records, {
+    collectionId: "jefferson",
+    corpusId: "historical",
+    datasetHash: `sha256:${"b".repeat(64)}`
+  }).valid, false);
 });
 
 test("legacy receipt@1 restores only into Sekula", () => {

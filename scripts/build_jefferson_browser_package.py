@@ -1169,6 +1169,12 @@ def _expected_paths(files: Mapping[str, bytes]) -> set[str]:
     return set(files)
 
 
+def _owned_phase_one_path(relative: str) -> bool:
+    """Phase 1 owns root catalog files, never the historical namespace."""
+
+    return not relative.startswith("historical/")
+
+
 def write_package(files: Mapping[str, bytes], output_dir: Path = DEFAULT_OUTPUT_DIR) -> None:
     """Write the package through a staging directory, then replace expected files."""
 
@@ -1183,7 +1189,9 @@ def write_package(files: Mapping[str, bytes], output_dir: Path = DEFAULT_OUTPUT_
         if output_dir.exists():
             for path in sorted(output_dir.rglob("*"), reverse=True):
                 if path.is_file() and path.relative_to(output_dir).as_posix() not in _expected_paths(files):
-                    path.unlink()
+                    relative = path.relative_to(output_dir).as_posix()
+                    if _owned_phase_one_path(relative):
+                        path.unlink()
         output_dir.mkdir(parents=True, exist_ok=True)
         for relative in sorted(files):
             source = staging / relative
@@ -1211,7 +1219,7 @@ def check_package(files: Mapping[str, bytes], output_dir: Path = DEFAULT_OUTPUT_
         for path in output_dir.rglob("*")
         if path.is_file()
     } if output_dir.is_dir() else set()
-    for relative in sorted(actual - expected):
+    for relative in sorted(path for path in actual - expected if _owned_phase_one_path(path)):
         failures.append(f"unexpected: {relative}")
     if failures:
         raise BuildError("Jefferson browser package check failed:\n- " + "\n- ".join(failures))

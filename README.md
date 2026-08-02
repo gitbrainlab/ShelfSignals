@@ -1,6 +1,6 @@
 # ShelfSignals
 
-**Collection intelligence framework** for browsing the Allan Sekula Library and the Thomas Jefferson catalog beta through catalog truth, evidence-scoped visuals, and reproducible research pathways.
+**Collection intelligence framework** for browsing the Allan Sekula Library and the Thomas Jefferson catalog and historical-corpus betas through catalog truth, evidence-scoped visuals, and reproducible research pathways.
 
 > **Start Here**: New users should read the [**Introduction & User Guide**](INTRODUCTION.md) for a visual walkthrough, or jump to the [**📚 Complete Documentation**](docs/index.md).
 
@@ -23,7 +23,8 @@ The framework is **source-agnostic** and **collection-neutral**—adapt it to an
 ### 🌐 Try it live
 
 - [**Independent HTTPS mirror**](https://evcatalyst.github.io/ShelfSignals-live/) — primary cinematic interface (recommended)
-- [**Thomas Jefferson catalog beta**](https://gitbrainlab.github.io/ShelfSignals/?collection=jefferson) — 2,748 current Library of Congress catalog instances, explicitly separate from the historical Sowerby corpus
+- [**Thomas Jefferson historical beta**](https://gitbrainlab.github.io/ShelfSignals/?collection=jefferson&corpus=historical&order=sowerby) — 4,928 source-backed Sowerby entries across 4,931 historical positions; 1,351 display titles are established and unresolved titles stay explicit
+- [**Thomas Jefferson current-catalog beta**](https://gitbrainlab.github.io/ShelfSignals/?collection=jefferson&corpus=catalog&order=title) — 2,748 current Library of Congress catalog instances in an overlapping evidence layer; do not add the two counts as unique books
 - [**Aerospace Folktales journey route**](https://evcatalyst.github.io/ShelfSignals-live/?journey=aerospace-folktales) — cited five-movement research journey
 - [**Project GitHub Pages route**](https://gitbrainlab.github.io/ShelfSignals/) — canonical repository deployment
 - [**Legacy interface**](https://evcatalyst.github.io/ShelfSignals-live/legacy/) — preserved v1 experience
@@ -36,7 +37,8 @@ git clone https://github.com/gitbrainlab/ShelfSignals.git
 cd ShelfSignals
 python3 -m http.server 8000 --directory docs
 # Open http://localhost:8000/
-# Jefferson catalog beta: http://localhost:8000/?collection=jefferson
+# Jefferson historical beta: http://localhost:8000/?collection=jefferson&corpus=historical&order=sowerby
+# Jefferson current-catalog beta: http://localhost:8000/?collection=jefferson&corpus=catalog&order=title
 # Direct journey: http://localhost:8000/?journey=aerospace-folktales
 ```
 
@@ -82,11 +84,13 @@ python3 scripts/build_spine_index.py
 node scripts/build_browser_catalog.mjs --self-test
 node scripts/build_browser_catalog.mjs --check
 
-# Build and verify the committed Jefferson browser package (no network access)
-python3 scripts/build_jefferson_browser_package.py --self-test
-python3 scripts/build_jefferson_browser_package.py --check
+# Build and verify the committed dual-corpus Jefferson browser package (no network access)
+python3 scripts/build_jefferson_collection_package.py --self-test
+python3 scripts/build_jefferson_collection_package.py --check
+python3 scripts/build_jefferson_collection_package_unit_tests.py
 python3 scripts/build_jefferson_browser_package_unit_tests.py
-node --test scripts/collection_contract_unit_tests.mjs scripts/collection_runtime_unit_tests.mjs
+python3 scripts/build_jefferson_historical_browser_package_unit_tests.py
+node --test scripts/collection_contract_unit_tests.mjs scripts/collection_runtime_unit_tests.mjs scripts/jefferson_committed_package_tests.mjs
 
 # Validate the private cover-review pipeline and browser contracts
 python3 scripts/cover_source_pipeline.py self-test
@@ -117,7 +121,7 @@ The browser test covers the primary route, direct journey URL and history behavi
 - **[docs/cleared-cover-ingest.md](docs/cleared-cover-ingest.md)** - Clark/rights-cleared image intake, bounded WebP derivatives, and publication gates
 - **[docs/google-books-cover-source.md](docs/google-books-cover-source.md)** - Temporary exact-ISBN research leads under Google cache, rights, and branding constraints
 - **[docs/browser-catalog.md](docs/browser-catalog.md)** - Compact first load, lazy full-field search/details, source identity, and regeneration
-- **[docs/jefferson-collection.md](docs/jefferson-collection.md)** - Jefferson catalog-beta scope, collection routes, package build, reviewer-mode limits, and Phase 2 gates
+- **[docs/jefferson-collection.md](docs/jefferson-collection.md)** - Jefferson dual-corpus scope, routes, evidence model, authenticated-photo release, and promotion gates
 - **[docs/association-promotion.md](docs/association-promotion.md)** - Dry-run-first, digest-confirmed journey association publication
 - **[docs/journey-method.md](docs/journey-method.md)** - Journey evidence grades, publication gate, placement scope, and photograph rights
 - **[research/review-queues/aerospace-folktales-methodology.md](research/review-queues/aerospace-folktales-methodology.md)** - Unpublished Aerospace Folktales association audit and inference limits
@@ -154,7 +158,7 @@ The browser test covers the primary route, direct journey URL and history behavi
 
 | Interface | Status | Best For |
 |-----------|--------|----------|
-| [**Primary**](https://evcatalyst.github.io/ShelfSignals-live/) | Active | Collection-aware cinematic browsing, Sekula research journeys, the Jefferson catalog beta, and isolated My Shelves |
+| [**Primary**](https://evcatalyst.github.io/ShelfSignals-live/) | Active | Collection-aware cinematic browsing, Sekula research journeys, Jefferson catalog and historical betas, and isolated My Shelves |
 | [**Legacy**](https://evcatalyst.github.io/ShelfSignals-live/legacy/) | Archived | Preserved v1 behavior |
 | [**Preview**](https://evcatalyst.github.io/ShelfSignals-live/preview/) | Compatibility | Earlier research and spatial experiments |
 | [**Exhibit**](https://evcatalyst.github.io/ShelfSignals-live/preview/exhibit/) | Compatibility | Kiosk and exhibition experiments |

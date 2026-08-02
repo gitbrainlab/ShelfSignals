@@ -51,7 +51,7 @@
   <div class="mode-banners" id="modeBanners">
     <section class="collection-status-banner" id="collectionStatusBanner" role="region" aria-live="polite" aria-labelledby="collectionStatusLabel" hidden>
       <strong id="collectionStatusLabel">Jefferson catalog beta</strong>
-      <p id="collectionStatusText">This view represents 2,748 current Library of Congress catalog instances—not the complete 4,931-entry historical library or its 6,487 volumes.</p>
+      <p id="collectionStatusText">This view represents 2,748 current Library of Congress catalog instances—not the 4,931 historical catalog positions, 4,928 source-backed entries, or 6,487 transferred volumes.</p>
       <a id="collectionStatusLink" href="#jeffersonOverview">Review coverage and evidence</a>
     </section>
     <section class="reviewer-mode-banner" id="reviewerModeBanner" role="region" aria-live="polite" aria-labelledby="reviewerModeStatus" hidden>
@@ -117,7 +117,8 @@
           <p id="jeffersonCoverageSummary">The current view is a modern catalog extraction, not a complete reconstruction of Jefferson’s 1815 library.</p>
           <dl class="coverage-counts" id="jeffersonCoverageCounts">
             <div><dt id="jeffersonCoverageCount">2,748</dt><dd>catalog instances</dd></div>
-            <div><dt id="jeffersonHistoricalCount">4,931</dt><dd>base Sowerby entries</dd></div>
+            <div><dt id="jeffersonHistoricalCount">4,928</dt><dd>source-backed entries</dd></div>
+            <div><dt id="jeffersonPositionCount">4,931</dt><dd>catalog positions</dd></div>
             <div><dt id="jeffersonVolumeCount">6,487</dt><dd>historical volumes</dd></div>
           </dl>
         </article>
@@ -195,6 +196,12 @@
           <p class="result-summary" id="resultSummary" aria-live="polite">Preparing the collection…</p>
         </div>
         <div class="view-controls" aria-label="Collection view and ordering">
+          <label class="corpus-control" for="corpusSwitcher" hidden>
+            <span>Corpus</span>
+            <select id="corpusSwitcher" name="corpus">
+              <option value="catalog">Current LOC catalog</option>
+            </select>
+          </label>
           <label class="order-control" for="orderFilter" hidden>
             <span>Order</span>
             <select id="orderFilter" name="order">

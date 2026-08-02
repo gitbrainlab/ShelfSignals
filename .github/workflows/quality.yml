@@ -49,6 +49,9 @@ jobs:
           scripts/spine_index_unit_tests.mjs
           scripts/aerospace_review_queue_tests.mjs
           scripts/association_promotion_tests.mjs
+          scripts/collection_contract_unit_tests.mjs
+          scripts/collection_runtime_unit_tests.mjs
+          scripts/jefferson_committed_package_tests.mjs
 
       - name: Verify Python evidence pipelines
         run: |
@@ -62,6 +65,24 @@ jobs:
           python3 scripts/cleared_cover_ingest_unit_tests.py
           python3 scripts/google_books_cover_source.py self-test
           python3 scripts/google_books_cover_source_unit_tests.py
+
+      - name: Verify Jefferson corpus and private-release contracts
+        run: |
+          python3 scripts/build_jefferson_browser_package_unit_tests.py
+          python3 scripts/extract_jefferson_sowerby_loc_ocr_unit_tests.py
+          python3 scripts/harvest_jefferson_sowerby_unit_tests.py
+          python3 scripts/build_jefferson_historical_browser_package_unit_tests.py
+          python3 scripts/build_jefferson_collection_package_unit_tests.py
+          python3 scripts/build_jefferson_private_media_bundle_unit_tests.py
+          python3 scripts/build_jefferson_private_review_release_unit_tests.py
+          python3 scripts/upload_jefferson_private_review_release_unit_tests.py
+          python3 scripts/private_review_browser_test_unit_tests.py
+
+      - name: Verify authenticated review gateway
+        working-directory: infrastructure/private-review/cloudflare
+        run: |
+          npm ci
+          npm test
 
       - name: Verify static compatibility contracts
         run: node scripts/preview_acceptance_tests.mjs
